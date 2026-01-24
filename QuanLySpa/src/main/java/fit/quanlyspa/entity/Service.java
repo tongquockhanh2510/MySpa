@@ -1,12 +1,11 @@
 package fit.quanlyspa.entity;
 
 import fit.quanlyspa.enums.StatusOfService;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
+
+import java.util.List;
 
 @Getter
 @Setter
@@ -27,4 +26,11 @@ public class Service {
     StatusOfService  statusOfService;
     @Column(name = "commission_rate")
     double commissionRate;
+    @OneToOne(mappedBy = "service")
+    OrderItem orderItem;
+    @ManyToOne
+    @JoinColumn(name = "employee_id")
+    Employee employee;
+    @OneToMany(mappedBy = "service")
+    List<AppoinmentDetail> appoinmentDetail;
 }

@@ -5,6 +5,8 @@ import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
+import java.util.List;
+
 
 @Getter
 @Setter
@@ -15,7 +17,7 @@ import lombok.experimental.FieldDefaults;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class TreatmentPackage {
     @Id
-            @Column(name = "treatment_package_id")
+    @Column(name = "treatment_package_id")
     String treatmentPackageId;
     @Column(name = "package_name")
     String packageName;
@@ -30,5 +32,9 @@ public class TreatmentPackage {
     StatusOfPakage statusOfPakage;
     @ManyToOne
     @JoinColumn(name = "employee_id")
-        Employee employee;
+    Employee employee;
+    @OneToOne(mappedBy = "treatmentPackage")
+    OrderItem orderItem;
+    @OneToMany(mappedBy = "treatmentPackage")
+    List<CustomerTreatment> customerTreatments;
 }

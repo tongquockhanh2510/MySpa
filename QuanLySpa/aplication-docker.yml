@@ -1,0 +1,14 @@
+spring:
+  datasource:
+    url: jdbc:mariadb://mariadb:3306/Spa_Phuong_Thao_db
+    username: root
+    password: root
+    driver-class-name: org.mariadb.jdbc.Driver
+
+  data:
+    redis:
+      host: redis
+      port: 6379
+
+server:
+  port: 8080

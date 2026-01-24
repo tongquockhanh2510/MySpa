@@ -5,7 +5,9 @@ import lombok.*;
 import lombok.experimental.FieldDefaults;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 
 @Getter
 @Setter
@@ -15,20 +17,35 @@ import java.util.Date;
 @Table(name = "customer_treatments")
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class CustomerTreatment {
+
     @EmbeddedId
-            @Column(name = "customer_treatment_id")
-    CustomerTreatmentId customerTreatmentId;
-    @Column(name = "remaining_sessions")
+    CustomerTreatmentId id;
+
+    // ===== Customer =====
+    @ManyToOne(fetch = FetchType.LAZY)
+    @MapsId("customerId")
+    @JoinColumn(name = "customer_id")
+    Customer customer;
+
+    // ===== Treatment Package =====
+    @ManyToOne(fetch = FetchType.LAZY)
+    @MapsId("packageId")
+    @JoinColumn(name = "package_id")
+    TreatmentPackage treatmentPackage;
+
+    // ===== Appointments (N buổi) =====
+    @OneToMany(mappedBy = "customerTreatment")
+    List<AppoinmentDetail> appoinmentDetails = new ArrayList<>();
+
     int remainingSessions;
-    @Column(name = "purchase_date")
+
     LocalDate purchaseDate;
-    @Column(name = "expiry_date")
     LocalDate expiryDate;
-    @Column(name = "cancel_date")
     LocalDate cancelDate;
-    @Column(name = "cancel_reason")
     String cancelReason;
+
     @OneToOne
     @JoinColumn(name = "package_conversion_id")
     PackageConversion packageConversion;
 }
+

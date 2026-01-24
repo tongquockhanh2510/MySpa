@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
+import java.util.List;
 import java.util.Set;
 
 @Getter
@@ -28,4 +29,10 @@ public class Employee {
     double baseSalary;
     @OneToMany(mappedBy = "employee")
     Set<Salary> salaries;
+    @OneToMany(mappedBy = "employee")
+    Set<Product> products;
+    @OneToMany(mappedBy = "employee")
+    Set<Service>  services;
+    @OneToMany(mappedBy = "employee")
+    List<AppoinmentDetail> appoinmentDetails;
 }

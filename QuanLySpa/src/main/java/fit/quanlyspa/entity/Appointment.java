@@ -16,9 +16,12 @@ import java.time.LocalDateTime;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class Appointment {
     @Id
-            @Column(name = "appointment_id")
+    @Column(name = "appointment_id")
     String appointmentId;
+    @Column(name = "status_of_appointment")
     StatusOfAppointment statusOfAppointment;
+
+    @Column(name = "date_time")
     LocalDateTime dateTime;
     String note;
     @ManyToOne

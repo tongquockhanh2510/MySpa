@@ -23,8 +23,13 @@ public class Customer {
     String email;
     Gender gender;
     String note;
+    @Column(name = "loyalty_points")
     double loyaltyPoints;
     @OneToMany(mappedBy = "customer")
     Set<Appointment> appointments;
+    @OneToMany(mappedBy = "customer")
+    Set<Order> orders;
+    @OneToMany(mappedBy = "customer")
+    Set<CustomerTreatment>  customerTreatments;
 
 }

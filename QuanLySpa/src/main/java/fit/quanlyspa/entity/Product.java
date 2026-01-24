@@ -18,11 +18,17 @@ public class Product {
     String name;
     double price;
     String brand;
+    @Column(name = "stock_quantity")
     double stockQuantity;
     String description;
+
     String image;
     @ManyToOne
     @JoinColumn(name = "category_id")
     Category category;
-
+    @OneToOne(mappedBy = "product")
+    OrderItem orderItem;
+    @ManyToOne
+    @JoinColumn(name = "employee_id")
+    Employee employee;
 }

@@ -1,10 +1,31 @@
 services:
   mariadb:
-    image: 'mariadb:latest'
+    image: mariadb:11.3
+    container_name: myspa-mariadb
     environment:
-      - 'MARIADB_DATABASE=mydatabase'
-      - 'MARIADB_PASSWORD=secret'
-      - 'MARIADB_ROOT_PASSWORD=verysecret'
-      - 'MARIADB_USER=myuser'
+      MARIADB_ROOT_PASSWORD: root
+      MARIADB_DATABASE: Spa_Phuong_Thao_db
     ports:
-      - '3306'
+      - "3306:3306"
+    volumes:
+      - mariadb_data:/var/lib/mysql
+
+  redis:
+    image: redis:7
+    container_name: myspa-redis
+    ports:
+      - "6379:6379"
+
+  backend:
+    build: .
+    container_name: myspa-backend
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+    depends_on:
+      - mariadb
+      - redis
+
+volumes:
+  mariadb_data:
