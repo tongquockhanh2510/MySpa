@@ -35,4 +35,7 @@ public class Employee {
     Set<Service>  services;
     @OneToMany(mappedBy = "employee")
     List<AppoinmentDetail> appoinmentDetails;
+    @OneToOne
+    @JoinColumn(name = "user_id")
+    User user;
 }
