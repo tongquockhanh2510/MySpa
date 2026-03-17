@@ -41,6 +41,12 @@ dependencies {
     testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
     testImplementation 'org.springframework.boot:spring-boot-starter-websocket-test'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    // Source: https://mvnrepository.com/artifact/org.springframework.boot/spring-boot-starter-data-redis
+    implementation("org.springframework.boot:spring-boot-starter-data-redis:4.0.3")
+    // Source: https://mvnrepository.com/artifact/org.mapstruct/mapstruct
+    implementation("org.mapstruct:mapstruct:1.6.3")
+    // Source: https://mvnrepository.com/artifact/org.springframework.boot/spring-boot-starter-validation
+    implementation("org.springframework.boot:spring-boot-starter-validation:4.0.3")
 }
 
 tasks.named('test') {
