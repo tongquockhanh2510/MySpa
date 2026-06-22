@@ -3,6 +3,8 @@ package fit.quanlyspa.service;
 import fit.quanlyspa.dto.request.auth.AuthenticationRequest;
 import fit.quanlyspa.dto.response.auth.AuthenticationResponse;
 import fit.quanlyspa.entity.User;
+import fit.quanlyspa.exception.AppException;
+import fit.quanlyspa.exception.ErrorCode;
 import fit.quanlyspa.mapper.UserMapper;
 import fit.quanlyspa.repository.CustomerRepository;
 import fit.quanlyspa.repository.RoleRepository;
@@ -38,8 +40,8 @@ public class AuthenticationService {
 
     final ObjectMapper objectMapper = new ObjectMapper();
     public AuthenticationResponse authenticate(AuthenticationRequest request, HttpServletResponse response){
-//        User user = userRepository.findByUsername(request.getUsername())
-//                .orElseThrow(() -> new RuntimeException("User not found"));
+        User user = userRepository.findByUserName(request.getUsername())
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
       return null;
     }
 

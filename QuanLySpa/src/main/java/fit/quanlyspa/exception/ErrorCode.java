@@ -9,7 +9,8 @@ import org.springframework.http.HttpStatusCode;
 @Getter
 
 public enum ErrorCode {
-    UNCATEGORIZED_EXCEPTION(1000, "Uncategorized error" ,HttpStatus.INTERNAL_SERVER_ERROR);
+    UNCATEGORIZED_EXCEPTION(1000, "Uncategorized error" ,HttpStatus.INTERNAL_SERVER_ERROR),
+    USER_NOT_FOUND(1001, "User not found", HttpStatus.NOT_FOUND);
     private final int code;
     private final String message;
     private final HttpStatusCode statusCode;
