@@ -1,10 +1,19 @@
 package fit.quanlyspa.exception;
 
-public class AppException extends RuntimeException {
-  private  ErrorCode errorCode;
-    public AppException(ErrorCode errorCode) {
+import lombok.Getter;
 
-      super(errorCode.getMessage());
-      this.errorCode = errorCode;
+@Getter
+public class AppException extends RuntimeException {
+
+    private final ErrorCode errorCode;
+
+    public AppException(ErrorCode errorCode) {
+        super(errorCode.getMessage());
+        this.errorCode = errorCode;
+    }
+
+    public AppException(ErrorCode errorCode, String customMessage) {
+        super(customMessage);
+        this.errorCode = errorCode;
     }
 }

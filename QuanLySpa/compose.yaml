@@ -26,6 +26,8 @@ services:
     depends_on:
       - mariadb
       - redis
+    labels:
+      org.springframework.boot.ignore: "true"
 
 volumes:
   mariadb_data:

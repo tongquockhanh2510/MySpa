@@ -1,10 +1,17 @@
 package fit.quanlyspa.entity;
 
+import fit.quanlyspa.enums.Gender;
 import fit.quanlyspa.enums.StatusOfEmployee;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -13,29 +20,95 @@ import java.util.Set;
 @Entity
 @AllArgsConstructor
 @NoArgsConstructor
-@Table(name = "employees")
+@Builder
+@Table(name = "employees", indexes = {
+        @Index(name = "idx_employee_phone", columnList = "phone"),
+        @Index(name = "idx_employee_email", columnList = "email")
+})
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class Employee {
+
     @Id
-    @Column(name = "employee_id")
+    @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(name = "employee_id", updatable = false)
     String employeeId;
+
+    @Column(name = "name", nullable = false, length = 150)
     String name;
+
+    @Column(name = "phone", unique = true, length = 20)
     String phone;
+
+    @Column(name = "email", unique = true, length = 150)
     String email;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "gender")
+    Gender gender;
+
+    @Column(name = "date_of_birth")
+    LocalDate dateOfBirth;
+
+    @Column(name = "address", length = 300)
+    String address;
+
+    @Enumerated(EnumType.STRING)
     @Column(name = "status_of_employee")
-    StatusOfEmployee statusOfEmployee;
+    @Builder.Default
+    StatusOfEmployee statusOfEmployee = StatusOfEmployee.ACTIVE;
+
+    @Column(name = "position", length = 100)
     String position;
+
+    @Column(name = "specialty", length = 200)
+    String specialty;
+
+    @Column(name = "avatar_url")
+    String avatarUrl;
+
     @Column(name = "base_salary")
     double baseSalary;
-    @OneToMany(mappedBy = "employee")
-    Set<Salary> salaries;
-    @OneToMany(mappedBy = "employee")
-    Set<Product> products;
-    @OneToMany(mappedBy = "employee")
-    Set<Service>  services;
-    @OneToMany(mappedBy = "employee")
-    List<AppoinmentDetail> appoinmentDetails;
+
+    @Column(name = "commission_rate")
+    @Builder.Default
+    double commissionRate = 0.0;
+
+    @Column(name = "hire_date")
+    LocalDate hireDate;
+
+    @CreationTimestamp
+    @Column(name = "created_at", updatable = false)
+    LocalDateTime createdAt;
+
+    @UpdateTimestamp
+    @Column(name = "updated_at")
+    LocalDateTime updatedAt;
+
+    // ===== Relationships =====
+
     @OneToOne
     @JoinColumn(name = "user_id")
     User user;
+
+    @OneToMany(mappedBy = "employee", fetch = FetchType.LAZY)
+    @Builder.Default
+    Set<Salary> salaries = new HashSet<>();
+
+
+
+    @OneToMany(mappedBy = "employee", fetch = FetchType.LAZY)
+    @Builder.Default
+    List<AppoinmentDetail> appoinmentDetails = new ArrayList<>();
+
+    @OneToMany(mappedBy = "employee", fetch = FetchType.LAZY)
+    @Builder.Default
+    List<Attendance> attendances = new ArrayList<>();
+
+    @OneToMany(mappedBy = "employee", fetch = FetchType.LAZY)
+    @Builder.Default
+    List<Schedule> schedules = new ArrayList<>();
+
+    @OneToMany(mappedBy = "employee", fetch = FetchType.LAZY)
+    @Builder.Default
+    List<Commission> commissions = new ArrayList<>();
 }

@@ -84,8 +84,20 @@ export interface LoginRequest {
 }
 
 export interface AuthResponse {
-  token: string;
-  authenticated: boolean;
+  // Fields từ mock
+  token?: string;
+  authenticated?: boolean;
+  // Fields từ backend AuthenticationResponse
+  accessToken?: string;
+  refreshToken?: string;
+  tokenType?: string;
+  expiresIn?: number;
+  userId?: string;
+  username?: string;
+  roles?: Set<string> | string[];
+  employeeId?: string;
+  employeeName?: string;
+  avatarUrl?: string;
 }
 
 export interface UserInfo {
@@ -93,6 +105,9 @@ export interface UserInfo {
   userName: string;
   roles: Role[];
   employee?: Employee;
+  employeeId?: string;
+  employeeName?: string;
+  avatarUrl?: string;
 }
 
 // ===== Customer =====

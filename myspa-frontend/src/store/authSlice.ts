@@ -20,30 +20,50 @@ export const login = createAsyncThunk(
   'auth/login',
   async (credentials: LoginRequest, { rejectWithValue }) => {
     try {
-      let authData: AuthResponse;
       if (USE_MOCK) {
-        authData = await mockLogin(credentials);
-      } else {
-        const response = await axiosInstance.post<ApiResponse<AuthResponse>>(
-          '/auth/token',
-          credentials
-        );
-        authData = response.data.result;
+        const authData = await mockLogin(credentials);
+        const userInfo: UserInfo = {
+          userId: 'user-001',
+          userName: credentials.userName,
+          roles: [{ name: 'ADMIN', description: 'Quản trị viên', permissions: [] }],
+        };
+        localStorage.setItem(JWT_KEYS.accessToken, authData.token ?? '');
+        localStorage.setItem(JWT_KEYS.user, JSON.stringify(userInfo));
+        return { token: authData.token, user: userInfo };
       }
 
-      if (authData.authenticated && authData.token) {
-        localStorage.setItem(JWT_KEYS.accessToken, authData.token);
+      // Gọi đúng endpoint /auth/login của backend
+      const response = await axiosInstance.post<ApiResponse<AuthResponse>>(
+        '/auth/login',
+        { username: credentials.userName, password: credentials.password }
+      );
+      const data = response.data.result;
+
+      // Lưu access token
+      const token = data.accessToken ?? data.token ?? '';
+      localStorage.setItem(JWT_KEYS.accessToken, token);
+      if (data.refreshToken) {
+        localStorage.setItem(JWT_KEYS.refreshToken, data.refreshToken);
       }
 
-      // Mock user info
+      // Build userInfo từ response thực của backend
       const userInfo: UserInfo = {
-        userId: 'user-001',
-        userName: credentials.userName,
-        roles: [{ name: 'ADMIN', description: 'Quản trị viên', permissions: [] }],
+        userId: data.userId ?? '',
+        userName: data.username ?? credentials.userName,
+        roles: data.roles
+          ? [...data.roles].map((r) =>
+              typeof r === 'string'
+                ? { name: r, description: '', permissions: [] }
+                : r
+            )
+          : [],
+        employeeId: data.employeeId,
+        employeeName: data.employeeName,
+        avatarUrl: data.avatarUrl,
       };
       localStorage.setItem(JWT_KEYS.user, JSON.stringify(userInfo));
 
-      return { token: authData.token, user: userInfo };
+      return { token, user: userInfo };
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : 'Đăng nhập thất bại';

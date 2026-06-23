@@ -9,9 +9,9 @@ export const APP_CONFIG = {
 } as const;
 
 // Set to true to use mock data (no backend required)
-export const USE_MOCK = true;
+export const USE_MOCK = false;
 
-export const API_BASE_URL = '/api';
+export const API_BASE_URL = '/api/v1';
 
 export const PAGINATION = {
   defaultPage: 0,

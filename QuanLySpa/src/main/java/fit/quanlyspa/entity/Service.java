@@ -4,7 +4,11 @@ import fit.quanlyspa.enums.StatusOfService;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Getter
@@ -12,25 +16,63 @@ import java.util.List;
 @Entity
 @AllArgsConstructor
 @NoArgsConstructor
+@Builder
 @Table(name = "services")
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class Service {
+
     @Id
-    @Column(name = "service_id")
+    @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(name = "service_id", updatable = false)
     String serviceId;
+
+    @Column(name = "name", nullable = false, length = 200)
     String name;
+
+    @Column(name = "price", nullable = false)
     double price;
-    double duration;
+
+    @Column(name = "duration", nullable = false)
+    double duration; // in minutes
+
+    @Column(name = "description", columnDefinition = "TEXT")
     String description;
+
+    @Column(name = "image_url")
+    String imageUrl;
+
+    @Enumerated(EnumType.STRING)
     @Column(name = "status_of_service")
-    StatusOfService  statusOfService;
+    @Builder.Default
+    StatusOfService statusOfService = StatusOfService.ACTIVE;
+
     @Column(name = "commission_rate")
-    double commissionRate;
-    @OneToOne(mappedBy = "service")
-    OrderItem orderItem;
-    @ManyToOne
-    @JoinColumn(name = "employee_id")
-    Employee employee;
-    @OneToMany(mappedBy = "service")
-    List<AppoinmentDetail> appoinmentDetail;
+    @Builder.Default
+    double commissionRate = 0.0;
+
+    @Column(name = "min_booking_notice")
+    @Builder.Default
+    int minBookingNotice = 30; // minutes before appointment
+
+    @Column(name = "max_daily_bookings")
+    @Builder.Default
+    int maxDailyBookings = 20;
+
+    @CreationTimestamp
+    @Column(name = "created_at", updatable = false)
+    LocalDateTime createdAt;
+
+    @UpdateTimestamp
+    @Column(name = "updated_at")
+    LocalDateTime updatedAt;
+
+    // ===== Relationships =====
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "category_id")
+    Category category;
+
+    @OneToMany(mappedBy = "service", fetch = FetchType.LAZY)
+    @Builder.Default
+    List<AppoinmentDetail> appoinmentDetails = new ArrayList<>();
 }

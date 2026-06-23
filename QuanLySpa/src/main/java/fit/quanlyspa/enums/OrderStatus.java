@@ -1,8 +1,11 @@
 package fit.quanlyspa.enums;
 
 public enum OrderStatus {
-    UNPAID,
-    PARTIALLY_PAIN,
-    PAIN,
-    CANCELLED;
+    DRAFT,
+    PENDING_PAYMENT,
+    PARTIALLY_PAID,
+    PAID,
+    COMPLETED,
+    CANCELLED,
+    REFUNDED;
 }
