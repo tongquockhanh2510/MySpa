@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { DataGrid } from '@mui/x-data-grid';
 import type { GridColDef } from '@mui/x-data-grid';
 import { Dialog, DialogTitle, DialogContent, DialogActions, TextField, Button, Select, MenuItem, FormControl, InputLabel, InputAdornment, IconButton, Chip } from '@mui/material';
@@ -9,10 +9,10 @@ import { toast } from 'sonner';
 import PageHeader from '@components/common/PageHeader';
 import ConfirmDialog from '@components/common/ConfirmDialog';
 import ExportButtons from '@components/common/ExportButtons';
-import { mockProducts, mockCategories } from '@utils/mockData';
+import { getProducts, getCategories } from '@/api/catalog';
 import { formatCurrency } from '@utils/formatters';
 import { exportToExcel } from '@utils/exportExcel';
-import type { Product, ProductFormData } from '@/types';
+import type { Product, ProductFormData, Category } from '@/types';
 import { LOW_STOCK_THRESHOLD } from '@constants/config';
 import SearchIcon from '@mui/icons-material/Search';
 import EditIcon from '@mui/icons-material/Edit';
@@ -29,11 +29,27 @@ const schema = z.object({
 });
 
 const ProductsPage: React.FC = () => {
-  const [products, setProducts] = useState<Product[]>(mockProducts);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [search, setSearch] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
+
+  const fetchProductsAndCategories = async () => {
+    try {
+      const [prodData, catData] = await Promise.all([getProducts(), getCategories()]);
+      setProducts(prodData);
+      setCategories(catData);
+    } catch (err) {
+      console.error(err);
+      toast.error('Lỗi khi tải danh sách sản phẩm và danh mục');
+    }
+  };
+
+  useEffect(() => {
+    fetchProductsAndCategories();
+  }, []);
 
   const { control, handleSubmit, reset, formState: { errors } } = useForm<ProductFormData>({
     resolver: zodResolver(schema),
@@ -50,8 +66,8 @@ const ProductsPage: React.FC = () => {
   const openCreate = () => { setEditing(null); reset({ name: '', price: 0, brand: '', stockQuantity: 0, description: '', categoryId: '' }); setDialogOpen(true); };
   const openEdit = (p: Product) => { setEditing(p); reset(p); setDialogOpen(true); };
   const onSubmit = (data: ProductFormData) => {
-    if (editing) { setProducts(prev => prev.map(p => p.productId === editing.productId ? { ...p, ...data, categoryName: mockCategories.find(c => c.categoryId === data.categoryId)?.name } : p)); toast.success('Cập nhật sản phẩm thành công'); }
-    else { setProducts(prev => [{ ...data, productId: `P${Date.now()}`, categoryName: mockCategories.find(c => c.categoryId === data.categoryId)?.name }, ...prev]); toast.success('Thêm sản phẩm thành công'); }
+    if (editing) { setProducts(prev => prev.map(p => p.productId === editing.productId ? { ...p, ...data, categoryName: categories.find(c => c.categoryId === data.categoryId)?.name } : p)); toast.success('Cập nhật sản phẩm thành công'); }
+    else { setProducts(prev => [{ ...data, productId: `P${Date.now()}`, categoryName: categories.find(c => c.categoryId === data.categoryId)?.name }, ...prev]); toast.success('Thêm sản phẩm thành công'); }
     setDialogOpen(false);
   };
 
@@ -101,7 +117,7 @@ const ProductsPage: React.FC = () => {
             <Controller name="name" control={control} render={({ field }) => (<TextField {...field} label="Tên sản phẩm *" error={!!errors.name} helperText={errors.name?.message} fullWidth size="small" sx={inputSx} />)} />
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
               <Controller name="brand" control={control} render={({ field }) => (<TextField {...field} label="Thương hiệu *" error={!!errors.brand} helperText={errors.brand?.message} fullWidth size="small" sx={inputSx} />)} />
-              <Controller name="categoryId" control={control} render={({ field }) => (<FormControl fullWidth size="small" sx={inputSx}><InputLabel>Danh mục</InputLabel><Select {...field} label="Danh mục" sx={{ borderRadius: '10px' }}><MenuItem value="">-- Không có --</MenuItem>{mockCategories.map(c => <MenuItem key={c.categoryId} value={c.categoryId}>{c.name}</MenuItem>)}</Select></FormControl>)} />
+              <Controller name="categoryId" control={control} render={({ field }) => (<FormControl fullWidth size="small" sx={inputSx}><InputLabel>Danh mục</InputLabel><Select {...field} label="Danh mục" sx={{ borderRadius: '10px' }}><MenuItem value="">-- Không có --</MenuItem>{categories.map(c => <MenuItem key={c.categoryId} value={c.categoryId}>{c.name}</MenuItem>)}</Select></FormControl>)} />
               <Controller name="price" control={control} render={({ field }) => (<TextField {...field} onChange={e => field.onChange(Number(e.target.value))} label="Giá (VNĐ) *" type="number" error={!!errors.price} helperText={errors.price?.message} fullWidth size="small" sx={inputSx} />)} />
               <Controller name="stockQuantity" control={control} render={({ field }) => (<TextField {...field} onChange={e => field.onChange(Number(e.target.value))} label="Số lượng tồn kho *" type="number" error={!!errors.stockQuantity} helperText={errors.stockQuantity?.message} fullWidth size="small" sx={inputSx} />)} />
             </div>

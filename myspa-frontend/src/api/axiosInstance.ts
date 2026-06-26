@@ -74,7 +74,7 @@ axiosInstance.interceptors.response.use(
           refreshToken: refreshToken,
         });
 
-        const newToken = response.data.result?.token;
+        const newToken = response.data.result?.accessToken ?? response.data.result?.token;
         if (newToken) {
           localStorage.setItem(JWT_KEYS.accessToken, newToken);
           store.dispatch(setTokens({ accessToken: newToken }));

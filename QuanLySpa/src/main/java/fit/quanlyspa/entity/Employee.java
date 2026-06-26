@@ -15,6 +15,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 @Getter
 @Setter
 @Entity
@@ -86,28 +88,32 @@ public class Employee {
 
     // ===== Relationships =====
 
+    @JsonIgnore
     @OneToOne
     @JoinColumn(name = "user_id")
     User user;
 
+    @JsonIgnore
     @OneToMany(mappedBy = "employee", fetch = FetchType.LAZY)
     @Builder.Default
     Set<Salary> salaries = new HashSet<>();
 
-
-
+    @JsonIgnore
     @OneToMany(mappedBy = "employee", fetch = FetchType.LAZY)
     @Builder.Default
     List<AppoinmentDetail> appoinmentDetails = new ArrayList<>();
 
+    @JsonIgnore
     @OneToMany(mappedBy = "employee", fetch = FetchType.LAZY)
     @Builder.Default
     List<Attendance> attendances = new ArrayList<>();
 
+    @JsonIgnore
     @OneToMany(mappedBy = "employee", fetch = FetchType.LAZY)
     @Builder.Default
     List<Schedule> schedules = new ArrayList<>();
 
+    @JsonIgnore
     @OneToMany(mappedBy = "employee", fetch = FetchType.LAZY)
     @Builder.Default
     List<Commission> commissions = new ArrayList<>();

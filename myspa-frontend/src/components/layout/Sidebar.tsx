@@ -100,7 +100,7 @@ const Sidebar: React.FC = () => {
     <aside
       style={{
         width: collapsed ? 'var(--sidebar-collapsed-width)' : 'var(--sidebar-width)',
-        minHeight: '100vh',
+        height: '100vh',
         background: 'linear-gradient(180deg, #1C1917 0%, #0A0908 100%)',
         display: 'flex',
         flexDirection: 'column',

@@ -24,3 +24,8 @@ export const getRooms = async () => {
   const response = await axiosInstance.get('/rooms');
   return response.data.result || [];
 };
+
+export const getCategories = async () => {
+  const response = await axiosInstance.get('/categories');
+  return response.data.result || [];
+};

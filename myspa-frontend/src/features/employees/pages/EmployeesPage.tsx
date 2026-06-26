@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { DataGrid } from '@mui/x-data-grid';
 import type { GridColDef } from '@mui/x-data-grid';
 import {
@@ -14,7 +14,7 @@ import PageHeader from '@components/common/PageHeader';
 import StatusChip from '@components/common/StatusChip';
 import ConfirmDialog from '@components/common/ConfirmDialog';
 import ExportButtons from '@components/common/ExportButtons';
-import { mockEmployees } from '@utils/mockData';
+import { getEmployees } from '@/api/catalog';
 import { formatCurrency } from '@utils/formatters';
 import { exportToExcel } from '@utils/exportExcel';
 import { StatusOfEmployee } from '@/types';
@@ -33,11 +33,24 @@ const schema = z.object({
 });
 
 const EmployeesPage: React.FC = () => {
-  const [employees, setEmployees] = useState<Employee[]>(mockEmployees);
+  const [employees, setEmployees] = useState<Employee[]>([]);
   const [search, setSearch] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Employee | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Employee | null>(null);
+
+  useEffect(() => {
+    const fetchEmployees = async () => {
+      try {
+        const data = await getEmployees();
+        setEmployees(data);
+      } catch (err) {
+        console.error(err);
+        toast.error('Lỗi khi tải danh sách nhân viên từ database');
+      }
+    };
+    fetchEmployees();
+  }, []);
 
   const { control, handleSubmit, reset, formState: { errors } } = useForm<EmployeeFormData>({
     resolver: zodResolver(schema),

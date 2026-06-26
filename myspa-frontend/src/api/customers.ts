@@ -30,3 +30,13 @@ export const createCustomer = async (data: any) => {
   const response = await axiosInstance.post('/customers', data);
   return response.data.result;
 };
+
+export const updateCustomer = async (id: string, data: any) => {
+  const response = await axiosInstance.put(`/customers/${id}`, data);
+  return response.data.result;
+};
+
+export const deleteCustomer = async (id: string) => {
+  const response = await axiosInstance.delete(`/customers/${id}`);
+  return response.data.result;
+};

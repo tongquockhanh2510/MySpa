@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 import PageHeader from '@components/common/PageHeader';
 import StatusChip from '@components/common/StatusChip';
 import ConfirmDialog from '@components/common/ConfirmDialog';
-import { mockTreatmentPackages } from '@utils/mockData';
+import { getTreatmentPackages } from '@/api/catalog';
 import { formatCurrency } from '@utils/formatters';
 import { StatusOfPackage } from '@/types';
 import type { TreatmentPackage, TreatmentPackageFormData } from '@/types';
@@ -26,11 +26,24 @@ const schema = z.object({
 });
 
 const TreatmentPackagesPage: React.FC = () => {
-  const [packages, setPackages] = useState<TreatmentPackage[]>(mockTreatmentPackages);
+  const [packages, setPackages] = useState<TreatmentPackage[]>([]);
   const [search, setSearch] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<TreatmentPackage | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<TreatmentPackage | null>(null);
+
+  useEffect(() => {
+    const fetchPackages = async () => {
+      try {
+        const data = await getTreatmentPackages();
+        setPackages(data);
+      } catch (err) {
+        console.error(err);
+        toast.error('Lỗi khi tải danh sách gói liệu trình từ database');
+      }
+    };
+    fetchPackages();
+  }, []);
 
   const { control, handleSubmit, reset, formState: { errors } } = useForm<TreatmentPackageFormData>({
     resolver: zodResolver(schema),

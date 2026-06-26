@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { DataGrid } from '@mui/x-data-grid';
 import type { GridColDef } from '@mui/x-data-grid';
 import {
@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 import PageHeader from '@components/common/PageHeader';
 import StatusChip from '@components/common/StatusChip';
 import ConfirmDialog from '@components/common/ConfirmDialog';
-import { mockServices } from '@utils/mockData';
+import { getServices } from '@/api/catalog';
 import { formatCurrency, formatDuration } from '@utils/formatters';
 import { StatusOfService } from '@/types';
 import type { Service, ServiceFormData } from '@/types';
@@ -31,11 +31,24 @@ const schema = z.object({
 });
 
 const ServicesPage: React.FC = () => {
-  const [services, setServices] = useState<Service[]>(mockServices);
+  const [services, setServices] = useState<Service[]>([]);
   const [search, setSearch] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Service | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Service | null>(null);
+
+  useEffect(() => {
+    const fetchServices = async () => {
+      try {
+        const data = await getServices();
+        setServices(data);
+      } catch (err) {
+        console.error(err);
+        toast.error('Lỗi khi tải danh sách dịch vụ từ database');
+      }
+    };
+    fetchServices();
+  }, []);
 
   const { control, handleSubmit, reset, formState: { errors } } = useForm<ServiceFormData>({
     resolver: zodResolver(schema),

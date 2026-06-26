@@ -3,11 +3,14 @@ package fit.quanlyspa.configuration;
 import fit.quanlyspa.entity.*;
 import fit.quanlyspa.enums.*;
 import fit.quanlyspa.repository.*;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.Set;
@@ -28,9 +31,48 @@ public class DataInitializer implements CommandLineRunner {
     private final TreatmentPackageRepository treatmentPackageRepository;
     private final PasswordEncoder passwordEncoder;
 
+    @PersistenceContext
+    private final EntityManager entityManager;
+
     @Override
+    @Transactional
     public void run(String... args) throws Exception {
-        log.info("Initializing default roles and admin user...");
+        log.info("Cleaning up duplicate users and initializing default roles and admin user...");
+
+        // Clean up duplicate usernames from database if they exist
+        try {
+            java.util.List<User> allUsers = entityManager.createQuery("SELECT u FROM User u ORDER BY u.createdAt ASC", User.class).getResultList();
+            java.util.Map<String, User> originalUsers = new java.util.HashMap<>();
+            for (User u : allUsers) {
+                if (originalUsers.containsKey(u.getUserName())) {
+                    log.info("Found duplicate user: {}. Deleting...", u.getUserName());
+                    User originalUser = originalUsers.get(u.getUserName());
+
+                    if (u.getEmployee() != null) {
+                        Employee duplicateEmployee = u.getEmployee();
+                        Employee originalEmployee = originalUser.getEmployee();
+
+                        if (originalEmployee != null) {
+                            reassignEmployeeRelations(duplicateEmployee, originalEmployee);
+                            employeeRepository.delete(duplicateEmployee);
+                        } else {
+                            duplicateEmployee.setUser(originalUser);
+                            employeeRepository.save(duplicateEmployee);
+                            originalUser.setEmployee(duplicateEmployee);
+                        }
+                    }
+                    u.getRoles().clear();
+                    userRepository.save(u);
+                    userRepository.delete(u);
+                } else {
+                    originalUsers.put(u.getUserName(), u);
+                }
+            }
+            entityManager.flush();
+            log.info("Duplicate user cleanup completed successfully");
+        } catch (Exception e) {
+            log.warn("Could not execute duplicate user cleanup: {}", e.getMessage(), e);
+        }
 
         // 1. Create default roles
         Role adminRole = getOrCreateRole("ADMIN", "System Administrator");
@@ -290,5 +332,44 @@ public class DataInitializer implements CommandLineRunner {
             log.info("Created category: {}", name);
             return cat;
         });
+    }
+
+    private void reassignEmployeeRelations(Employee oldEmp, Employee newEmp) {
+        String[] employeeEntities = {
+            "TreatmentPackage", "TreatmentRecord", "Schedule", "Salary", "Review", 
+            "Notification", "Commission", "Attendance", "AppoinmentDetail"
+        };
+        for (String entity : employeeEntities) {
+            try {
+                int count = entityManager.createQuery(
+                    "UPDATE " + entity + " e SET e.employee = :newEmp WHERE e.employee = :oldEmp")
+                    .setParameter("newEmp", newEmp)
+                    .setParameter("oldEmp", oldEmp)
+                    .executeUpdate();
+                if (count > 0) {
+                    log.info("Reassigned {} {} records from employee {} to {}", count, entity, oldEmp.getEmployeeId(), newEmp.getEmployeeId());
+                }
+            } catch (Exception e) {
+                log.warn("Failed to reassign {} records: {}", entity, e.getMessage());
+            }
+        }
+        
+        String[] therapistEntities = {
+            "TreatmentSchedule", "TreatmentSession"
+        };
+        for (String entity : therapistEntities) {
+            try {
+                int count = entityManager.createQuery(
+                    "UPDATE " + entity + " e SET e.therapist = :newEmp WHERE e.therapist = :oldEmp")
+                    .setParameter("newEmp", newEmp)
+                    .setParameter("oldEmp", oldEmp)
+                    .executeUpdate();
+                if (count > 0) {
+                    log.info("Reassigned {} {} records from therapist {} to {}", count, entity, oldEmp.getEmployeeId(), newEmp.getEmployeeId());
+                }
+            } catch (Exception e) {
+                log.warn("Failed to reassign {} records: {}", entity, e.getMessage());
+            }
+        }
     }
 }

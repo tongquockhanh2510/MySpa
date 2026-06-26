@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { DataGrid } from '@mui/x-data-grid';
 import type { GridColDef } from '@mui/x-data-grid';
 import {
@@ -14,7 +14,7 @@ import PageHeader from '@components/common/PageHeader';
 import StatusChip from '@components/common/StatusChip';
 import ConfirmDialog from '@components/common/ConfirmDialog';
 import ExportButtons from '@components/common/ExportButtons';
-import { mockCustomers } from '@utils/mockData';
+import { getCustomers, createCustomer, updateCustomer, deleteCustomer } from '@/api/customers';
 import { formatCurrency, getGenderLabel } from '@utils/formatters';
 import { exportToExcel } from '@utils/exportExcel';
 import { Gender } from '@/types';
@@ -33,7 +33,8 @@ const schema = z.object({
 });
 
 const CustomersPage: React.FC = () => {
-  const [customers, setCustomers] = useState<Customer[]>(mockCustomers);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Customer | null>(null);
@@ -44,12 +45,24 @@ const CustomersPage: React.FC = () => {
     defaultValues: { name: '', phone: '', email: '', gender: Gender.FEMALE, note: '' },
   });
 
-  const filtered = useMemo(() =>
-    customers.filter(c =>
-      c.name.toLowerCase().includes(search.toLowerCase()) ||
-      c.phone.includes(search) ||
-      c.email.toLowerCase().includes(search.toLowerCase())
-    ), [customers, search]);
+  const fetchCustomers = async (query = '') => {
+    setLoading(true);
+    try {
+      const data = await getCustomers(query);
+      setCustomers(data);
+    } catch (err) {
+      console.error(err);
+      toast.error('Lỗi khi tải danh sách khách hàng từ database');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCustomers(search);
+  }, [search]);
+
+  const filtered = useMemo(() => customers, [customers]);
 
   const openCreate = () => {
     setEditing(null);
@@ -63,27 +76,34 @@ const CustomersPage: React.FC = () => {
     setDialogOpen(true);
   };
 
-  const onSubmit = (data: CustomerFormData) => {
-    if (editing) {
-      setCustomers(prev => prev.map(c => c.customerId === editing.customerId ? { ...c, ...data } : c));
-      toast.success('Cập nhật khách hàng thành công');
-    } else {
-      const newCustomer: Customer = {
-        ...data,
-        customerId: `C${Date.now()}`,
-        loyaltyPoints: 0,
-      };
-      setCustomers(prev => [newCustomer, ...prev]);
-      toast.success('Thêm khách hàng thành công');
+  const onSubmit = async (data: CustomerFormData) => {
+    try {
+      if (editing) {
+        await updateCustomer(editing.customerId, data);
+        toast.success('Cập nhật khách hàng thành công');
+      } else {
+        await createCustomer(data);
+        toast.success('Thêm khách hàng thành công');
+      }
+      setDialogOpen(false);
+      fetchCustomers(search);
+    } catch (err) {
+      console.error(err);
+      toast.error(editing ? 'Lỗi khi cập nhật khách hàng' : 'Lỗi khi thêm khách hàng');
     }
-    setDialogOpen(false);
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!deleteTarget) return;
-    setCustomers(prev => prev.filter(c => c.customerId !== deleteTarget.customerId));
-    toast.success('Đã xóa khách hàng');
-    setDeleteTarget(null);
+    try {
+      await deleteCustomer(deleteTarget.customerId);
+      toast.success('Đã xóa khách hàng');
+      setDeleteTarget(null);
+      fetchCustomers(search);
+    } catch (err) {
+      console.error(err);
+      toast.error('Lỗi khi xóa khách hàng');
+    }
   };
 
   const handleExportExcel = () => {
