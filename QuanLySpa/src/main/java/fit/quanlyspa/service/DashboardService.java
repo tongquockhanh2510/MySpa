@@ -31,10 +31,10 @@ public class DashboardService {
     CustomerTreatmentRepository customerTreatmentRepository;
 
     @Transactional(readOnly = true)
-    public DashboardStatsResponse getStats() {
+    public DashboardStatsResponse getStats(Integer reportYear) {
         LocalDateTime now = LocalDateTime.now();
         int currentMonth = now.getMonthValue();
-        int currentYear = now.getYear();
+        int currentYear = reportYear != null ? reportYear : now.getYear();
         int prevMonth = currentMonth == 1 ? 12 : currentMonth - 1;
         int prevYear = currentMonth == 1 ? currentYear - 1 : currentYear;
 
@@ -95,6 +95,9 @@ public class DashboardService {
                         .build())
                 .toList();
 
+        long activePackages = customerTreatmentRepository.findActiveByCustomer(LocalDate.now()).size();
+        long soldPackagesThisMonth = customerTreatmentRepository.countSoldByMonth(currentMonth, currentYear);
+
         // Monthly Revenue Chart
         List<Object[]> monthlyRaw = invoiceRepository.getMonthlyRevenueBreakdown(currentYear);
         List<MonthlyRevenueResponse> monthlyRevenue = monthlyRaw.stream()
@@ -130,6 +133,8 @@ public class DashboardService {
                 .customerGrowthPercent(customerGrowth)
                 .activeEmployees(activeEmployees)
                 .totalEmployees(totalEmployees)
+                .activePackages(activePackages)
+                .soldPackagesThisMonth(soldPackagesThisMonth)
                 .lowStockProducts(lowStockCount)
                 .monthlyRevenue(monthlyRevenue)
                 .popularServices(popularServices)

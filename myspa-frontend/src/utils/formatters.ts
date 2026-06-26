@@ -118,6 +118,8 @@ export const getConversionTypeLabel = (type: string): string => {
   const map: Record<string, string> = {
     TO_SERVICE: 'Chuyển sang dịch vụ',
     TO_PRODUCT: 'Chuyển sang sản phẩm',
+    TO_DISCOUNT: 'Chuyển thành tiền giảm đơn hàng',
+    TO_PACKAGE: 'Chuyển sang gói liệu trình khác',
   };
   return map[type] ?? type;
 };

@@ -1,4 +1,5 @@
 import axiosInstance from './axiosInstance';
+import type { ProductFormData, TreatmentPackageFormData } from '@/types';
 
 export const getServices = async () => {
   const response = await axiosInstance.get('/services');
@@ -10,9 +11,48 @@ export const getProducts = async () => {
   return response.data.result || [];
 };
 
+export const createProduct = async (data: ProductFormData) => {
+  const response = await axiosInstance.post('/products', data);
+  return response.data.result;
+};
+
+export const updateProduct = async (id: string, data: ProductFormData) => {
+  const response = await axiosInstance.put(`/products/${id}`, data);
+  return response.data.result;
+};
+
+export const deleteProduct = async (id: string) => {
+  const response = await axiosInstance.delete(`/products/${id}`);
+  return response.data;
+};
+
+export const uploadProductImage = async (file: File) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  const response = await axiosInstance.post('/products/upload-image', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return response.data.result as string;
+};
+
 export const getTreatmentPackages = async () => {
   const response = await axiosInstance.get('/treatment-packages');
   return response.data.result || [];
+};
+
+export const createTreatmentPackage = async (data: TreatmentPackageFormData) => {
+  const response = await axiosInstance.post('/treatment-packages', data);
+  return response.data.result;
+};
+
+export const updateTreatmentPackage = async (id: string, data: TreatmentPackageFormData) => {
+  const response = await axiosInstance.put(`/treatment-packages/${id}`, data);
+  return response.data.result;
+};
+
+export const deleteTreatmentPackage = async (id: string) => {
+  const response = await axiosInstance.delete(`/treatment-packages/${id}`);
+  return response.data;
 };
 
 export const getEmployees = async () => {

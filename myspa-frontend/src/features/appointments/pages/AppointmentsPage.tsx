@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
@@ -16,8 +16,8 @@ import { toast } from 'sonner';
 import PageHeader from '@components/common/PageHeader';
 import StatusChip from '@components/common/StatusChip';
 import ConfirmDialog from '@components/common/ConfirmDialog';
-import { mockAppointments } from '@utils/mockData';
 import { formatDateTime } from '@utils/formatters';
+import { cancelAppointment, getAppointments } from '@/api/appointments';
 import { StatusOfAppointment } from '@/types';
 import type { Appointment } from '@/types';
 import SearchIcon from '@mui/icons-material/Search';
@@ -29,9 +29,13 @@ import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 const statusColors: Record<string, string> = {
   PENDING: '#D97706',
   CONFIRMED: '#2563EB',
+  CHECKED_IN: '#0F766E',
+  WAITING: '#B45309',
   IN_PROGRESS: '#7C3AED',
   COMPLETED: '#059669',
   CANCELLED: '#DC2626',
+  NO_SHOW: '#4B5563',
+  RESCHEDULED: '#4338CA',
 };
 
 const schema = z.object({
@@ -42,7 +46,7 @@ const schema = z.object({
 });
 
 const AppointmentsPage: React.FC = () => {
-  const [appointments, setAppointments] = useState<Appointment[]>(mockAppointments);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [view, setView] = useState<'table' | 'calendar'>('table');
   const [search, setSearch] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -56,6 +60,20 @@ const AppointmentsPage: React.FC = () => {
     defaultValues: { customerId: '', dateTime: '', note: '', statusOfAppointment: StatusOfAppointment.PENDING },
   });
 
+  const loadAppointments = async () => {
+    try {
+      const data = await getAppointments({ size: 200 });
+      setAppointments(data);
+    } catch (error) {
+      console.error(error);
+      toast.error('Khong tai duoc danh sach lich hen');
+    }
+  };
+
+  useEffect(() => {
+    loadAppointments();
+  }, []);
+
   const filtered = useMemo(() =>
     appointments.filter(a =>
       a.customerName.toLowerCase().includes(search.toLowerCase()) ||
@@ -67,7 +85,8 @@ const AppointmentsPage: React.FC = () => {
     title: apt.customerName,
     start: apt.dateTime,
     backgroundColor: statusColors[apt.statusOfAppointment] ?? '#D97706',
-    borderColor: 'transparent',
+    borderColor: statusColors[apt.statusOfAppointment] ?? '#D97706',
+    textColor: '#FFFFFF',
     extendedProps: apt,
   }));
 
@@ -101,6 +120,27 @@ const AppointmentsPage: React.FC = () => {
     setDialogOpen(false);
   };
 
+  const confirmCancel = async () => {
+    if (!deleteTarget) return;
+    try {
+      const updated = await cancelAppointment(deleteTarget.appointmentId);
+      setAppointments(prev => prev.map(a => a.appointmentId === updated.appointmentId ? updated : a));
+      toast.success('Da huy lich hen');
+    } catch (error) {
+      console.error(error);
+      toast.error('Huy lich hen khong thanh cong');
+    } finally {
+      setDeleteTarget(null);
+    }
+  };
+
+  const canCancel = (appointment: Appointment) => ![
+    StatusOfAppointment.CANCELLED,
+    StatusOfAppointment.COMPLETED,
+    StatusOfAppointment.IN_PROGRESS,
+    StatusOfAppointment.NO_SHOW,
+  ].includes(appointment.statusOfAppointment);
+
   const inputSx = { '& .MuiOutlinedInput-root': { borderRadius: '10px', fontSize: 14 }, '& .MuiInputLabel-root': { fontSize: 14 } };
 
   const columns: GridColDef[] = [
@@ -115,7 +155,7 @@ const AppointmentsPage: React.FC = () => {
       renderCell: ({ row }) => (
         <div style={{ display: 'flex', gap: 4 }}>
           <IconButton size="small" onClick={() => openEdit(row)} sx={{ color: 'var(--primary)', '&:hover': { background: '#FEF3C7' } }}><EditIcon fontSize="small" /></IconButton>
-          <IconButton size="small" onClick={() => setDeleteTarget(row)} sx={{ color: '#EF4444', '&:hover': { background: '#FEE2E2' } }}><DeleteIcon fontSize="small" /></IconButton>
+          <IconButton size="small" disabled={!canCancel(row)} onClick={() => setDeleteTarget(row)} sx={{ color: '#EF4444', '&:hover': { background: '#FEE2E2' }, '&.Mui-disabled': { color: '#D1D5DB' } }}><DeleteIcon fontSize="small" /></IconButton>
         </div>
       ),
     },
@@ -221,7 +261,7 @@ const AppointmentsPage: React.FC = () => {
       </Dialog>
 
       <ConfirmDialog open={!!deleteTarget} title="Hủy lịch hẹn" message={`Bạn có chắc muốn hủy lịch hẹn của "${deleteTarget?.customerName}"?`} confirmLabel="Hủy lịch" severity="error"
-        onConfirm={() => { setAppointments(prev => prev.filter(a => a.appointmentId !== deleteTarget!.appointmentId)); toast.success('Đã hủy lịch hẹn'); setDeleteTarget(null); }}
+        onConfirm={confirmCancel}
         onCancel={() => setDeleteTarget(null)} />
     </div>
   );

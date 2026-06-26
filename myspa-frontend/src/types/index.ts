@@ -13,9 +13,13 @@ export enum Gender {
 export enum StatusOfAppointment {
   PENDING = 'PENDING',
   CONFIRMED = 'CONFIRMED',
+  CHECKED_IN = 'CHECKED_IN',
+  WAITING = 'WAITING',
   IN_PROGRESS = 'IN_PROGRESS',
   COMPLETED = 'COMPLETED',
   CANCELLED = 'CANCELLED',
+  NO_SHOW = 'NO_SHOW',
+  RESCHEDULED = 'RESCHEDULED',
 }
 
 export enum StatusOfEmployee {
@@ -49,6 +53,8 @@ export enum TypeOfOrder {
 export enum ConversionType {
   TO_SERVICE = 'TO_SERVICE',
   TO_PRODUCT = 'TO_PRODUCT',
+  TO_DISCOUNT = 'TO_DISCOUNT',
+  TO_PACKAGE = 'TO_PACKAGE',
 }
 
 // ===== API Response Wrapper =====
@@ -243,7 +249,10 @@ export interface CustomerTreatment {
   customerId: string;
   packageId: string;
   customerName: string;
+  customerPhone?: string;
   packageName: string;
+  totalSessions?: number;
+  packagePrice?: number;
   remainingSessions: number;
   purchaseDate: string;
   expiryDate: string;
@@ -311,11 +320,17 @@ export interface OrderFormData {
 export interface Product {
   productId: string;
   name: string;
+  sku?: string;
   price: number;
+  costPrice?: number;
   brand: string;
   stockQuantity: number;
+  minStockLevel?: number;
+  unit?: string;
+  barcode?: string;
   description: string;
   image?: string;
+  active?: boolean;
   categoryId?: string;
   categoryName?: string;
   employeeId?: string;
@@ -324,9 +339,14 @@ export interface Product {
 export interface ProductFormData {
   productId?: string;
   name: string;
+  sku?: string;
   price: number;
+  costPrice?: number;
   brand: string;
   stockQuantity: number;
+  minStockLevel?: number;
+  unit?: string;
+  barcode?: string;
   description: string;
   image?: string;
   categoryId?: string;
@@ -359,6 +379,9 @@ export interface Promotion {
   isActive: boolean;
   createAt?: string;
   type: 'AMOUNT' | 'PERCENT';
+  applyScope?: 'ORDER' | 'ITEM';
+  targetType?: 'PRODUCT' | 'SERVICE' | 'PACKAGE' | '';
+  targetId?: string;
 }
 
 export interface AmountPromotion extends Promotion {
@@ -381,6 +404,9 @@ export interface AmountPromotionFormData {
   quantity: number;
   isActive: boolean;
   discount: number;
+  applyScope?: 'ORDER' | 'ITEM';
+  targetType?: 'PRODUCT' | 'SERVICE' | 'PACKAGE' | '';
+  targetId?: string;
 }
 
 export interface PercentPromotionFormData {
@@ -393,6 +419,9 @@ export interface PercentPromotionFormData {
   isActive: boolean;
   percent: number;
   maxDiscount: number;
+  applyScope?: 'ORDER' | 'ITEM';
+  targetType?: 'PRODUCT' | 'SERVICE' | 'PACKAGE' | '';
+  targetId?: string;
 }
 
 // ===== Salary =====

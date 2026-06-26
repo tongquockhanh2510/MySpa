@@ -2,7 +2,7 @@ package fit.quanlyspa.controller;
 
 import fit.quanlyspa.dto.request.appointment.AppointmentRequest;
 import fit.quanlyspa.dto.response.ApiResponse;
-import fit.quanlyspa.entity.Appointment;
+import fit.quanlyspa.dto.response.appointment.AppointmentResponse;
 import fit.quanlyspa.enums.StatusOfAppointment;
 import fit.quanlyspa.service.AppointmentService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -44,53 +44,53 @@ public class AppointmentController {
     @GetMapping("/{id}")
     @Operation(summary = "Chi tiết lịch hẹn")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'RECEPTIONIST', 'THERAPIST')")
-    public ResponseEntity<ApiResponse<Appointment>> getById(@PathVariable String id) {
+    public ResponseEntity<ApiResponse<AppointmentResponse>> getById(@PathVariable String id) {
         return ResponseEntity.ok(ApiResponse.success(appointmentService.getById(id)));
     }
 
     @PostMapping
     @Operation(summary = "Đặt lịch hẹn mới")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'RECEPTIONIST')")
-    public ResponseEntity<ApiResponse<Appointment>> create(
+    public ResponseEntity<ApiResponse<AppointmentResponse>> create(
             @Valid @RequestBody AppointmentRequest request,
             @AuthenticationPrincipal UserDetails userDetails
     ) {
-        Appointment apt = appointmentService.create(request, userDetails.getUsername());
+        AppointmentResponse apt = appointmentService.create(request, userDetails.getUsername());
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(apt, "Đặt lịch hẹn thành công"));
     }
 
     @PatchMapping("/{id}/confirm")
     @Operation(summary = "Xác nhận lịch hẹn")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'RECEPTIONIST')")
-    public ResponseEntity<ApiResponse<Appointment>> confirm(@PathVariable String id) {
+    public ResponseEntity<ApiResponse<AppointmentResponse>> confirm(@PathVariable String id) {
         return ResponseEntity.ok(ApiResponse.success(appointmentService.confirm(id), "Đã xác nhận lịch hẹn"));
     }
 
     @PatchMapping("/{id}/checkin")
     @Operation(summary = "Check-in khách hàng")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'RECEPTIONIST')")
-    public ResponseEntity<ApiResponse<Appointment>> checkIn(@PathVariable String id) {
+    public ResponseEntity<ApiResponse<AppointmentResponse>> checkIn(@PathVariable String id) {
         return ResponseEntity.ok(ApiResponse.success(appointmentService.checkIn(id), "Check-in thành công"));
     }
 
     @PatchMapping("/{id}/start")
     @Operation(summary = "Bắt đầu điều trị")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'THERAPIST')")
-    public ResponseEntity<ApiResponse<Appointment>> startTreatment(@PathVariable String id) {
+    public ResponseEntity<ApiResponse<AppointmentResponse>> startTreatment(@PathVariable String id) {
         return ResponseEntity.ok(ApiResponse.success(appointmentService.startTreatment(id), "Đã bắt đầu điều trị"));
     }
 
     @PatchMapping("/{id}/complete")
     @Operation(summary = "Hoàn thành lịch hẹn")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'THERAPIST')")
-    public ResponseEntity<ApiResponse<Appointment>> complete(@PathVariable String id) {
+    public ResponseEntity<ApiResponse<AppointmentResponse>> complete(@PathVariable String id) {
         return ResponseEntity.ok(ApiResponse.success(appointmentService.complete(id), "Lịch hẹn đã hoàn thành"));
     }
 
     @PatchMapping("/{id}/cancel")
     @Operation(summary = "Hủy lịch hẹn")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'RECEPTIONIST')")
-    public ResponseEntity<ApiResponse<Appointment>> cancel(
+    public ResponseEntity<ApiResponse<AppointmentResponse>> cancel(
             @PathVariable String id,
             @RequestParam(required = false, defaultValue = "Khách hàng yêu cầu hủy") String reason
     ) {
@@ -100,14 +100,14 @@ public class AppointmentController {
     @PatchMapping("/{id}/no-show")
     @Operation(summary = "Đánh dấu không đến")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'RECEPTIONIST')")
-    public ResponseEntity<ApiResponse<Appointment>> markNoShow(@PathVariable String id) {
+    public ResponseEntity<ApiResponse<AppointmentResponse>> markNoShow(@PathVariable String id) {
         return ResponseEntity.ok(ApiResponse.success(appointmentService.markNoShow(id), "Đã đánh dấu vắng mặt"));
     }
 
     @PatchMapping("/{id}/reschedule")
     @Operation(summary = "Dời lịch hẹn")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'RECEPTIONIST')")
-    public ResponseEntity<ApiResponse<Appointment>> reschedule(
+    public ResponseEntity<ApiResponse<AppointmentResponse>> reschedule(
             @PathVariable String id,
             @RequestParam LocalDateTime newDateTime
     ) {

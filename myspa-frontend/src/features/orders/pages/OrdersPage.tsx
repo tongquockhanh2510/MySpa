@@ -22,6 +22,8 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import AddShoppingCartIcon from '@mui/icons-material/AddShoppingCart';
 import PaymentIcon from '@mui/icons-material/Payment';
 
+const DEFAULT_PRODUCT_IMAGE = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="72" height="72" viewBox="0 0 72 72"><rect width="72" height="72" rx="10" fill="%23F3F4F6"/><path d="M17 49l11-14 9 10 6-8 12 12H17z" fill="%23D97706"/><circle cx="47" cy="24" r="6" fill="%23F59E0B"/></svg>';
+
 const OrdersPage: React.FC = () => {
   // Navigation / Views
   const [view, setView] = useState<'list' | 'create'>('list');
@@ -50,6 +52,7 @@ const OrdersPage: React.FC = () => {
   const [employees, setEmployees] = useState<any[]>([]);
   const [rooms, setRooms] = useState<any[]>([]);
   const [catalogTab, setCatalogTab] = useState(0);
+  const [barcodeInput, setBarcodeInput] = useState('');
 
   // Cart
   const [cart, setCart] = useState<any[]>([]);
@@ -107,6 +110,9 @@ const OrdersPage: React.FC = () => {
         itemId: item.serviceId || item.productId || item.treatmentPackageId,
         name: item.name || item.packageName,
         price: item.price || item.packagePrice,
+        image: item.image,
+        barcode: item.barcode,
+        sku: item.sku,
         quantity: 1,
         therapistId: '',
         roomId: '',
@@ -116,12 +122,30 @@ const OrdersPage: React.FC = () => {
     toast.success(`Đã thêm ${item.name || item.packageName} vào giỏ hàng`);
   };
 
+  const addProductByBarcode = () => {
+    const code = barcodeInput.trim();
+    if (!code) return;
+    const product = products.find(p => p.barcode === code || p.sku === code);
+    if (!product) {
+      toast.error('Không tìm thấy sản phẩm theo mã vạch/SKU');
+      return;
+    }
+    addToCart(product, 'PRODUCT');
+    setBarcodeInput('');
+  };
+
   const removeFromCart = (index: number) => {
     setCart(cart.filter((_, i) => i !== index));
   };
 
   const updateCartItem = (index: number, fields: any) => {
     setCart(cart.map((item, i) => i === index ? { ...item, ...fields } : item));
+  };
+
+  const getCurrentDateTimeLocal = () => {
+    const now = new Date();
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    return now.toISOString().slice(0, 16);
   };
 
   // Submit Order
@@ -159,7 +183,7 @@ const OrdersPage: React.FC = () => {
     }
 
     if (voucherCode) payload.voucherCode = voucherCode;
-    if (promoId) payload.promoId = promoId;
+    if (promoId) payload.promotionId = promoId;
 
     try {
       const created = await createOrder(payload);
@@ -322,16 +346,36 @@ const OrdersPage: React.FC = () => {
                   )}
 
                   {catalogTab === 1 && (
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                      {products.map(p => (
-                        <div key={p.productId} style={{ border: '1px solid var(--border-color)', borderRadius: 8, padding: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <div>
-                            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>{p.name}</Typography>
-                            <Typography variant="body2" color="primary" sx={{ fontWeight: 600 }}>{formatCurrency(p.price)}</Typography>
+                    <div>
+                      <TextField
+                        label="Quét/nhập mã vạch hoặc SKU"
+                        size="small"
+                        fullWidth
+                        value={barcodeInput}
+                        onChange={e => setBarcodeInput(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            addProductByBarcode();
+                          }
+                        }}
+                        sx={{ mb: 2, '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
+                      />
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                        {products.map(p => (
+                          <div key={p.productId} style={{ border: '1px solid var(--border-color)', borderRadius: 8, padding: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                              <img src={p.image || DEFAULT_PRODUCT_IMAGE} alt="" style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border-color)', flexShrink: 0 }} />
+                              <div style={{ minWidth: 0 }}>
+                                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>{p.name}</Typography>
+                                <Typography variant="caption" color="text.secondary">{p.barcode || p.sku || 'Chưa có mã vạch'}</Typography>
+                                <Typography variant="body2" color="primary" sx={{ fontWeight: 600 }}>{formatCurrency(p.price)}</Typography>
+                              </div>
+                            </div>
+                            <IconButton onClick={() => addToCart(p, 'PRODUCT')} sx={{ color: 'var(--primary)', flexShrink: 0 }}><AddShoppingCartIcon fontSize="small" /></IconButton>
                           </div>
-                          <IconButton onClick={() => addToCart(p, 'PRODUCT')} sx={{ color: 'var(--primary)' }}><AddShoppingCartIcon fontSize="small" /></IconButton>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
                     </div>
                   )}
 
@@ -365,9 +409,12 @@ const OrdersPage: React.FC = () => {
                       {cart.map((item, idx) => (
                         <Box key={idx} sx={{ borderBottom: '1px solid var(--border-color)', pb: 1.5 }}>
                           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                            <div>
-                              <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>{item.name}</Typography>
-                              <Typography variant="caption" color="text.secondary">{item.itemType} - {formatCurrency(item.price)}</Typography>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                              {item.itemType === 'PRODUCT' && <img src={item.image || DEFAULT_PRODUCT_IMAGE} alt="" style={{ width: 42, height: 42, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border-color)' }} />}
+                              <div>
+                                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>{item.name}</Typography>
+                                <Typography variant="caption" color="text.secondary">{item.itemType} - {item.barcode || item.sku ? `${item.barcode || item.sku} - ` : ''}{formatCurrency(item.price)}</Typography>
+                              </div>
                             </div>
                             <IconButton size="small" onClick={() => removeFromCart(idx)} sx={{ color: '#EF4444' }}><DeleteIcon fontSize="small" /></IconButton>
                           </Box>
@@ -389,8 +436,14 @@ const OrdersPage: React.FC = () => {
                                   </Select>
                                 </FormControl>
                               </div>
-                              <TextField label="Ngày giờ phục vụ" type="datetime-local" size="small" fullWidth slotProps={{ inputLabel: { shrink: true } }}
-                                value={item.scheduledDateTime} onChange={e => updateCartItem(idx, { scheduledDateTime: e.target.value })} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
+                              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                <TextField label="Ngày giờ phục vụ" type="datetime-local" size="small" fullWidth slotProps={{ inputLabel: { shrink: true } }}
+                                  value={item.scheduledDateTime} onChange={e => updateCartItem(idx, { scheduledDateTime: e.target.value })} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
+                                <Button variant="outlined" size="small" onClick={() => updateCartItem(idx, { scheduledDateTime: getCurrentDateTimeLocal() })}
+                                  sx={{ borderRadius: 2, textTransform: 'none', minWidth: 86, height: 40 }}>
+                                  Hiện tại
+                                </Button>
+                              </div>
                             </div>
                           )}
                         </Box>

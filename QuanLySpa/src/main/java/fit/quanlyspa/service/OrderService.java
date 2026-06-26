@@ -134,7 +134,8 @@ public class OrderService {
         if (request.getPromotionId() != null && !request.getPromotionId().isBlank()) {
             Promotion promotion = promotionRepository.findById(request.getPromotionId())
                     .orElseThrow(() -> new AppException(ErrorCode.PROMOTION_NOT_FOUND));
-            promoDiscount = calculatePromoDiscount(subtotal, promotion);
+            BigDecimal promotionBase = calculatePromotionBase(orderItems, subtotal, promotion);
+            promoDiscount = calculatePromoDiscount(promotionBase, promotion);
             order.setPromoDiscount(promoDiscount);
         }
 
@@ -467,6 +468,30 @@ public class OrderService {
             return BigDecimal.valueOf(ap.getDiscount());
         }
         return BigDecimal.ZERO;
+    }
+
+    private BigDecimal calculatePromotionBase(Set<OrderItem> orderItems, BigDecimal subtotal, Promotion promotion) {
+        if (!"ITEM".equalsIgnoreCase(promotion.getApplyScope())) {
+            return subtotal;
+        }
+        String targetType = promotion.getTargetType();
+        String targetId = promotion.getTargetId();
+        if (targetType == null || targetId == null || targetType.isBlank() || targetId.isBlank()) {
+            return BigDecimal.ZERO;
+        }
+        return orderItems.stream()
+                .filter(item -> promotionMatchesItem(item, targetType, targetId))
+                .map(OrderItem::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private boolean promotionMatchesItem(OrderItem item, String targetType, String targetId) {
+        return switch (targetType.toUpperCase()) {
+            case "PRODUCT" -> item.getProduct() != null && targetId.equals(item.getProduct().getProductId());
+            case "SERVICE" -> item.getService() != null && targetId.equals(item.getService().getServiceId());
+            case "PACKAGE" -> item.getTreatmentPackage() != null && targetId.equals(item.getTreatmentPackage().getTreatmentPackageId());
+            default -> false;
+        };
     }
 
     private BigDecimal calculateVoucherDiscount(BigDecimal amountAfterPromo, Voucher voucher) {

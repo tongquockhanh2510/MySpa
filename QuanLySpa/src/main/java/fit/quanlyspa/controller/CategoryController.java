@@ -1,6 +1,7 @@
 package fit.quanlyspa.controller;
 
 import fit.quanlyspa.dto.response.ApiResponse;
+import fit.quanlyspa.dto.response.catalog.CategoryResponse;
 import fit.quanlyspa.entity.Category;
 import fit.quanlyspa.repository.CategoryRepository;
 import io.swagger.v3.oas.annotations.Operation;
@@ -17,15 +18,26 @@ import java.util.List;
 @RestController
 @RequestMapping("/categories")
 @RequiredArgsConstructor
-@Tag(name = "Categories", description = "API quản lý danh mục")
+@Tag(name = "Categories", description = "Category management APIs")
 public class CategoryController {
 
     private final CategoryRepository categoryRepository;
 
     @GetMapping
-    @Operation(summary = "Danh sách tất cả danh mục")
+    @Operation(summary = "List categories")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'RECEPTIONIST', 'THERAPIST')")
-    public ResponseEntity<ApiResponse<List<Category>>> getAll() {
-        return ResponseEntity.ok(ApiResponse.success(categoryRepository.findAll()));
+    public ResponseEntity<ApiResponse<List<CategoryResponse>>> getAll() {
+        List<CategoryResponse> response = categoryRepository.findAll().stream()
+                .map(this::toResponse)
+                .toList();
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    private CategoryResponse toResponse(Category category) {
+        return CategoryResponse.builder()
+                .categoryId(category.getCategoryId())
+                .name(category.getName())
+                .productCount(category.getProducts() == null ? 0 : category.getProducts().size())
+                .build();
     }
 }

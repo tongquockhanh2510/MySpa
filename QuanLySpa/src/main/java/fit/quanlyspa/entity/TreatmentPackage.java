@@ -29,6 +29,7 @@ public class TreatmentPackage {
     String description;
 
     @Column(name = "status_of_package")
+    @Enumerated(EnumType.STRING)
     StatusOfPakage statusOfPakage;
     @ManyToOne
     @JoinColumn(name = "employee_id")

@@ -27,6 +27,13 @@ public class PackageConversion {
     @Column(name = "conversion_date")
     LocalDate conversionDate;
     String note;
+
+    @Column(name = "target_product_id")
+    String targetProductId;
+
+    @Column(name = "target_package_id")
+    String targetPackageId;
+
     @OneToOne(mappedBy = "packageConversion")
     CustomerTreatment  customerTreatment;
 }

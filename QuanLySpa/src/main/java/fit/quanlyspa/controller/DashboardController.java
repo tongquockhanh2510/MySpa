@@ -21,7 +21,7 @@ public class DashboardController {
     @GetMapping("/stats")
     @Operation(summary = "Tổng quan KPI", description = "Lấy tất cả chỉ số hiệu suất chính")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
-    public ResponseEntity<ApiResponse<DashboardStatsResponse>> getStats() {
-        return ResponseEntity.ok(ApiResponse.success(dashboardService.getStats()));
+    public ResponseEntity<ApiResponse<DashboardStatsResponse>> getStats(@RequestParam(required = false) Integer year) {
+        return ResponseEntity.ok(ApiResponse.success(dashboardService.getStats(year)));
     }
 }

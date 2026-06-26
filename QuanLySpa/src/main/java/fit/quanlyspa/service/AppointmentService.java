@@ -3,6 +3,7 @@ package fit.quanlyspa.service;
 import fit.quanlyspa.dto.request.appointment.AppointmentDetailRequest;
 import fit.quanlyspa.dto.request.appointment.AppointmentRequest;
 import fit.quanlyspa.dto.response.PagedResponse;
+import fit.quanlyspa.dto.response.appointment.AppointmentResponse;
 import fit.quanlyspa.entity.*;
 import fit.quanlyspa.enums.StatusOfAppointment;
 import fit.quanlyspa.enums.StatusOfEmployee;
@@ -47,7 +48,7 @@ public class AppointmentService {
 
     // ===== CREATE APPOINTMENT =====
     @Transactional
-    public Appointment create(AppointmentRequest request, String createdBy) {
+    public AppointmentResponse create(AppointmentRequest request, String createdBy) {
 
         // Business Rule: Appointment must be at least 30 minutes in the future
         if (request.getDateTime().isBefore(LocalDateTime.now().plusMinutes(30))) {
@@ -95,37 +96,37 @@ public class AppointmentService {
         appointment.setDetails(details);
 
         log.info("Appointment created: {} for customer {}", appointment.getAppointmentId(), customer.getName());
-        return appointment;
+        return toResponse(appointment);
     }
 
     // ===== STATE TRANSITIONS =====
 
     @Transactional
-    public Appointment confirm(String appointmentId) {
+    public AppointmentResponse confirm(String appointmentId) {
         return transition(appointmentId, StatusOfAppointment.CONFIRMED);
     }
 
     @Transactional
-    public Appointment checkIn(String appointmentId) {
-        Appointment appointment = transition(appointmentId, StatusOfAppointment.CHECKED_IN);
+    public AppointmentResponse checkIn(String appointmentId) {
+        Appointment appointment = transitionEntity(appointmentId, StatusOfAppointment.CHECKED_IN);
         appointment.setCheckedInAt(LocalDateTime.now());
-        return appointmentRepository.save(appointment);
+        return toResponse(appointmentRepository.save(appointment));
     }
 
     @Transactional
-    public Appointment startTreatment(String appointmentId) {
+    public AppointmentResponse startTreatment(String appointmentId) {
         return transition(appointmentId, StatusOfAppointment.IN_PROGRESS);
     }
 
     @Transactional
-    public Appointment complete(String appointmentId) {
-        Appointment appointment = transition(appointmentId, StatusOfAppointment.COMPLETED);
+    public AppointmentResponse complete(String appointmentId) {
+        Appointment appointment = transitionEntity(appointmentId, StatusOfAppointment.COMPLETED);
         appointment.setCompletedAt(LocalDateTime.now());
-        return appointmentRepository.save(appointment);
+        return toResponse(appointmentRepository.save(appointment));
     }
 
     @Transactional
-    public Appointment cancel(String appointmentId, String reason) {
+    public AppointmentResponse cancel(String appointmentId, String reason) {
         Appointment appointment = findById(appointmentId);
 
         // Business Rule: Cannot cancel IN_PROGRESS or COMPLETED appointments
@@ -139,16 +140,16 @@ public class AppointmentService {
         appointment.setCancelReason(reason);
         appointment.setCancelledAt(LocalDateTime.now());
         log.info("Appointment {} cancelled: {}", appointmentId, reason);
-        return appointmentRepository.save(appointment);
+        return toResponse(appointmentRepository.save(appointment));
     }
 
     @Transactional
-    public Appointment markNoShow(String appointmentId) {
+    public AppointmentResponse markNoShow(String appointmentId) {
         return transition(appointmentId, StatusOfAppointment.NO_SHOW);
     }
 
     @Transactional
-    public Appointment reschedule(String appointmentId, LocalDateTime newDateTime) {
+    public AppointmentResponse reschedule(String appointmentId, LocalDateTime newDateTime) {
         Appointment appointment = findById(appointmentId);
         validateTransition(appointment.getStatusOfAppointment(), StatusOfAppointment.RESCHEDULED);
 
@@ -173,7 +174,7 @@ public class AppointmentService {
         appointment.setDateTime(newDateTime);
         appointment.setEndTime(newEndTime);
         log.info("Appointment {} rescheduled to {}", appointmentId, newDateTime);
-        return appointmentRepository.save(appointment);
+        return toResponse(appointmentRepository.save(appointment));
     }
 
     // ===== AUTO NO-SHOW JOB (called by scheduler) =====
@@ -192,13 +193,15 @@ public class AppointmentService {
 
     // ===== READ =====
     @Transactional(readOnly = true)
-    public Appointment getById(String id) {
-        return findById(id);
+    public AppointmentResponse getById(String id) {
+        return toResponse(findById(id));
     }
 
     @Transactional(readOnly = true)
-    public PagedResponse<Appointment> getAll(String search, StatusOfAppointment status, Pageable pageable) {
-        return PagedResponse.from(appointmentRepository.searchAppointments(search, status, pageable));
+    public PagedResponse<AppointmentResponse> getAll(String search, StatusOfAppointment status, Pageable pageable) {
+        var page = appointmentRepository.searchAppointments(search, status, pageable)
+                .map(this::toResponse);
+        return PagedResponse.from(page);
     }
 
     // ===== HELPERS =====
@@ -207,7 +210,11 @@ public class AppointmentService {
                 .orElseThrow(() -> new AppException(ErrorCode.APPOINTMENT_NOT_FOUND));
     }
 
-    private Appointment transition(String appointmentId, StatusOfAppointment newStatus) {
+    private AppointmentResponse transition(String appointmentId, StatusOfAppointment newStatus) {
+        return toResponse(transitionEntity(appointmentId, newStatus));
+    }
+
+    private Appointment transitionEntity(String appointmentId, StatusOfAppointment newStatus) {
         Appointment appointment = findById(appointmentId);
         validateTransition(appointment.getStatusOfAppointment(), newStatus);
         appointment.setStatusOfAppointment(newStatus);
@@ -274,5 +281,36 @@ public class AppointmentService {
             slotStart = slotEnd; // Sequential services
         }
         return result;
+    }
+
+    private AppointmentResponse toResponse(Appointment appointment) {
+        List<AppointmentResponse.AppointmentDetailResponse> details = appointment.getDetails() == null
+                ? List.of()
+                : appointment.getDetails().stream()
+                .map(detail -> AppointmentResponse.AppointmentDetailResponse.builder()
+                        .appointmentId(appointment.getAppointmentId())
+                        .serviceId(detail.getService() != null ? detail.getService().getServiceId() : null)
+                        .employeeId(detail.getEmployee() != null ? detail.getEmployee().getEmployeeId() : null)
+                        .serviceName(detail.getService() != null ? detail.getService().getName() : "")
+                        .employeeName(detail.getEmployee() != null ? detail.getEmployee().getName() : "")
+                        .price(detail.getPrice())
+                        .build())
+                .toList();
+
+        return AppointmentResponse.builder()
+                .appointmentId(appointment.getAppointmentId())
+                .statusOfAppointment(appointment.getStatusOfAppointment())
+                .dateTime(appointment.getDateTime())
+                .endTime(appointment.getEndTime())
+                .note(appointment.getNote())
+                .cancelReason(appointment.getCancelReason())
+                .cancelledAt(appointment.getCancelledAt())
+                .customerId(appointment.getCustomer() != null ? appointment.getCustomer().getCustomerId() : null)
+                .customerName(appointment.getCustomer() != null ? appointment.getCustomer().getName() : "")
+                .customerPhone(appointment.getCustomer() != null ? appointment.getCustomer().getPhone() : "")
+                .roomId(appointment.getRoom() != null ? appointment.getRoom().getRoomId() : null)
+                .roomName(appointment.getRoom() != null ? appointment.getRoom().getRoomName() : null)
+                .details(details)
+                .build();
     }
 }

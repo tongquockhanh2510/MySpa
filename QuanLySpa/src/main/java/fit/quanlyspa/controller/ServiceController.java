@@ -1,6 +1,8 @@
 package fit.quanlyspa.controller;
 
 import fit.quanlyspa.dto.response.ApiResponse;
+import fit.quanlyspa.dto.response.catalog.ServiceResponse;
+import fit.quanlyspa.entity.Category;
 import fit.quanlyspa.entity.Service;
 import fit.quanlyspa.repository.ServiceRepository;
 import io.swagger.v3.oas.annotations.Operation;
@@ -17,15 +19,38 @@ import java.util.List;
 @RestController
 @RequestMapping("/services")
 @RequiredArgsConstructor
-@Tag(name = "Services", description = "API quản lý dịch vụ")
+@Tag(name = "Services", description = "Service management APIs")
 public class ServiceController {
 
     private final ServiceRepository serviceRepository;
 
     @GetMapping
-    @Operation(summary = "Danh sách tất cả dịch vụ")
+    @Operation(summary = "List active services")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'RECEPTIONIST', 'THERAPIST')")
-    public ResponseEntity<ApiResponse<List<Service>>> getAll() {
-        return ResponseEntity.ok(ApiResponse.success(serviceRepository.findAll()));
+    public ResponseEntity<ApiResponse<List<ServiceResponse>>> getAll() {
+        List<ServiceResponse> response = serviceRepository.findAll().stream()
+                .map(this::toResponse)
+                .toList();
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    private ServiceResponse toResponse(Service service) {
+        Category category = service.getCategory();
+        return ServiceResponse.builder()
+                .serviceId(service.getServiceId())
+                .name(service.getName())
+                .price(service.getPrice())
+                .duration(service.getDuration())
+                .description(service.getDescription())
+                .image(service.getImageUrl())
+                .statusOfService(service.getStatusOfService())
+                .commissionRate(service.getCommissionRate())
+                .minBookingNotice(service.getMinBookingNotice())
+                .maxDailyBookings(service.getMaxDailyBookings())
+                .categoryId(category != null ? category.getCategoryId() : null)
+                .categoryName(category != null ? category.getName() : null)
+                .createdAt(service.getCreatedAt())
+                .updatedAt(service.getUpdatedAt())
+                .build();
     }
 }

@@ -57,6 +57,9 @@ server:
   servlet:
     context-path: /api/v1
 
+app:
+  upload-dir: uploads
+
 jwt:
   signer-key: "wDhbSSpxZfV5HKciZOEUlvBExqAuzHmHhLDAuO6PALLAqTP163lNPxLYsUxs3UUI"
   access-token-expiration: 86400000    # 24 hours in ms

@@ -24,9 +24,25 @@ type StatusType =
 const appointmentColors: Record<string, { bg: string; color: string }> = {
   PENDING: { bg: '#FEF3C7', color: '#D97706' },
   CONFIRMED: { bg: '#DBEAFE', color: '#2563EB' },
+  CHECKED_IN: { bg: '#CCFBF1', color: '#0F766E' },
+  WAITING: { bg: '#FDE68A', color: '#B45309' },
   IN_PROGRESS: { bg: '#EDE9FE', color: '#7C3AED' },
   COMPLETED: { bg: '#D1FAE5', color: '#059669' },
   CANCELLED: { bg: '#FEE2E2', color: '#DC2626' },
+  NO_SHOW: { bg: '#F3F4F6', color: '#4B5563' },
+  RESCHEDULED: { bg: '#E0E7FF', color: '#4338CA' },
+};
+
+const appointmentLabels: Record<string, string> = {
+  PENDING: 'Chờ xác nhận',
+  CONFIRMED: 'Đã xác nhận',
+  CHECKED_IN: 'Đã check-in',
+  WAITING: 'Đang chờ',
+  IN_PROGRESS: 'Đang thực hiện',
+  COMPLETED: 'Hoàn thành',
+  CANCELLED: 'Đã hủy',
+  NO_SHOW: 'Không đến',
+  RESCHEDULED: 'Đã dời lịch',
 };
 
 const employeeColors: Record<string, { bg: string; color: string }> = {
@@ -58,7 +74,7 @@ const StatusChip: React.FC<StatusChipProps> = ({ status, type, size = 'small' })
 
   switch (type) {
     case 'appointment':
-      label = getAppointmentStatusLabel(status);
+      label = appointmentLabels[status] ?? getAppointmentStatusLabel(status);
       style = appointmentColors[status] ?? style;
       break;
     case 'employee':

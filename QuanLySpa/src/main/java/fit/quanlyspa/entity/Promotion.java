@@ -44,6 +44,15 @@ public abstract class Promotion {
     @Column(name = "is_active")
     Boolean isActive = true;
 
+    @Column(name = "apply_scope")
+    String applyScope = "ORDER";
+
+    @Column(name = "target_type")
+    String targetType;
+
+    @Column(name = "target_id")
+    String targetId;
+
     @CreationTimestamp
     @Column(name = "create_at", updatable = false)
     LocalDateTime createAt;
