@@ -60,6 +60,8 @@ public class TreatmentSessionService {
                 .build();
 
         session = treatmentSessionRepository.save(session);
+        schedule.setStatus(TreatmentScheduleStatus.IN_PROGRESS);
+        treatmentScheduleRepository.save(schedule);
         log.info("Started treatment session {} for schedule {}", session.getSessionId(), scheduleId);
 
         return toResponse(session);

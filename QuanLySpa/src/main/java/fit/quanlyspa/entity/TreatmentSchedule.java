@@ -46,7 +46,7 @@ public class TreatmentSchedule {
     Room room;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false)
+    @Column(name = "status", nullable = false, length = 20, columnDefinition = "VARCHAR(20)")
     @Builder.Default
     TreatmentScheduleStatus status = TreatmentScheduleStatus.SCHEDULED;
 

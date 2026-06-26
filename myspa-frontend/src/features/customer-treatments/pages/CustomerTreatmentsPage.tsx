@@ -11,7 +11,7 @@ import { formatDate } from '@utils/formatters';
 
 // API imports
 import { getCustomerTreatments } from '@/api/customerTreatments';
-import { getCustomerSchedules, rescheduleTreatment, checkInSession, completeSession } from '@/api/treatment';
+import { getCustomerSchedules, rescheduleTreatment, checkInSession, completeSession, getSessionHistoryBySchedule } from '@/api/treatment';
 import { getEmployees, getRooms } from '@/api/catalog';
 
 // Icons
@@ -78,7 +78,7 @@ const CustomerTreatmentsPage: React.FC = () => {
 
   const handleOpenDetail = (row: any) => {
     setSelectedPkg(row);
-    loadSchedules(row.customer?.customerId);
+    loadSchedules(row.customerId);
     setDetailOpen(true);
   };
 
@@ -88,10 +88,25 @@ const CustomerTreatmentsPage: React.FC = () => {
       const session = await checkInSession(schedule.scheduleId, schedule.therapistId);
       toast.success(`Check-in thành công cho buổi ${schedule.sessionNumber}`);
       setActiveSession(session);
-      loadSchedules(selectedPkg.customer?.customerId);
+      loadSchedules(selectedPkg.customerId);
       setCompleteOpen(true); // Open completion dialog directly
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Lỗi check-in');
+    }
+  };
+
+  const handleOpenComplete = async (schedule: any) => {
+    try {
+      const sessions = await getSessionHistoryBySchedule(schedule.scheduleId);
+      const running = sessions.find((session: any) => !session.endTime);
+      if (!running) {
+        toast.error('Không tìm thấy phiên trị liệu đang thực hiện');
+        return;
+      }
+      setActiveSession(running);
+      setCompleteOpen(true);
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Lỗi tải phiên trị liệu');
     }
   };
 
@@ -106,7 +121,7 @@ const CustomerTreatmentsPage: React.FC = () => {
       });
       toast.success('Đổi lịch thành công');
       setRescheduleOpen(false);
-      loadSchedules(selectedPkg.customer?.customerId);
+      loadSchedules(selectedPkg.customerId);
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Lỗi đổi lịch');
     }
@@ -128,7 +143,7 @@ const CustomerTreatmentsPage: React.FC = () => {
       setResult('');
       setBeforeImages('');
       setAfterImages('');
-      loadSchedules(selectedPkg.customer?.customerId);
+      loadSchedules(selectedPkg.customerId);
       loadTreatments(); // Refresh package remaining sessions
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Lỗi hoàn thành');
@@ -136,13 +151,13 @@ const CustomerTreatmentsPage: React.FC = () => {
   };
 
   const columns: GridColDef[] = [
-    { field: 'customerId', headerName: 'Mã KH', width: 220, valueGetter: (_, row) => row.customer?.customerId || '' },
-    { field: 'customerName', headerName: 'Khách hàng', flex: 1, minWidth: 160, valueGetter: (_, row) => row.customer?.name || '' },
-    { field: 'packageName', headerName: 'Tên gói liệu trình', flex: 1, minWidth: 200, valueGetter: (_, row) => row.treatmentPackage?.packageName || '' },
+    { field: 'customerId', headerName: 'Mã KH', width: 220 },
+    { field: 'customerName', headerName: 'Khách hàng', flex: 1, minWidth: 160 },
+    { field: 'packageName', headerName: 'Tên gói liệu trình', flex: 1, minWidth: 200 },
     {
       field: 'remainingSessions', headerName: 'Tiến độ buổi', width: 220,
       renderCell: ({ row }) => {
-        const total = row.treatmentPackage?.totalSessions || 10;
+        const total = row.totalSessions || 10;
         const remaining = row.remainingSessions;
         const used = total - remaining;
         const pct = Math.max(0, Math.min(100, (used / total) * 100));
@@ -172,20 +187,20 @@ const CustomerTreatmentsPage: React.FC = () => {
     <div className="animate-fadeIn">
       <PageHeader title="Liệu trình & Trị liệu khách hàng" subtitle={`${treatments.length} liệu trình của khách`} />
       <div style={{ background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-card)', overflow: 'hidden' }}>
-        <DataGrid rows={treatments} columns={columns} getRowId={r => `${r.customer?.customerId}-${r.treatmentPackage?.treatmentPackageId}`}
+        <DataGrid rows={treatments} columns={columns} getRowId={r => `${r.customerId}-${r.packageId}`}
           initialState={{ pagination: { paginationModel: { pageSize: 10 } } }} pageSizeOptions={[10, 20]} autoHeight disableRowSelectionOnClick
           sx={{ border: 'none', '& .MuiDataGrid-columnHeaders': { background: 'var(--bg-tertiary)' } }} />
       </div>
 
       {/* Package Detail Dialog with Schedules */}
       <Dialog open={detailOpen} onClose={() => setDetailOpen(false)} slotProps={{ paper: { sx: { borderRadius: '16px', minWidth: 700, background: 'var(--bg-secondary)' } } }}>
-        <DialogTitle sx={{ fontWeight: 700, fontSize: 17, pb: 0 }}>Lịch trình liệu trình: {selectedPkg?.treatmentPackage?.packageName}</DialogTitle>
+        <DialogTitle sx={{ fontWeight: 700, fontSize: 17, pb: 0 }}>Lịch trình liệu trình: {selectedPkg?.packageName}</DialogTitle>
         <DialogContent sx={{ pt: '16px !important' }}>
           {selectedPkg && (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
-                <Typography variant="body2">Khách hàng: <strong>{selectedPkg.customer?.name}</strong></Typography>
-                <Typography variant="body2">Điện thoại: <strong>{selectedPkg.customer?.phone}</strong></Typography>
+                <Typography variant="body2">Khách hàng: <strong>{selectedPkg.customerName}</strong></Typography>
+                <Typography variant="body2">Điện thoại: <strong>{selectedPkg.customerPhone}</strong></Typography>
                 <Typography variant="body2">Hạn sử dụng: <strong>{formatDate(selectedPkg.expiryDate)}</strong></Typography>
                 <Typography variant="body2">Số buổi còn lại: <strong>{selectedPkg.remainingSessions}</strong></Typography>
               </Box>
@@ -204,9 +219,14 @@ const CustomerTreatmentsPage: React.FC = () => {
                           </Typography>
                         </div>
                         <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                          <Chip label={sch.status} size="small" color={sch.status === 'COMPLETED' ? 'success' : sch.status === 'RESCHEDULED' ? 'warning' : 'primary'} sx={{ fontWeight: 600, fontSize: 10 }} />
+                          <Chip
+                            label={sch.status === 'SCHEDULED' ? 'Đã lên lịch' : sch.status === 'IN_PROGRESS' ? 'Đang thực hiện' : sch.status === 'COMPLETED' ? 'Hoàn thành' : sch.status === 'RESCHEDULED' ? 'Đã dời lịch' : sch.status}
+                            size="small"
+                            color={sch.status === 'COMPLETED' ? 'success' : sch.status === 'RESCHEDULED' ? 'warning' : sch.status === 'IN_PROGRESS' ? 'secondary' : 'primary'}
+                            sx={{ fontWeight: 600, fontSize: 10 }}
+                          />
                           
-                          {sch.status !== 'COMPLETED' && (
+                          {sch.status !== 'COMPLETED' && sch.status !== 'IN_PROGRESS' && (
                             <>
                               <IconButton size="small" onClick={() => { setSelectedSchedule(sch); setReschedDate(sch.scheduledDate); setReschedTherapist(sch.therapistId || ''); setReschedRoom(sch.roomId || ''); setRescheduleOpen(true); }} sx={{ color: 'var(--primary)' }}><CalendarMonthIcon fontSize="small" /></IconButton>
                               <Button size="small" startIcon={<PlayArrowIcon />} onClick={() => handleCheckIn(sch)} variant="contained"
@@ -214,6 +234,12 @@ const CustomerTreatmentsPage: React.FC = () => {
                                 Check-in
                               </Button>
                             </>
+                          )}
+                          {sch.status === 'IN_PROGRESS' && (
+                            <Button size="small" startIcon={<CheckCircleIcon />} onClick={() => handleOpenComplete(sch)} variant="contained"
+                              sx={{ textTransform: 'none', fontSize: 11, borderRadius: 2, background: '#059669', color: '#fff' }}>
+                              Hoàn thành
+                            </Button>
                           )}
                         </Box>
                       </CardContent>

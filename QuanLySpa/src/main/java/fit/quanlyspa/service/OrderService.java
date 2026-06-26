@@ -338,13 +338,14 @@ public class OrderService {
                 custTreatment.setPurchaseDate(LocalDate.now());
                 custTreatment.setExpiryDate(LocalDate.now().plusDays(365)); // 1 year validity
                 
-                customerTreatmentRepository.save(custTreatment);
+                custTreatment = customerTreatmentRepository.saveAndFlush(custTreatment);
                 log.info("Created Customer Package for customer {} and package {}", customer.getName(), pack.getPackageName());
 
                 // STEP 8: Auto-generate treatment schedules weekly
                 Employee therapist = employeeRepository.findAll().stream().filter(e -> e.getStatusOfEmployee() == StatusOfEmployee.ACTIVE).findFirst().orElse(null);
                 Room room = roomRepository.findAll().stream().filter(r -> r.getStatus() == RoomStatus.AVAILABLE).findFirst().orElse(null);
 
+                List<TreatmentSchedule> schedules = new ArrayList<>();
                 for (int i = 1; i <= pack.getTotalSessions(); i++) {
                     TreatmentSchedule schedule = TreatmentSchedule.builder()
                             .customerTreatment(custTreatment)
@@ -354,8 +355,9 @@ public class OrderService {
                             .room(room)
                             .status(TreatmentScheduleStatus.SCHEDULED)
                             .build();
-                    treatmentScheduleRepository.save(schedule);
+                    schedules.add(schedule);
                 }
+                treatmentScheduleRepository.saveAll(schedules);
                 log.info("Auto-generated {} weekly treatment schedules for customer package", pack.getTotalSessions());
             }
         }
