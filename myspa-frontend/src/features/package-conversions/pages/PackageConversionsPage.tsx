@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { DataGrid } from '@mui/x-data-grid';
 import type { GridColDef } from '@mui/x-data-grid';
-import { Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, FormControl, InputLabel, MenuItem, Select, TextField } from '@mui/material';
+import { Alert, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, FormControl, InputLabel, MenuItem, Select, Skeleton, TextField } from '@mui/material';
 import { Controller, useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import PageHeader from '@components/common/PageHeader';
@@ -11,8 +11,15 @@ import { getCustomerTreatments } from '@/api/customerTreatments';
 import { formatCurrency, formatDate, getConversionTypeLabel } from '@utils/formatters';
 import { ConversionType } from '@/types';
 import type { CustomerTreatment, PackageConversion, Product, TreatmentPackage } from '@/types';
+import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
+import CardGiftcardIcon from '@mui/icons-material/CardGiftcard';
+import DiscountIcon from '@mui/icons-material/Discount';
+import './PackageConversionsPage.css';
 
-const inputSx = { '& .MuiOutlinedInput-root': { borderRadius: '10px', fontSize: 14 }, '& .MuiInputLabel-root': { fontSize: 14 } };
+const inputSx = {
+  '& .MuiOutlinedInput-root': { borderRadius: '10px', fontSize: 14 },
+  '& .MuiInputLabel-root': { fontSize: 14 },
+};
 
 const conversionLabels: Record<ConversionType, string> = {
   [ConversionType.TO_SERVICE]: 'Đổi sang dịch vụ',
@@ -27,6 +34,8 @@ const PackageConversionsPage: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [packages, setPackages] = useState<TreatmentPackage[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const { control, handleSubmit, reset, watch, setValue } = useForm<PackageConversionFormData>({
     defaultValues: { customerId: '', packageId: '', conversionType: ConversionType.TO_DISCOUNT, conversionValue: 0, targetProductId: '', targetPackageId: '', note: '' },
@@ -38,8 +47,18 @@ const PackageConversionsPage: React.FC = () => {
 
   const activeTreatments = useMemo(() => customerTreatments.filter(treatment => treatment.remainingSessions > 0), [customerTreatments]);
   const selectedTreatment = activeTreatments.find(treatment => treatment.customerId === customerId && treatment.packageId === packageId);
+  const uniqueCustomers = activeTreatments.filter((item, index, arr) => arr.findIndex(other => other.customerId === item.customerId) === index);
+  const packagesByCustomer = activeTreatments.filter(treatment => treatment.customerId === customerId);
+
+  const summary = useMemo(() => ({
+    total: conversions.length,
+    value: conversions.reduce((sum, item) => sum + Number(item.conversionValue || 0), 0),
+    eligible: activeTreatments.length,
+  }), [conversions, activeTreatments]);
 
   const loadData = async () => {
+    setLoading(true);
+    setLoadError(null);
     try {
       const [conversionData, treatmentData, productData, packageData] = await Promise.all([
         getPackageConversions(),
@@ -53,7 +72,10 @@ const PackageConversionsPage: React.FC = () => {
       setPackages(packageData);
     } catch (err) {
       console.error(err);
+      setLoadError('Không thể tải dữ liệu chuyển đổi liệu trình.');
       toast.error('Lỗi khi tải dữ liệu chuyển đổi liệu trình');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -65,9 +87,7 @@ const PackageConversionsPage: React.FC = () => {
     if (!selectedTreatment) return;
     const totalSessions = selectedTreatment.totalSessions ?? 0;
     const packagePrice = selectedTreatment.packagePrice ?? 0;
-    const perSessionValue = totalSessions > 0
-      ? packagePrice / totalSessions
-      : 0;
+    const perSessionValue = totalSessions > 0 ? packagePrice / totalSessions : 0;
     setValue('conversionValue', Math.round(perSessionValue * selectedTreatment.remainingSessions));
   }, [selectedTreatment, setValue]);
 
@@ -95,36 +115,56 @@ const PackageConversionsPage: React.FC = () => {
 
   const columns: GridColDef[] = [
     { field: 'conversionId', headerName: 'Mã chuyển đổi', width: 160 },
-    { field: 'customerName', headerName: 'Khách hàng', width: 180 },
-    { field: 'packageName', headerName: 'Gói liệu trình', flex: 1, minWidth: 200 },
+    {
+      field: 'customerName',
+      headerName: 'Khách hàng',
+      width: 190,
+      renderCell: ({ value }) => <span className="conversions-strong-cell">{value}</span>,
+    },
+    { field: 'packageName', headerName: 'Gói liệu trình', flex: 1, minWidth: 220 },
     {
       field: 'conversionType',
       headerName: 'Loại chuyển đổi',
-      width: 220,
+      width: 230,
       renderCell: ({ value }) => {
         const isProduct = value === ConversionType.TO_PRODUCT;
-        return <Chip label={conversionLabels[value as ConversionType] || getConversionTypeLabel(value)} size="small" sx={{ background: isProduct ? '#D1FAE5' : '#DBEAFE', color: isProduct ? '#059669' : '#2563EB', fontWeight: 600, fontSize: 11, borderRadius: 1 }} />;
+        return <Chip label={conversionLabels[value as ConversionType] || getConversionTypeLabel(value)} size="small" className={isProduct ? 'conversions-chip conversions-chip--green' : 'conversions-chip'} />;
       },
     },
-    { field: 'conversionValue', headerName: 'Giá trị', width: 150, renderCell: ({ value }) => <span style={{ fontWeight: 600, color: 'var(--primary)' }}>{formatCurrency(value || 0)}</span> },
+    { field: 'conversionValue', headerName: 'Giá trị', width: 150, renderCell: ({ value }) => <span className="conversions-money">{formatCurrency(value || 0)}</span> },
     { field: 'conversionDate', headerName: 'Ngày chuyển đổi', width: 150, renderCell: ({ value }) => formatDate(value) },
-    { field: 'note', headerName: 'Ghi chú', flex: 1 },
+    { field: 'note', headerName: 'Ghi chú', flex: 1, minWidth: 180 },
   ];
 
-  const uniqueCustomers = activeTreatments.filter((item, index, arr) => arr.findIndex(other => other.customerId === item.customerId) === index);
-  const packagesByCustomer = activeTreatments.filter(treatment => treatment.customerId === customerId);
-
   return (
-    <div className="animate-fadeIn">
+    <main className="conversions-page animate-fadeIn">
       <PageHeader title="Chuyển đổi liệu trình" subtitle={`${conversions.length} lần chuyển đổi`} action={{ label: 'Tạo chuyển đổi', onClick: openCreate }} />
-      <div style={{ background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-card)', overflow: 'hidden' }}>
-        <DataGrid rows={conversions} columns={columns} getRowId={r => r.conversionId} initialState={{ pagination: { paginationModel: { pageSize: 10 } } }} pageSizeOptions={[10, 20]} autoHeight disableRowSelectionOnClick sx={{ border: 'none', '& .MuiDataGrid-columnHeaders': { background: 'var(--bg-tertiary)' } }} />
-      </div>
 
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} slotProps={{ paper: { sx: { borderRadius: '16px', minWidth: 560, background: 'var(--bg-secondary)' } } }}>
-        <DialogTitle sx={{ fontWeight: 700, fontSize: 17, pb: 0 }}>Tạo chuyển đổi liệu trình</DialogTitle>
+      {loadError && <Alert severity="warning" className="conversions-alert">{loadError}</Alert>}
+
+      <section className="conversions-summary" aria-label="Tóm tắt chuyển đổi">
+        <div className="conversions-summary-card"><span><SwapHorizIcon /></span><div><strong>{loading ? '...' : summary.total}</strong><p>Lần chuyển đổi</p></div></div>
+        <div className="conversions-summary-card"><span><DiscountIcon /></span><div><strong>{loading ? '...' : formatCurrency(summary.value)}</strong><p>Giá trị quy đổi</p></div></div>
+        <div className="conversions-summary-card"><span><CardGiftcardIcon /></span><div><strong>{loading ? '...' : summary.eligible}</strong><p>Liệu trình còn buổi</p></div></div>
+      </section>
+
+      <section className="conversions-panel">
+        {loading ? (
+          <div className="conversions-skeleton" aria-busy="true" aria-label="Đang tải chuyển đổi">
+            {Array.from({ length: 7 }).map((_, index) => <Skeleton key={index} variant="rounded" height={48} />)}
+          </div>
+        ) : (
+          <DataGrid rows={conversions} columns={columns} getRowId={row => row.conversionId}
+            initialState={{ pagination: { paginationModel: { pageSize: 10 } } }} pageSizeOptions={[10, 20]} autoHeight disableRowSelectionOnClick
+            sx={{ border: 'none', '& .MuiDataGrid-columnHeaders': { background: 'var(--bg-tertiary)' } }}
+            localeText={{ noRowsLabel: 'Chưa có chuyển đổi liệu trình' }} />
+        )}
+      </section>
+
+      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} slotProps={{ paper: { sx: { borderRadius: '16px', width: 'min(580px, calc(100vw - 32px))', background: 'var(--bg-secondary)' } } }}>
+        <DialogTitle sx={{ fontWeight: 800, fontSize: 17, pb: 0 }}>Tạo chuyển đổi liệu trình</DialogTitle>
         <DialogContent sx={{ pt: '16px !important' }}>
-          <form noValidate style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <form noValidate className="conversions-form">
             <Controller name="customerId" control={control} render={({ field }) => (
               <FormControl fullWidth size="small" sx={inputSx}>
                 <InputLabel>Khách hàng</InputLabel>
@@ -171,16 +211,16 @@ const PackageConversionsPage: React.FC = () => {
                 </FormControl>
               )} />
             )}
-            <Controller name="conversionValue" control={control} render={({ field }) => <TextField {...field} onChange={e => field.onChange(Number(e.target.value))} label="Giá trị quy đổi" type="number" fullWidth size="small" sx={inputSx} />} />
+            <Controller name="conversionValue" control={control} render={({ field }) => <TextField {...field} onChange={event => field.onChange(Number(event.target.value))} label="Giá trị quy đổi" type="number" fullWidth size="small" sx={inputSx} />} />
             <Controller name="note" control={control} render={({ field }) => <TextField {...field} label="Ghi chú" multiline rows={3} fullWidth size="small" sx={inputSx} />} />
           </form>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 3, gap: 1 }}>
           <Button onClick={() => setDialogOpen(false)} sx={{ borderRadius: '10px', textTransform: 'none', border: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}>Hủy</Button>
-          <Button onClick={handleSubmit(onSubmit)} variant="contained" disabled={!customerId || !packageId} sx={{ borderRadius: '10px', textTransform: 'none', fontWeight: 600, background: 'linear-gradient(135deg, #D97706, #F59E0B)' }}>Chuyển đổi</Button>
+          <Button onClick={handleSubmit(onSubmit)} variant="contained" disabled={!customerId || !packageId} sx={{ borderRadius: '10px', textTransform: 'none', fontWeight: 700, background: 'linear-gradient(135deg, #D97706, #F59E0B)' }}>Chuyển đổi</Button>
         </DialogActions>
       </Dialog>
-    </div>
+    </main>
   );
 };
 
