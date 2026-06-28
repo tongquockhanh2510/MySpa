@@ -1,6 +1,6 @@
 package fit.quanlyspa.controller;
 
-import fit.quanlyspa.dto.request.treatment.TreatmentSessionCreateRequest;
+import fit.quanlyspa.dto.request.treatment.TreatmentSessionCompleteRequest;
 import fit.quanlyspa.dto.response.ApiResponse;
 import fit.quanlyspa.dto.response.treatment.TreatmentSessionResponse;
 import fit.quanlyspa.service.TreatmentSessionService;
@@ -38,7 +38,7 @@ public class TreatmentSessionController {
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'THERAPIST')")
     public ResponseEntity<ApiResponse<TreatmentSessionResponse>> completeSession(
             @PathVariable String id,
-            @Valid @RequestBody TreatmentSessionCreateRequest request
+            @Valid @RequestBody TreatmentSessionCompleteRequest request
     ) {
         TreatmentSessionResponse response = treatmentSessionService.completeSession(
                 id, request.getNotes(), request.getBeforeImages(), request.getAfterImages(), request.getResult());
