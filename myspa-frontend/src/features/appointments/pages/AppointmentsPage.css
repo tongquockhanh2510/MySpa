@@ -1,0 +1,283 @@
+.appointments-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.appointments-alert {
+  border-radius: 10px !important;
+  font-family: inherit !important;
+}
+
+.appointments-view-toggle .MuiToggleButton-root {
+  border-radius: 10px !important;
+  color: var(--text-secondary);
+  display: inline-flex;
+  gap: 6px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  min-height: 38px;
+  padding: 7px 12px;
+  text-transform: none;
+}
+
+.appointments-view-toggle .MuiToggleButton-root.Mui-selected {
+  background: var(--primary-50);
+  color: var(--primary);
+}
+
+.appointments-summary {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(4, minmax(160px, 1fr));
+}
+
+.appointments-summary-card {
+  align-items: center;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  display: flex;
+  gap: 12px;
+  min-width: 0;
+  padding: 16px;
+}
+
+.appointments-summary-card > span {
+  align-items: center;
+  border-radius: 12px;
+  display: inline-flex;
+  flex: 0 0 auto;
+  height: 42px;
+  justify-content: center;
+  width: 42px;
+}
+
+.appointments-summary-card strong {
+  color: var(--text-primary);
+  display: block;
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.appointments-summary-card p {
+  color: var(--text-tertiary);
+  font-size: 12.5px;
+  font-weight: 700;
+  margin-top: 2px;
+}
+
+.appointments-summary-card--primary > span {
+  background: var(--primary-50);
+  color: var(--primary);
+}
+
+.appointments-summary-card--info > span {
+  background: var(--info-light);
+  color: var(--info);
+}
+
+.appointments-summary-card--success > span {
+  background: var(--success-light);
+  color: var(--success);
+}
+
+.appointments-summary-card--warning > span {
+  background: var(--warning-light);
+  color: var(--warning);
+}
+
+.appointments-toolbar,
+.appointments-panel,
+.appointments-calendar-panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.appointments-toolbar {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 16px;
+}
+
+.appointments-panel {
+  overflow: hidden;
+}
+
+.appointments-calendar-panel {
+  padding: 18px;
+}
+
+.appointments-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+}
+
+.appointments-customer-cell,
+.appointments-note-cell {
+  min-width: 0;
+}
+
+.appointments-customer-cell strong {
+  color: var(--text-primary);
+  display: block;
+  font-size: 13.5px;
+  font-weight: 800;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.appointments-customer-cell span,
+.appointments-note-cell {
+  color: var(--text-tertiary);
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.appointments-actions {
+  align-items: center;
+  display: flex;
+  gap: 4px;
+  justify-content: center;
+  width: 100%;
+}
+
+.appointments-icon-button {
+  border-radius: 8px !important;
+}
+
+.appointments-icon-button--edit {
+  color: var(--primary) !important;
+}
+
+.appointments-icon-button--edit:hover {
+  background: var(--primary-100) !important;
+}
+
+.appointments-icon-button--delete {
+  color: var(--error) !important;
+}
+
+.appointments-icon-button--delete:hover {
+  background: var(--error-light) !important;
+}
+
+.appointments-icon-button.Mui-disabled {
+  color: var(--text-tertiary) !important;
+}
+
+.appointments-calendar-panel .fc {
+  color: var(--text-primary);
+  font-family: var(--font-family);
+}
+
+.appointments-calendar-panel .fc-toolbar-title {
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.appointments-calendar-panel .fc-button {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px !important;
+  color: var(--text-secondary);
+  font-family: var(--font-family);
+  font-size: 12.5px;
+  font-weight: 700;
+  text-transform: none;
+}
+
+.appointments-calendar-panel .fc-button-primary:not(:disabled).fc-button-active,
+.appointments-calendar-panel .fc-button-primary:not(:disabled):active,
+.appointments-calendar-panel .fc-button-primary:hover {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--text-inverse);
+}
+
+.appointments-calendar-panel .fc-daygrid-event {
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 4px;
+}
+
+.appointments-legend {
+  align-items: center;
+  border-top: 1px solid var(--divider);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  margin-top: 16px;
+  padding-top: 16px;
+}
+
+.appointments-legend-item {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+}
+
+.appointments-legend-item > span {
+  border-radius: 999px;
+  height: 9px;
+  width: 9px;
+}
+
+.appointments-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+@media (max-width: 1080px) {
+  .appointments-summary {
+    grid-template-columns: repeat(2, minmax(160px, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .appointments-page {
+    gap: 14px;
+  }
+
+  .appointments-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .appointments-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .appointments-toolbar .MuiFormControl-root,
+  .appointments-toolbar .MuiTextField-root,
+  .appointments-toolbar .MuiButton-root {
+    width: 100%;
+  }
+
+  .appointments-calendar-panel {
+    padding: 14px;
+  }
+
+  .appointments-calendar-panel .fc-header-toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+  }
+}
