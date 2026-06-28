@@ -1,0 +1,177 @@
+.customers-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.customers-alert {
+  border-radius: 10px !important;
+  font-family: inherit !important;
+}
+
+.customers-summary {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(4, minmax(160px, 1fr));
+}
+
+.customers-summary-card,
+.customers-toolbar,
+.customers-panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.customers-summary-card {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  min-width: 0;
+  padding: 16px;
+}
+
+.customers-summary-card > span {
+  align-items: center;
+  background: var(--primary-50);
+  border-radius: 12px;
+  color: var(--primary);
+  display: inline-flex;
+  flex: 0 0 auto;
+  height: 42px;
+  justify-content: center;
+  width: 42px;
+}
+
+.customers-summary-card strong {
+  color: var(--text-primary);
+  display: block;
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.customers-summary-card p {
+  color: var(--text-tertiary);
+  font-size: 12.5px;
+  font-weight: 700;
+  margin-top: 2px;
+}
+
+.customers-toolbar {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 16px;
+}
+
+.customers-panel {
+  overflow: hidden;
+}
+
+.customers-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+}
+
+.customers-name-cell,
+.customers-muted-cell {
+  min-width: 0;
+}
+
+.customers-name-cell strong {
+  color: var(--text-primary);
+  display: block;
+  font-size: 13.5px;
+  font-weight: 800;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.customers-name-cell span,
+.customers-muted-cell {
+  color: var(--text-tertiary);
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.customers-points-chip {
+  background: var(--primary-100) !important;
+  border-radius: 8px !important;
+  color: var(--primary) !important;
+  font-size: 11.5px !important;
+  font-weight: 700 !important;
+}
+
+.customers-actions {
+  align-items: center;
+  display: flex;
+  gap: 4px;
+  justify-content: center;
+  width: 100%;
+}
+
+.customers-icon-button {
+  border-radius: 8px !important;
+}
+
+.customers-icon-button--edit {
+  color: var(--primary) !important;
+}
+
+.customers-icon-button--edit:hover {
+  background: var(--primary-100) !important;
+}
+
+.customers-icon-button--delete {
+  color: var(--error) !important;
+}
+
+.customers-icon-button--delete:hover {
+  background: var(--error-light) !important;
+}
+
+.customers-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.customers-form-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (max-width: 1080px) {
+  .customers-summary {
+    grid-template-columns: repeat(2, minmax(160px, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .customers-summary,
+  .customers-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .customers-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .customers-toolbar .MuiTextField-root,
+  .customers-toolbar .MuiButton-root {
+    width: 100%;
+  }
+}

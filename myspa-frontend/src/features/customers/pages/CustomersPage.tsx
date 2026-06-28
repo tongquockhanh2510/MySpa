@@ -1,10 +1,10 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { DataGrid } from '@mui/x-data-grid';
 import type { GridColDef } from '@mui/x-data-grid';
 import {
-  Dialog, DialogTitle, DialogContent, DialogActions,
-  TextField, Button, Select, MenuItem, FormControl,
-  InputLabel, InputAdornment, IconButton, Chip,
+  Alert, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle,
+  FormControl, IconButton, InputAdornment, InputLabel, MenuItem, Select,
+  Skeleton, TextField,
 } from '@mui/material';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -15,14 +15,18 @@ import StatusChip from '@components/common/StatusChip';
 import ConfirmDialog from '@components/common/ConfirmDialog';
 import ExportButtons from '@components/common/ExportButtons';
 import { getCustomers, createCustomer, updateCustomer, deleteCustomer } from '@/api/customers';
-import { formatCurrency, getGenderLabel } from '@utils/formatters';
+import { getGenderLabel } from '@utils/formatters';
 import { exportToExcel } from '@utils/exportExcel';
 import { Gender } from '@/types';
 import type { Customer, CustomerFormData } from '@/types';
 import SearchIcon from '@mui/icons-material/Search';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
-import VisibilityIcon from '@mui/icons-material/Visibility';
+import PeopleIcon from '@mui/icons-material/People';
+import LoyaltyIcon from '@mui/icons-material/Loyalty';
+import WcIcon from '@mui/icons-material/Wc';
+import RefreshIcon from '@mui/icons-material/Refresh';
+import './CustomersPage.css';
 
 const schema = z.object({
   name: z.string().min(2, 'Tên phải có ít nhất 2 ký tự'),
@@ -32,9 +36,15 @@ const schema = z.object({
   note: z.string().optional(),
 });
 
+const inputSx = {
+  '& .MuiOutlinedInput-root': { borderRadius: '10px', fontSize: 14 },
+  '& .MuiInputLabel-root': { fontSize: 14 },
+};
+
 const CustomersPage: React.FC = () => {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Customer | null>(null);
@@ -47,11 +57,13 @@ const CustomersPage: React.FC = () => {
 
   const fetchCustomers = async (query = '') => {
     setLoading(true);
+    setLoadError(null);
     try {
       const data = await getCustomers(query);
       setCustomers(data);
     } catch (err) {
       console.error(err);
+      setLoadError('Không thể tải danh sách khách hàng. Vui lòng kiểm tra đăng nhập hoặc thử lại.');
       toast.error('Lỗi khi tải danh sách khách hàng từ database');
     } finally {
       setLoading(false);
@@ -62,7 +74,15 @@ const CustomersPage: React.FC = () => {
     fetchCustomers(search);
   }, [search]);
 
-  const filtered = useMemo(() => customers, [customers]);
+  const summary = useMemo(() => {
+    const totalPoints = customers.reduce((sum, customer) => sum + Number(customer.loyaltyPoints || 0), 0);
+    return {
+      total: customers.length,
+      female: customers.filter((customer) => customer.gender === Gender.FEMALE).length,
+      male: customers.filter((customer) => customer.gender === Gender.MALE).length,
+      totalPoints,
+    };
+  }, [customers]);
 
   const openCreate = () => {
     setEditing(null);
@@ -108,40 +128,59 @@ const CustomersPage: React.FC = () => {
 
   const handleExportExcel = () => {
     exportToExcel(
-      customers.map(c => ({
-        'Mã KH': c.customerId, 'Họ tên': c.name, 'Điện thoại': c.phone,
-        'Email': c.email, 'Giới tính': getGenderLabel(c.gender),
-        'Điểm tích lũy': c.loyaltyPoints, 'Ghi chú': c.note ?? '',
+      customers.map(customer => ({
+        'Mã KH': customer.customerId,
+        'Họ tên': customer.name,
+        'Điện thoại': customer.phone,
+        'Email': customer.email,
+        'Giới tính': getGenderLabel(customer.gender),
+        'Điểm tích lũy': customer.loyaltyPoints,
+        'Ghi chú': customer.note ?? '',
       })),
-      'Danh_sach_khach_hang', 'Khách hàng'
+      'Danh_sach_khach_hang',
+      'Khách hàng'
     );
     toast.success('Xuất Excel thành công');
   };
 
   const columns: GridColDef[] = [
-    { field: 'customerId', headerName: 'Mã KH', width: 100 },
-    { field: 'name', headerName: 'Họ tên', flex: 1, minWidth: 160 },
-    { field: 'phone', headerName: 'Điện thoại', width: 130 },
-    { field: 'email', headerName: 'Email', flex: 1, minWidth: 180 },
+    { field: 'customerId', headerName: 'Mã KH', width: 110 },
     {
-      field: 'gender', headerName: 'Giới tính', width: 100,
-      renderCell: ({ value }) => <StatusChip status={value} type="gender" />,
-    },
-    {
-      field: 'loyaltyPoints', headerName: 'Điểm tích lũy', width: 120,
-      renderCell: ({ value }) => (
-        <Chip label={`${value} điểm`} size="small" sx={{ background: '#FEF3C7', color: '#D97706', fontWeight: 600, fontSize: 11, borderRadius: 1 }} />
+      field: 'name',
+      headerName: 'Khách hàng',
+      flex: 1,
+      minWidth: 190,
+      renderCell: ({ row }) => (
+        <div className="customers-name-cell">
+          <strong>{row.name}</strong>
+          <span>{row.phone}</span>
+        </div>
       ),
     },
-    { field: 'note', headerName: 'Ghi chú', flex: 1 },
+    { field: 'email', headerName: 'Email', flex: 1, minWidth: 190, renderCell: ({ value }) => <span className="customers-muted-cell">{value || 'Chưa có email'}</span> },
+    { field: 'gender', headerName: 'Giới tính', width: 120, renderCell: ({ value }) => <StatusChip status={value} type="gender" /> },
     {
-      field: 'actions', headerName: 'Thao tác', width: 120, sortable: false,
+      field: 'loyaltyPoints',
+      headerName: 'Điểm tích lũy',
+      width: 140,
+      renderCell: ({ value }) => (
+        <Chip label={`${value || 0} điểm`} size="small" className="customers-points-chip" />
+      ),
+    },
+    { field: 'note', headerName: 'Ghi chú', flex: 1, minWidth: 180, renderCell: ({ value }) => <span className="customers-muted-cell">{value || 'Không có ghi chú'}</span> },
+    {
+      field: 'actions',
+      headerName: 'Thao tác',
+      width: 120,
+      sortable: false,
+      align: 'center',
+      headerAlign: 'center',
       renderCell: ({ row }) => (
-        <div style={{ display: 'flex', gap: 4 }}>
-          <IconButton size="small" onClick={() => openEdit(row)} sx={{ color: 'var(--primary)', '&:hover': { background: '#FEF3C7' } }}>
+        <div className="customers-actions">
+          <IconButton size="small" aria-label="Cập nhật khách hàng" onClick={() => openEdit(row)} className="customers-icon-button customers-icon-button--edit">
             <EditIcon fontSize="small" />
           </IconButton>
-          <IconButton size="small" onClick={() => setDeleteTarget(row)} sx={{ color: '#EF4444', '&:hover': { background: '#FEE2E2' } }}>
+          <IconButton size="small" aria-label="Xóa khách hàng" onClick={() => setDeleteTarget(row)} className="customers-icon-button customers-icon-button--delete">
             <DeleteIcon fontSize="small" />
           </IconButton>
         </div>
@@ -149,13 +188,8 @@ const CustomersPage: React.FC = () => {
     },
   ];
 
-  const inputSx = {
-    '& .MuiOutlinedInput-root': { borderRadius: '10px', fontSize: 14 },
-    '& .MuiInputLabel-root': { fontSize: 14 },
-  };
-
   return (
-    <div className="animate-fadeIn">
+    <main className="customers-page animate-fadeIn">
       <PageHeader
         title="Quản lý khách hàng"
         subtitle={`${customers.length} khách hàng`}
@@ -163,58 +197,87 @@ const CustomersPage: React.FC = () => {
         extra={<ExportButtons onExportExcel={handleExportExcel} />}
       />
 
-      {/* Search */}
-      <div style={{ marginBottom: 16, background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-color)', padding: '16px 20px', boxShadow: 'var(--shadow-card)' }}>
+      {loadError && <Alert severity="warning" className="customers-alert">{loadError}</Alert>}
+
+      <section className="customers-summary" aria-label="Tóm tắt khách hàng">
+        <div className="customers-summary-card"><span><PeopleIcon /></span><div><strong>{loading ? '...' : summary.total}</strong><p>Tổng khách hàng</p></div></div>
+        <div className="customers-summary-card"><span><WcIcon /></span><div><strong>{loading ? '...' : summary.female}</strong><p>Khách nữ</p></div></div>
+        <div className="customers-summary-card"><span><WcIcon /></span><div><strong>{loading ? '...' : summary.male}</strong><p>Khách nam</p></div></div>
+        <div className="customers-summary-card"><span><LoyaltyIcon /></span><div><strong>{loading ? '...' : summary.totalPoints.toLocaleString('vi-VN')}</strong><p>Điểm tích lũy</p></div></div>
+      </section>
+
+      <section className="customers-toolbar" aria-label="Bộ lọc khách hàng">
         <TextField
           placeholder="Tìm kiếm theo tên, điện thoại, email..."
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(event) => setSearch(event.target.value)}
           size="small"
           slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" sx={{ color: 'var(--text-tertiary)' }} /></InputAdornment> } }}
-          sx={{ width: 380, ...inputSx }}
+          sx={{ flex: '1 1 320px', ...inputSx }}
         />
-      </div>
+        <Button
+          variant="outlined"
+          startIcon={<RefreshIcon />}
+          onClick={() => fetchCustomers(search)}
+          disabled={loading}
+          sx={{ borderRadius: '10px', textTransform: 'none', fontWeight: 700, borderColor: 'var(--border-color)', color: 'var(--text-secondary)', minHeight: 40 }}
+        >
+          Làm mới
+        </Button>
+      </section>
 
-      {/* Data Grid */}
-      <div style={{ background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-card)', overflow: 'hidden' }}>
-        <DataGrid
-          rows={filtered}
-          columns={columns}
-          getRowId={(row) => row.customerId}
-          initialState={{ pagination: { paginationModel: { pageSize: 10 } } }}
-          pageSizeOptions={[10, 20, 50]}
-          autoHeight
-          disableRowSelectionOnClick
-          sx={{
-            border: 'none',
-            '& .MuiDataGrid-columnHeaders': { background: 'var(--bg-tertiary)', borderRadius: '0 !important' },
-            '& .MuiDataGrid-footerContainer': { borderTop: '1px solid var(--divider)' },
-          }}
-          localeText={{
-            MuiTablePagination: { labelRowsPerPage: 'Hàng mỗi trang:', labelDisplayedRows: ({ from, to, count }: any) => `${from}–${to} / ${count}` },
-            noRowsLabel: 'Không có dữ liệu',
-            footerRowSelected: (count: any) => `${count} hàng được chọn` } as any}
-        />
-      </div>
+      <section className="customers-panel">
+        {loading ? (
+          <div className="customers-skeleton" aria-busy="true" aria-label="Đang tải khách hàng">
+            {Array.from({ length: 7 }).map((_, index) => <Skeleton key={index} variant="rounded" height={48} />)}
+          </div>
+        ) : (
+          <DataGrid
+            rows={customers}
+            columns={columns}
+            getRowId={(row) => row.customerId}
+            initialState={{ pagination: { paginationModel: { pageSize: 10 } } }}
+            pageSizeOptions={[10, 20, 50]}
+            autoHeight
+            disableRowSelectionOnClick
+            sx={{
+              border: 'none',
+              '& .MuiDataGrid-columnHeaders': { background: 'var(--bg-tertiary)', borderRadius: '0 !important' },
+              '& .MuiDataGrid-footerContainer': { borderTop: '1px solid var(--divider)' },
+            }}
+            localeText={{
+              MuiTablePagination: {
+                labelRowsPerPage: 'Hàng mỗi trang:',
+                labelDisplayedRows: ({ from, to, count }: any) => `${from}-${to} / ${count}`,
+              },
+              noRowsLabel: search ? 'Không tìm thấy khách hàng phù hợp' : 'Không có dữ liệu',
+              footerRowSelected: (count: any) => `${count} hàng được chọn`,
+            } as any}
+          />
+        )}
+      </section>
 
-      {/* Create/Edit Dialog */}
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} slotProps={{ paper: { sx: { borderRadius: '16px', minWidth: 500, background: 'var(--bg-secondary)' } } }}>
-        <DialogTitle sx={{ fontWeight: 700, fontSize: 17, pb: 0 }}>
+      <Dialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        slotProps={{ paper: { sx: { borderRadius: '16px', width: 'min(520px, calc(100vw - 32px))', background: 'var(--bg-secondary)' } } }}
+      >
+        <DialogTitle sx={{ fontWeight: 800, fontSize: 17, pb: 0 }}>
           {editing ? 'Cập nhật khách hàng' : 'Thêm khách hàng mới'}
         </DialogTitle>
         <DialogContent sx={{ pt: '16px !important' }}>
-          <form noValidate style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <form noValidate className="customers-form">
             <Controller name="name" control={control} render={({ field }) => (
               <TextField {...field} label="Họ và tên *" error={!!errors.name} helperText={errors.name?.message} fullWidth size="small" sx={inputSx} />
             )} />
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div className="customers-form-grid">
               <Controller name="phone" control={control} render={({ field }) => (
                 <TextField {...field} label="Điện thoại *" error={!!errors.phone} helperText={errors.phone?.message} fullWidth size="small" sx={inputSx} />
               )} />
               <Controller name="gender" control={control} render={({ field }) => (
                 <FormControl fullWidth size="small" sx={inputSx}>
                   <InputLabel>Giới tính</InputLabel>
-                  <Select {...field} label="Giới tính" sx={{ borderRadius: '10px' }}>
+                  <Select {...field} label="Giới tính">
                     <MenuItem value={Gender.FEMALE}>Nữ</MenuItem>
                     <MenuItem value={Gender.MALE}>Nam</MenuItem>
                     <MenuItem value={Gender.OTHER}>Khác</MenuItem>
@@ -226,19 +289,20 @@ const CustomersPage: React.FC = () => {
               <TextField {...field} label="Email" error={!!errors.email} helperText={errors.email?.message} fullWidth size="small" sx={inputSx} />
             )} />
             <Controller name="note" control={control} render={({ field }) => (
-              <TextField {...field} label="Ghi chú" multiline rows={2} fullWidth size="small" sx={inputSx} />
+              <TextField {...field} label="Ghi chú" multiline rows={3} fullWidth size="small" sx={inputSx} />
             )} />
           </form>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 3, gap: 1 }}>
-          <Button onClick={() => setDialogOpen(false)} sx={{ borderRadius: '10px', textTransform: 'none', fontFamily: 'inherit', border: '1px solid var(--border-color)', color: 'var(--text-secondary)', '&:hover': { background: 'var(--bg-tertiary)' } }}>Hủy</Button>
-          <Button onClick={handleSubmit(onSubmit)} variant="contained" sx={{ borderRadius: '10px', textTransform: 'none', fontFamily: 'inherit', fontWeight: 600, background: 'linear-gradient(135deg, #D97706, #F59E0B)', '&:hover': { background: '#B45309' } }}>
+          <Button onClick={() => setDialogOpen(false)} sx={{ borderRadius: '10px', textTransform: 'none', fontFamily: 'inherit', border: '1px solid var(--border-color)', color: 'var(--text-secondary)', '&:hover': { background: 'var(--bg-tertiary)' } }}>
+            Hủy
+          </Button>
+          <Button onClick={handleSubmit(onSubmit)} variant="contained" sx={{ borderRadius: '10px', textTransform: 'none', fontFamily: 'inherit', fontWeight: 700, background: 'linear-gradient(135deg, #D97706, #F59E0B)', '&:hover': { background: '#B45309' } }}>
             {editing ? 'Lưu thay đổi' : 'Thêm khách hàng'}
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* Delete Confirm */}
       <ConfirmDialog
         open={!!deleteTarget}
         title="Xóa khách hàng"
@@ -248,7 +312,7 @@ const CustomersPage: React.FC = () => {
         onCancel={() => setDeleteTarget(null)}
         severity="error"
       />
-    </div>
+    </main>
   );
 };
 
