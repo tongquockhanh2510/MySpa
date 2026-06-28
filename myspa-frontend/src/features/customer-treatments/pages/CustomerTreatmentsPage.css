@@ -1,0 +1,138 @@
+.treatments-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.treatments-alert {
+  border-radius: 10px !important;
+  font-family: inherit !important;
+}
+
+.treatments-summary {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(3, minmax(180px, 1fr));
+}
+
+.treatments-summary-card,
+.treatments-panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.treatments-summary-card {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  padding: 16px;
+}
+
+.treatments-summary-card > span {
+  align-items: center;
+  background: var(--primary-50);
+  border-radius: 12px;
+  color: var(--primary);
+  display: inline-flex;
+  height: 42px;
+  justify-content: center;
+  width: 42px;
+}
+
+.treatments-summary-card strong {
+  color: var(--text-primary);
+  display: block;
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.treatments-summary-card p,
+.treatments-progress-cell span {
+  color: var(--text-tertiary);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.treatments-panel {
+  overflow: hidden;
+}
+
+.treatments-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+}
+
+.treatments-customer-cell strong {
+  color: var(--text-primary);
+  display: block;
+  font-size: 13.5px;
+  font-weight: 800;
+}
+
+.treatments-customer-cell span {
+  color: var(--text-tertiary);
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.treatments-progress-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  justify-content: center;
+  width: 100%;
+}
+
+.treatments-progress {
+  background: var(--bg-tertiary) !important;
+  border-radius: 999px;
+  height: 7px !important;
+}
+
+.treatments-progress .MuiLinearProgress-bar {
+  background: linear-gradient(90deg, #D97706, #F59E0B);
+  border-radius: 999px;
+}
+
+.treatments-detail-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.treatments-schedule-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.treatments-schedule-card {
+  background: var(--bg-card) !important;
+  border-color: var(--border-color) !important;
+  border-radius: 10px !important;
+}
+
+.treatments-schedule-card__content {
+  align-items: center;
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+  padding: 12px !important;
+}
+
+@media (max-width: 820px) {
+  .treatments-summary,
+  .treatments-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .treatments-schedule-card__content {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
