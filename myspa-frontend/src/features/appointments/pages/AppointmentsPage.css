@@ -152,13 +152,16 @@
 .appointments-actions {
   align-items: center;
   display: flex;
-  gap: 4px;
+  flex-wrap: wrap;
+  gap: 3px;
   justify-content: center;
   width: 100%;
 }
 
 .appointments-icon-button {
   border-radius: 8px !important;
+  height: 30px;
+  width: 30px;
 }
 
 .appointments-icon-button--edit {
@@ -175,6 +178,46 @@
 
 .appointments-icon-button--delete:hover {
   background: var(--error-light) !important;
+}
+
+.appointments-icon-button--confirm {
+  color: var(--info) !important;
+}
+
+.appointments-icon-button--confirm:hover {
+  background: var(--info-light) !important;
+}
+
+.appointments-icon-button--checkin,
+.appointments-icon-button--complete {
+  color: var(--success) !important;
+}
+
+.appointments-icon-button--checkin:hover,
+.appointments-icon-button--complete:hover {
+  background: var(--success-light) !important;
+}
+
+.appointments-icon-button--start,
+.appointments-icon-button--reschedule {
+  color: var(--primary) !important;
+}
+
+.appointments-icon-button--start:hover,
+.appointments-icon-button--reschedule:hover {
+  background: var(--primary-100) !important;
+}
+
+.appointments-icon-button--no-show {
+  color: var(--text-tertiary) !important;
+}
+
+.appointments-icon-button--no-show:hover {
+  background: var(--bg-tertiary) !important;
+}
+
+.appointments-icon-button[data-loading='true'] {
+  opacity: 0.7;
 }
 
 .appointments-icon-button.Mui-disabled {

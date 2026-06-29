@@ -7,7 +7,7 @@ import type { GridColDef } from '@mui/x-data-grid';
 import {
   Alert, Button, Dialog, DialogActions, DialogContent, DialogTitle,
   FormControl, IconButton, InputAdornment, InputLabel, MenuItem, Select,
-  Skeleton, TextField, ToggleButton, ToggleButtonGroup,
+  Skeleton, TextField, ToggleButton, ToggleButtonGroup, Tooltip,
 } from '@mui/material';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -17,7 +17,18 @@ import PageHeader from '@components/common/PageHeader';
 import StatusChip from '@components/common/StatusChip';
 import ConfirmDialog from '@components/common/ConfirmDialog';
 import { formatDateTime } from '@utils/formatters';
-import { cancelAppointment, createAppointment, getAppointments, updateAppointment } from '@/api/appointments';
+import {
+  cancelAppointment,
+  checkInAppointment,
+  completeAppointment,
+  confirmAppointment,
+  createAppointment,
+  getAppointments,
+  markAppointmentNoShow,
+  rescheduleAppointment,
+  startAppointment,
+  updateAppointment,
+} from '@/api/appointments';
 import { getCustomers } from '@/api/customers';
 import { getEmployees, getRooms, getServices } from '@/api/catalog';
 import { StatusOfAppointment } from '@/types';
@@ -30,6 +41,12 @@ import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import TodayIcon from '@mui/icons-material/Today';
 import EventAvailableIcon from '@mui/icons-material/EventAvailable';
 import PendingActionsIcon from '@mui/icons-material/PendingActions';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import LoginIcon from '@mui/icons-material/Login';
+import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import DoneAllIcon from '@mui/icons-material/DoneAll';
+import EventBusyIcon from '@mui/icons-material/EventBusy';
+import EventRepeatIcon from '@mui/icons-material/EventRepeat';
 import './AppointmentsPage.css';
 
 const statusColors: Record<string, string> = {
@@ -56,6 +73,67 @@ const statusOptions = [
   { value: StatusOfAppointment.NO_SHOW, label: 'Không đến' },
   { value: StatusOfAppointment.RESCHEDULED, label: 'Đã dời lịch' },
 ];
+
+const statusLabels = statusOptions.reduce<Record<string, string>>((labels, option) => {
+  labels[option.value] = option.label;
+  return labels;
+}, {});
+
+const validTransitions: Record<StatusOfAppointment, StatusOfAppointment[]> = {
+  [StatusOfAppointment.PENDING]: [
+    StatusOfAppointment.CONFIRMED,
+    StatusOfAppointment.CANCELLED,
+    StatusOfAppointment.RESCHEDULED,
+  ],
+  [StatusOfAppointment.CONFIRMED]: [
+    StatusOfAppointment.CHECKED_IN,
+    StatusOfAppointment.CANCELLED,
+    StatusOfAppointment.RESCHEDULED,
+    StatusOfAppointment.NO_SHOW,
+  ],
+  [StatusOfAppointment.CHECKED_IN]: [
+    StatusOfAppointment.WAITING,
+    StatusOfAppointment.IN_PROGRESS,
+  ],
+  [StatusOfAppointment.WAITING]: [
+    StatusOfAppointment.IN_PROGRESS,
+    StatusOfAppointment.CANCELLED,
+  ],
+  [StatusOfAppointment.IN_PROGRESS]: [StatusOfAppointment.COMPLETED],
+  [StatusOfAppointment.COMPLETED]: [],
+  [StatusOfAppointment.CANCELLED]: [],
+  [StatusOfAppointment.NO_SHOW]: [],
+  [StatusOfAppointment.RESCHEDULED]: [],
+};
+
+type LifecycleAction = 'confirm' | 'checkIn' | 'start' | 'complete' | 'noShow' | 'reschedule';
+
+const lifecycleTargets: Record<LifecycleAction, StatusOfAppointment> = {
+  confirm: StatusOfAppointment.CONFIRMED,
+  checkIn: StatusOfAppointment.CHECKED_IN,
+  start: StatusOfAppointment.IN_PROGRESS,
+  complete: StatusOfAppointment.COMPLETED,
+  noShow: StatusOfAppointment.NO_SHOW,
+  reschedule: StatusOfAppointment.RESCHEDULED,
+};
+
+const lifecycleSuccessMessages: Record<LifecycleAction, string> = {
+  confirm: 'Da xac nhan lich hen',
+  checkIn: 'Check-in thanh cong',
+  start: 'Da bat dau phuc vu',
+  complete: 'Da hoan thanh lich hen',
+  noShow: 'Da danh dau khach khong den',
+  reschedule: 'Da doi lich hen',
+};
+
+const lifecycleErrorMessages: Record<LifecycleAction, string> = {
+  confirm: 'Xac nhan lich hen khong thanh cong',
+  checkIn: 'Check-in khong thanh cong',
+  start: 'Bat dau lich hen khong thanh cong',
+  complete: 'Hoan thanh lich hen khong thanh cong',
+  noShow: 'Danh dau khong den khong thanh cong',
+  reschedule: 'Doi lich hen khong thanh cong',
+};
 
 const schema = z.object({
   customerId: z.string().min(1, 'Vui lòng chọn khách hàng'),
@@ -87,6 +165,9 @@ const AppointmentsPage: React.FC = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Appointment | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Appointment | null>(null);
+  const [rescheduleTarget, setRescheduleTarget] = useState<Appointment | null>(null);
+  const [rescheduleDateTime, setRescheduleDateTime] = useState('');
+  const [activeAction, setActiveAction] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -216,6 +297,92 @@ const AppointmentsPage: React.FC = () => {
     return fallback;
   };
 
+  const canTransition = (appointment: Appointment, target: StatusOfAppointment) => (
+    validTransitions[appointment.statusOfAppointment]?.includes(target) ?? false
+  );
+
+  const invalidTransitionMessage = (appointment: Appointment, target: StatusOfAppointment) => (
+    `Khong the chuyen tu ${statusLabels[appointment.statusOfAppointment] || appointment.statusOfAppointment} sang ${statusLabels[target] || target}`
+  );
+
+  const replaceAppointment = (updated: Appointment) => {
+    setAppointments((prev) => prev.map((appointment) => (
+      appointment.appointmentId === updated.appointmentId ? updated : appointment
+    )));
+  };
+
+  const runLifecycleAction = async (appointment: Appointment, action: LifecycleAction) => {
+    const target = lifecycleTargets[action];
+    if (!canTransition(appointment, target)) {
+      toast.warning(invalidTransitionMessage(appointment, target));
+      return;
+    }
+
+    const actionKey = `${appointment.appointmentId}:${action}`;
+    setActiveAction(actionKey);
+    try {
+      let updated: Appointment;
+      switch (action) {
+        case 'confirm':
+          updated = await confirmAppointment(appointment.appointmentId);
+          break;
+        case 'checkIn':
+          updated = await checkInAppointment(appointment.appointmentId);
+          break;
+        case 'start':
+          updated = await startAppointment(appointment.appointmentId);
+          break;
+        case 'complete':
+          updated = await completeAppointment(appointment.appointmentId);
+          break;
+        case 'noShow':
+          updated = await markAppointmentNoShow(appointment.appointmentId);
+          break;
+        default:
+          return;
+      }
+      replaceAppointment(updated);
+      toast.success(lifecycleSuccessMessages[action]);
+    } catch (error) {
+      console.error(error);
+      toast.error(getErrorMessage(error, lifecycleErrorMessages[action]));
+    } finally {
+      setActiveAction(null);
+    }
+  };
+
+  const openReschedule = (appointment: Appointment) => {
+    if (!canTransition(appointment, StatusOfAppointment.RESCHEDULED)) {
+      toast.warning(invalidTransitionMessage(appointment, StatusOfAppointment.RESCHEDULED));
+      return;
+    }
+    setRescheduleTarget(appointment);
+    setRescheduleDateTime(appointment.dateTime.slice(0, 16));
+  };
+
+  const submitReschedule = async () => {
+    if (!rescheduleTarget) return;
+    if (!rescheduleDateTime) {
+      toast.warning('Vui long chon ngay gio moi');
+      return;
+    }
+
+    const dateTime = rescheduleDateTime.length === 16 ? `${rescheduleDateTime}:00` : rescheduleDateTime;
+    const actionKey = `${rescheduleTarget.appointmentId}:reschedule`;
+    setActiveAction(actionKey);
+    try {
+      const updated = await rescheduleAppointment(rescheduleTarget.appointmentId, dateTime);
+      replaceAppointment(updated);
+      toast.success(lifecycleSuccessMessages.reschedule);
+      setRescheduleTarget(null);
+    } catch (error) {
+      console.error(error);
+      toast.error(getErrorMessage(error, lifecycleErrorMessages.reschedule));
+    } finally {
+      setActiveAction(null);
+    }
+  };
+
   const onSubmit = async (data: AppointmentFormValues) => {
     const dateTime = data.dateTime.length === 16 ? `${data.dateTime}:00` : data.dateTime;
     const payload = {
@@ -247,24 +414,59 @@ const AppointmentsPage: React.FC = () => {
 
   const confirmCancel = async () => {
     if (!deleteTarget) return;
+    if (!canTransition(deleteTarget, StatusOfAppointment.CANCELLED)) {
+      toast.warning(invalidTransitionMessage(deleteTarget, StatusOfAppointment.CANCELLED));
+      setDeleteTarget(null);
+      return;
+    }
+
+    const actionKey = `${deleteTarget.appointmentId}:cancel`;
+    setActiveAction(actionKey);
     try {
       const updated = await cancelAppointment(deleteTarget.appointmentId);
-      setAppointments((prev) => prev.map((appointment) => appointment.appointmentId === updated.appointmentId ? updated : appointment));
+      replaceAppointment(updated);
       toast.success('Đã hủy lịch hẹn');
     } catch (error) {
       console.error(error);
-      toast.error('Hủy lịch hẹn không thành công');
+      toast.error(getErrorMessage(error, 'Hủy lịch hẹn không thành công'));
     } finally {
+      setActiveAction(null);
       setDeleteTarget(null);
     }
   };
 
-  const canCancel = (appointment: Appointment) => ![
-    StatusOfAppointment.CANCELLED,
-    StatusOfAppointment.COMPLETED,
-    StatusOfAppointment.IN_PROGRESS,
-    StatusOfAppointment.NO_SHOW,
-  ].includes(appointment.statusOfAppointment);
+  const canCancel = (appointment: Appointment) => canTransition(appointment, StatusOfAppointment.CANCELLED);
+
+  const renderLifecycleButton = (
+    appointment: Appointment,
+    action: LifecycleAction,
+    label: string,
+    icon: React.ReactNode,
+    className = '',
+  ) => {
+    const target = lifecycleTargets[action];
+    const allowed = canTransition(appointment, target);
+    const disabled = !allowed || activeAction !== null;
+    const actionKey = `${appointment.appointmentId}:${action}`;
+    const title = allowed ? label : invalidTransitionMessage(appointment, target);
+
+    return (
+      <Tooltip key={action} title={title} arrow>
+        <span>
+          <IconButton
+            size="small"
+            aria-label={label}
+            disabled={disabled}
+            onClick={() => action === 'reschedule' ? openReschedule(appointment) : runLifecycleAction(appointment, action)}
+            className={`appointments-icon-button ${className}`}
+            data-loading={activeAction === actionKey ? 'true' : undefined}
+          >
+            {icon}
+          </IconButton>
+        </span>
+      </Tooltip>
+    );
+  };
 
   const columns: GridColDef[] = [
     { field: 'appointmentId', headerName: 'Mã LH', width: 112 },
@@ -297,7 +499,7 @@ const AppointmentsPage: React.FC = () => {
     {
       field: 'actions',
       headerName: 'Thao tác',
-      width: 124,
+      width: 330,
       sortable: false,
       align: 'center',
       headerAlign: 'center',
@@ -306,7 +508,13 @@ const AppointmentsPage: React.FC = () => {
           <IconButton size="small" aria-label="Cập nhật lịch hẹn" onClick={() => openEdit(row)} className="appointments-icon-button appointments-icon-button--edit">
             <EditIcon fontSize="small" />
           </IconButton>
-          <IconButton size="small" aria-label="Hủy lịch hẹn" disabled={!canCancel(row)} onClick={() => setDeleteTarget(row)} className="appointments-icon-button appointments-icon-button--delete">
+          {renderLifecycleButton(row, 'confirm', 'Xac nhan', <CheckCircleIcon fontSize="small" />, 'appointments-icon-button--confirm')}
+          {renderLifecycleButton(row, 'checkIn', 'Check-in', <LoginIcon fontSize="small" />, 'appointments-icon-button--checkin')}
+          {renderLifecycleButton(row, 'start', 'Bat dau', <PlayArrowIcon fontSize="small" />, 'appointments-icon-button--start')}
+          {renderLifecycleButton(row, 'complete', 'Hoan thanh', <DoneAllIcon fontSize="small" />, 'appointments-icon-button--complete')}
+          {renderLifecycleButton(row, 'reschedule', 'Doi lich', <EventRepeatIcon fontSize="small" />, 'appointments-icon-button--reschedule')}
+          {renderLifecycleButton(row, 'noShow', 'Khong den', <EventBusyIcon fontSize="small" />, 'appointments-icon-button--no-show')}
+          <IconButton size="small" aria-label="Hủy lịch hẹn" disabled={!canCancel(row) || activeAction !== null} onClick={() => setDeleteTarget(row)} className="appointments-icon-button appointments-icon-button--delete">
             <DeleteIcon fontSize="small" />
           </IconButton>
         </div>
@@ -421,6 +629,7 @@ const AppointmentsPage: React.FC = () => {
               getRowId={(row) => row.appointmentId}
               initialState={{ pagination: { paginationModel: { pageSize: 10 } } }}
               pageSizeOptions={[10, 20]}
+              rowHeight={72}
               autoHeight
               disableRowSelectionOnClick
               sx={{
@@ -544,6 +753,45 @@ const AppointmentsPage: React.FC = () => {
           </Button>
           <Button onClick={handleSubmit(onSubmit)} disabled={saving} variant="contained" sx={{ borderRadius: '10px', textTransform: 'none', fontFamily: 'inherit', fontWeight: 700, background: 'linear-gradient(135deg, #D97706, #F59E0B)' }}>
             {saving ? 'Đang lưu...' : (editing ? 'Lưu thay đổi' : 'Đặt lịch')}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={!!rescheduleTarget}
+        onClose={() => activeAction === null && setRescheduleTarget(null)}
+        slotProps={{ paper: { sx: { borderRadius: '16px', width: 'min(420px, calc(100vw - 32px))', background: 'var(--bg-secondary)' } } }}
+      >
+        <DialogTitle sx={{ fontWeight: 800, fontSize: 17, pb: 0 }}>
+          Doi lich hen
+        </DialogTitle>
+        <DialogContent sx={{ pt: '16px !important' }}>
+          <TextField
+            label="Ngay gio moi"
+            type="datetime-local"
+            value={rescheduleDateTime}
+            onChange={(event) => setRescheduleDateTime(event.target.value)}
+            slotProps={{ inputLabel: { shrink: true } }}
+            fullWidth
+            size="small"
+            sx={inputSx}
+          />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 3, gap: 1 }}>
+          <Button
+            onClick={() => setRescheduleTarget(null)}
+            disabled={activeAction !== null}
+            sx={{ borderRadius: '10px', textTransform: 'none', fontFamily: 'inherit', border: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}
+          >
+            Huy
+          </Button>
+          <Button
+            onClick={submitReschedule}
+            disabled={activeAction !== null}
+            variant="contained"
+            sx={{ borderRadius: '10px', textTransform: 'none', fontFamily: 'inherit', fontWeight: 700, background: 'linear-gradient(135deg, #2563EB, #0F766E)' }}
+          >
+            {activeAction === `${rescheduleTarget?.appointmentId}:reschedule` ? 'Dang doi lich...' : 'Doi lich'}
           </Button>
         </DialogActions>
       </Dialog>

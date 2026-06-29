@@ -48,3 +48,35 @@ export const cancelAppointment = async (id: string, reason = 'Khach hang yeu cau
   });
   return response.data.result as Appointment;
 };
+
+export const confirmAppointment = async (id: string) => {
+  const response = await axiosInstance.patch(`/appointments/${id}/confirm`);
+  return response.data.result as Appointment;
+};
+
+export const checkInAppointment = async (id: string) => {
+  const response = await axiosInstance.patch(`/appointments/${id}/checkin`);
+  return response.data.result as Appointment;
+};
+
+export const startAppointment = async (id: string) => {
+  const response = await axiosInstance.patch(`/appointments/${id}/start`);
+  return response.data.result as Appointment;
+};
+
+export const completeAppointment = async (id: string) => {
+  const response = await axiosInstance.patch(`/appointments/${id}/complete`);
+  return response.data.result as Appointment;
+};
+
+export const markAppointmentNoShow = async (id: string) => {
+  const response = await axiosInstance.patch(`/appointments/${id}/no-show`);
+  return response.data.result as Appointment;
+};
+
+export const rescheduleAppointment = async (id: string, newDateTime: string) => {
+  const response = await axiosInstance.patch(`/appointments/${id}/reschedule`, null, {
+    params: { newDateTime },
+  });
+  return response.data.result as Appointment;
+};
