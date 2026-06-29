@@ -1,5 +1,5 @@
 import axiosInstance from './axiosInstance';
-import type { ProductFormData, ServiceFormData, TreatmentPackageFormData } from '@/types';
+import type { EmployeeFormData, ProductFormData, ServiceFormData, TreatmentPackageFormData } from '@/types';
 
 export const getServices = async () => {
   const response = await axiosInstance.get('/services');
@@ -73,6 +73,21 @@ export const deleteTreatmentPackage = async (id: string) => {
 export const getEmployees = async () => {
   const response = await axiosInstance.get('/employees');
   return response.data.result || [];
+};
+
+export const createEmployee = async (data: EmployeeFormData) => {
+  const response = await axiosInstance.post('/employees', data);
+  return response.data.result;
+};
+
+export const updateEmployee = async (id: string, data: EmployeeFormData) => {
+  const response = await axiosInstance.put(`/employees/${id}`, data);
+  return response.data.result;
+};
+
+export const deleteEmployee = async (id: string) => {
+  const response = await axiosInstance.delete(`/employees/${id}`);
+  return response.data.result;
 };
 
 export const getRooms = async () => {

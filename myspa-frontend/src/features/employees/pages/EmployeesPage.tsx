@@ -14,9 +14,11 @@ import PageHeader from '@components/common/PageHeader';
 import StatusChip from '@components/common/StatusChip';
 import ConfirmDialog from '@components/common/ConfirmDialog';
 import ExportButtons from '@components/common/ExportButtons';
-import { getEmployees } from '@/api/catalog';
+import { createEmployee, deleteEmployee, getEmployees, updateEmployee } from '@/api/catalog';
+import { useAppSelector } from '@hooks/useAppSelector';
 import { formatCurrency } from '@utils/formatters';
 import { exportToExcel } from '@utils/exportExcel';
+import { hasAnyRole } from '@utils/authorization';
 import { StatusOfEmployee } from '@/types';
 import type { Employee, EmployeeFormData } from '@/types';
 import SearchIcon from '@mui/icons-material/Search';
@@ -44,6 +46,8 @@ const inputSx = {
 };
 
 const EmployeesPage: React.FC = () => {
+  const user = useAppSelector((state) => state.auth.user);
+  const canManageEmployees = hasAnyRole(user, ['ADMIN', 'MANAGER']);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -116,22 +120,34 @@ const EmployeesPage: React.FC = () => {
     setDialogOpen(true);
   };
 
-  const onSubmit = (data: EmployeeFormData) => {
-    if (editing) {
-      setEmployees((prev) => prev.map((employee) => employee.employeeId === editing.employeeId ? { ...employee, ...data } : employee));
-      toast.success('Cập nhật nhân viên thành công');
-    } else {
-      setEmployees((prev) => [{ ...data, employeeId: `E${Date.now()}` }, ...prev]);
-      toast.success('Thêm nhân viên thành công');
+  const onSubmit = async (data: EmployeeFormData) => {
+    try {
+      const saved = editing
+        ? await updateEmployee(editing.employeeId, data)
+        : await createEmployee(data);
+
+      setEmployees((prev) => editing
+        ? prev.map((employee) => employee.employeeId === editing.employeeId ? saved : employee)
+        : [saved, ...prev]);
+      toast.success(editing ? 'Cập nhật nhân viên thành công' : 'Thêm nhân viên thành công');
+      setDialogOpen(false);
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.response?.data?.message || (editing ? 'Cập nhật nhân viên thất bại' : 'Thêm nhân viên thất bại'));
     }
-    setDialogOpen(false);
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!deleteTarget) return;
-    setEmployees((prev) => prev.filter((employee) => employee.employeeId !== deleteTarget.employeeId));
-    toast.success('Đã xóa nhân viên');
-    setDeleteTarget(null);
+    try {
+      const saved = await deleteEmployee(deleteTarget.employeeId);
+      setEmployees((prev) => prev.map((employee) => employee.employeeId === deleteTarget.employeeId ? saved : employee));
+      toast.success('Đã đánh dấu nhân viên nghỉ việc');
+      setDeleteTarget(null);
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.response?.data?.message || 'Xóa nhân viên thất bại');
+    }
   };
 
   const handleExportExcel = () => {
@@ -189,12 +205,16 @@ const EmployeesPage: React.FC = () => {
     },
   ];
 
+  const visibleColumns = canManageEmployees
+    ? columns
+    : columns.filter((column) => column.field !== 'actions');
+
   return (
     <main className="employees-page animate-fadeIn">
       <PageHeader
         title="Quản lý nhân viên"
         subtitle={`${employees.length} nhân viên`}
-        action={{ label: 'Thêm nhân viên', onClick: openCreate }}
+        action={canManageEmployees ? { label: 'Thêm nhân viên', onClick: openCreate } : undefined}
         extra={<ExportButtons onExportExcel={handleExportExcel} />}
       />
 
@@ -243,7 +263,7 @@ const EmployeesPage: React.FC = () => {
         ) : (
           <DataGrid
             rows={filtered}
-            columns={columns}
+            columns={visibleColumns}
             getRowId={(row) => row.employeeId}
             initialState={{ pagination: { paginationModel: { pageSize: 10 } } }}
             pageSizeOptions={[10, 20]}
@@ -313,10 +333,10 @@ const EmployeesPage: React.FC = () => {
 
       <ConfirmDialog
         open={!!deleteTarget}
-        title="Xóa nhân viên"
-        message={`Bạn có chắc muốn xóa nhân viên "${deleteTarget?.name}"?`}
-        confirmLabel="Xóa"
-        severity="error"
+        title="Đánh dấu nghỉ việc"
+        message={`Bạn có chắc muốn đánh dấu nhân viên "${deleteTarget?.name}" là đã nghỉ việc?`}
+        confirmLabel="Xác nhận"
+        severity="warning"
         onConfirm={handleDelete}
         onCancel={() => setDeleteTarget(null)}
       />
