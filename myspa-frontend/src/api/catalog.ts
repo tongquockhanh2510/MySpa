@@ -1,9 +1,24 @@
 import axiosInstance from './axiosInstance';
-import type { ProductFormData, TreatmentPackageFormData } from '@/types';
+import type { ProductFormData, ServiceFormData, TreatmentPackageFormData } from '@/types';
 
 export const getServices = async () => {
   const response = await axiosInstance.get('/services');
   return response.data.result || [];
+};
+
+export const createService = async (data: ServiceFormData) => {
+  const response = await axiosInstance.post('/services', data);
+  return response.data.result;
+};
+
+export const updateService = async (id: string, data: ServiceFormData) => {
+  const response = await axiosInstance.put(`/services/${id}`, data);
+  return response.data.result;
+};
+
+export const deleteService = async (id: string) => {
+  const response = await axiosInstance.delete(`/services/${id}`);
+  return response.data;
 };
 
 export const getProducts = async () => {

@@ -13,8 +13,10 @@ import { toast } from 'sonner';
 import PageHeader from '@components/common/PageHeader';
 import StatusChip from '@components/common/StatusChip';
 import ConfirmDialog from '@components/common/ConfirmDialog';
-import { getServices } from '@/api/catalog';
+import { useAppSelector } from '@hooks/useAppSelector';
+import { createService, deleteService, getServices, updateService } from '@/api/catalog';
 import { formatCurrency, formatDuration } from '@utils/formatters';
+import { hasAnyRole } from '@utils/authorization';
 import { StatusOfService } from '@/types';
 import type { Service, ServiceFormData } from '@/types';
 import SearchIcon from '@mui/icons-material/Search';
@@ -36,15 +38,21 @@ const ServicesPage: React.FC = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Service | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Service | null>(null);
+  const [loading, setLoading] = useState(false);
+  const user = useAppSelector((s) => s.auth.user);
+  const canManageServices = hasAnyRole(user, ['ADMIN', 'MANAGER']);
 
   useEffect(() => {
     const fetchServices = async () => {
+      setLoading(true);
       try {
         const data = await getServices();
         setServices(data);
       } catch (err) {
         console.error(err);
         toast.error('Lỗi khi tải danh sách dịch vụ từ database');
+      } finally {
+        setLoading(false);
       }
     };
     fetchServices();
@@ -66,15 +74,33 @@ const ServicesPage: React.FC = () => {
   };
   const openEdit = (s: Service) => { setEditing(s); reset(s); setDialogOpen(true); };
 
-  const onSubmit = (data: ServiceFormData) => {
-    if (editing) {
-      setServices(prev => prev.map(s => s.serviceId === editing.serviceId ? { ...s, ...data } : s));
-      toast.success('Cập nhật dịch vụ thành công');
-    } else {
-      setServices(prev => [{ ...data, serviceId: `SV${Date.now()}` }, ...prev]);
-      toast.success('Thêm dịch vụ thành công');
+  const onSubmit = async (data: ServiceFormData) => {
+    try {
+      const saved = editing
+        ? await updateService(editing.serviceId, data)
+        : await createService(data);
+      setServices(prev => editing
+        ? prev.map(s => s.serviceId === editing.serviceId ? saved : s)
+        : [saved, ...prev]);
+      toast.success(editing ? 'Cap nhat dich vu thanh cong' : 'Them dich vu thanh cong');
+      setDialogOpen(false);
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.response?.data?.message || (editing ? 'Cap nhat dich vu that bai' : 'Them dich vu that bai'));
     }
-    setDialogOpen(false);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      await deleteService(deleteTarget.serviceId);
+      setServices(prev => prev.filter(s => s.serviceId !== deleteTarget.serviceId));
+      toast.success('Da ngung hien thi dich vu');
+      setDeleteTarget(null);
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.response?.data?.message || 'Xoa dich vu that bai');
+    }
   };
 
   const inputSx = { '& .MuiOutlinedInput-root': { borderRadius: '10px', fontSize: 14 }, '& .MuiInputLabel-root': { fontSize: 14 } };
@@ -96,18 +122,19 @@ const ServicesPage: React.FC = () => {
       ),
     },
   ];
+  const visibleColumns = canManageServices ? columns : columns.filter(column => column.field !== 'actions');
 
   return (
     <div className="animate-fadeIn">
-      <PageHeader title="Quản lý dịch vụ" subtitle={`${services.length} dịch vụ`} action={{ label: 'Thêm dịch vụ', onClick: openCreate }} />
+      <PageHeader title="Quản lý dịch vụ" subtitle={`${services.length} dịch vụ`} action={canManageServices ? { label: 'Thêm dịch vụ', onClick: openCreate } : undefined} />
       <div style={{ marginBottom: 16, background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-color)', padding: '16px 20px', boxShadow: 'var(--shadow-card)' }}>
         <TextField placeholder="Tìm kiếm dịch vụ..." value={search} onChange={e => setSearch(e.target.value)} size="small"
           slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" sx={{ color: 'var(--text-tertiary)' }} /></InputAdornment> } }}
           sx={{ width: 360, ...inputSx }} />
       </div>
       <div style={{ background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-card)', overflow: 'hidden' }}>
-        <DataGrid rows={filtered} columns={columns} getRowId={r => r.serviceId} initialState={{ pagination: { paginationModel: { pageSize: 10 } } }}
-          pageSizeOptions={[10, 20]} autoHeight disableRowSelectionOnClick
+        <DataGrid rows={filtered} columns={visibleColumns} getRowId={r => r.serviceId} initialState={{ pagination: { paginationModel: { pageSize: 10 } } }}
+          pageSizeOptions={[10, 20]} autoHeight disableRowSelectionOnClick loading={loading}
           sx={{ border: 'none', '& .MuiDataGrid-columnHeaders': { background: 'var(--bg-tertiary)' } }}
           localeText={{ MuiTablePagination: { labelRowsPerPage: 'Hàng mỗi trang:', labelDisplayedRows: ({ from, to, count }: any) => `${from}–${to} / ${count}` }, noRowsLabel: 'Không có dữ liệu' } as any} />
       </div>
@@ -155,7 +182,7 @@ const ServicesPage: React.FC = () => {
       </Dialog>
 
       <ConfirmDialog open={!!deleteTarget} title="Xóa dịch vụ" message={`Bạn có chắc muốn xóa dịch vụ "${deleteTarget?.name}"?`} confirmLabel="Xóa" severity="error"
-        onConfirm={() => { setServices(prev => prev.filter(s => s.serviceId !== deleteTarget!.serviceId)); toast.success('Đã xóa dịch vụ'); setDeleteTarget(null); }}
+        onConfirm={confirmDelete}
         onCancel={() => setDeleteTarget(null)} />
     </div>
   );
