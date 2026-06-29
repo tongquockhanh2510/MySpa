@@ -72,9 +72,9 @@ export const getEmployeeStatusLabel = (status: string): string => {
 
 export const getOrderStatusLabel = (status: string): string => {
   const map: Record<string, string> = {
-    UNPAID: 'Chưa thanh toán',
-    PARTIALLY_PAIN: 'Thanh toán một phần',
-    PAIN: 'Đã thanh toán',
+    PENDING_PAYMENT: 'Chưa thanh toán',
+    PARTIALLY_PAID: 'Thanh toán một phần',
+    PAID: 'Đã thanh toán',
     CANCELLED: 'Đã hủy',
   };
   return map[status] ?? status;

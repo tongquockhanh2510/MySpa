@@ -38,9 +38,9 @@ export enum StatusOfPackage {
 }
 
 export enum OrderStatus {
-  UNPAID = 'UNPAID',
-  PARTIALLY_PAID = 'PARTIALLY_PAIN',
-  PAID = 'PAIN',
+  PENDING_PAYMENT = 'PENDING_PAYMENT',
+  PARTIALLY_PAID = 'PARTIALLY_PAID',
+  PAID = 'PAID',
   CANCELLED = 'CANCELLED',
 }
 

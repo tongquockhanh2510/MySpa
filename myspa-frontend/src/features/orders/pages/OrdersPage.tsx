@@ -369,9 +369,9 @@ const OrdersPage: React.FC = () => {
               <InputLabel>Trạng thái</InputLabel>
               <Select value={orderStatusFilter} label="Trạng thái" onChange={e => setOrderStatusFilter(e.target.value)}>
                 <MenuItem value="ALL">Tất cả trạng thái</MenuItem>
-                <MenuItem value="UNPAID">Chưa thanh toán</MenuItem>
-                <MenuItem value="PARTIALLY_PAIN">Thanh toán một phần</MenuItem>
-                <MenuItem value="PAIN">Đã thanh toán</MenuItem>
+                <MenuItem value="PENDING_PAYMENT">Chưa thanh toán</MenuItem>
+                <MenuItem value="PARTIALLY_PAID">Thanh toán một phần</MenuItem>
+                <MenuItem value="PAID">Đã thanh toán</MenuItem>
                 <MenuItem value="CANCELLED">Đã hủy</MenuItem>
               </Select>
             </FormControl>

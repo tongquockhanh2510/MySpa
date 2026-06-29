@@ -101,6 +101,10 @@ public class OrderService {
                         .orElseThrow(() -> new AppException(ErrorCode.SERVICE_NOT_FOUND));
                 unitPrice = BigDecimal.valueOf(service.getPrice());
                 item.service(service);
+                ServiceSchedule schedule = validateServiceSchedule(itemReq, service, customer, null);
+                item.scheduledDateTime(schedule.startTime());
+                item.scheduledTherapist(schedule.therapist());
+                item.scheduledRoom(schedule.room());
             } else if (itemReq.getItemType() == OrderItemType.PACKAGE) {
                 TreatmentPackage pack = treatmentPackageRepository.findById(itemReq.getPackageId())
                         .orElseThrow(() -> new AppException(ErrorCode.PACKAGE_NOT_FOUND));
@@ -203,7 +207,8 @@ public class OrderService {
         if (order.getOrderStatus() == OrderStatus.CANCELLED) {
             throw new AppException(ErrorCode.INVOICE_CANCELLED, "Đơn hàng này đã bị hủy");
         }
-        if (request.getAmount().compareTo(order.getRemainingAmount()) > 0) {
+        if (request.getAmount().compareTo(order.getRemainingAmount()) > 0
+                && request.getPaymentMethod() != PaymentMethod.CASH) {
             throw new AppException(ErrorCode.PAYMENT_AMOUNT_EXCEEDS_REMAINING);
         }
 
@@ -295,30 +300,27 @@ public class OrderService {
                 inventoryTransactionRepository.save(invTxn);
             }
             
-            // STEP 6: SERVICE PURCHASE FLOW (Auto create appointments)
+            // STEP 6: SERVICE PURCHASE FLOW (Create scheduled appointments)
             else if (item.getItemType() == OrderItemType.SERVICE && item.getService() != null) {
-                // Check if default scheduling dates were provided, otherwise schedule for tomorrow
-                LocalDateTime bookingTime = LocalDateTime.now().plusDays(1).withHour(10).withMinute(0); 
-                Employee therapist = employeeRepository.findAll().stream().filter(e -> e.getStatusOfEmployee() == StatusOfEmployee.ACTIVE).findFirst().orElse(null);
-                Room room = roomRepository.findAll().stream().filter(r -> r.getStatus() == RoomStatus.AVAILABLE).findFirst().orElse(null);
+                ServiceSchedule schedule = validateStoredServiceSchedule(item, customer);
 
                 Appointment appointment = Appointment.builder()
                         .customer(customer)
-                        .dateTime(bookingTime)
-                        .endTime(bookingTime.plusMinutes((long) item.getService().getDuration()))
+                        .dateTime(schedule.startTime())
+                        .endTime(schedule.endTime())
                         .statusOfAppointment(StatusOfAppointment.CONFIRMED)
                         .createdBy(processedBy)
-                        .room(room)
+                        .room(schedule.room())
                         .note("Tự động tạo từ đơn hàng " + order.getOrderId())
                         .build();
 
                 appointment = appointmentRepository.save(appointment);
 
                 AppoinmentDetail detail = new AppoinmentDetail();
-                detail.setId(new AppoimentDetalId(appointment.getAppointmentId(), item.getService().getServiceId(), therapist != null ? therapist.getEmployeeId() : ""));
+                detail.setId(new AppoimentDetalId(appointment.getAppointmentId(), item.getService().getServiceId(), schedule.therapist().getEmployeeId()));
                 detail.setAppointment(appointment);
                 detail.setService(item.getService());
-                detail.setEmployee(therapist);
+                detail.setEmployee(schedule.therapist());
                 detail.setPrice(item.getService().getPrice());
                 appointmentDetailRepository.save(detail);
                 
@@ -496,6 +498,71 @@ public class OrderService {
         };
     }
 
+    private ServiceSchedule validateServiceSchedule(OrderItemRequest itemReq, fit.quanlyspa.entity.Service service, Customer customer, String excludeAppointmentId) {
+        if (itemReq.getScheduledDateTime() == null) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR, "Can chon thoi gian phuc vu cho dich vu");
+        }
+        if (itemReq.getTherapistId() == null || itemReq.getTherapistId().isBlank()) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR, "Can chon ky thuat vien cho dich vu");
+        }
+
+        Employee therapist = employeeRepository.findById(itemReq.getTherapistId())
+                .orElseThrow(() -> new AppException(ErrorCode.EMPLOYEE_NOT_FOUND, "Ky thuat vien khong ton tai"));
+        return validateServiceSchedule(itemReq.getScheduledDateTime(), service, customer, therapist, itemReq.getRoomId(), excludeAppointmentId);
+    }
+
+    private ServiceSchedule validateStoredServiceSchedule(OrderItem item, Customer customer) {
+        if (item.getScheduledDateTime() == null) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR, "Don hang thieu thoi gian phuc vu cho dich vu");
+        }
+        if (item.getScheduledTherapist() == null) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR, "Don hang thieu ky thuat vien cho dich vu");
+        }
+        String roomId = item.getScheduledRoom() == null ? null : item.getScheduledRoom().getRoomId();
+        return validateServiceSchedule(item.getScheduledDateTime(), item.getService(), customer, item.getScheduledTherapist(), roomId, null);
+    }
+
+    private ServiceSchedule validateServiceSchedule(
+            LocalDateTime startTime,
+            fit.quanlyspa.entity.Service service,
+            Customer customer,
+            Employee therapist,
+            String roomId,
+            String excludeAppointmentId
+    ) {
+        if (startTime.isBefore(LocalDateTime.now().plusMinutes(30))) {
+            throw new AppException(ErrorCode.APPOINTMENT_TOO_SOON);
+        }
+        if (service.getStatusOfService() != StatusOfService.ACTIVE) {
+            throw new AppException(ErrorCode.SERVICE_INACTIVE, "Dich vu khong con hoat dong");
+        }
+        if (therapist.getStatusOfEmployee() != StatusOfEmployee.ACTIVE) {
+            throw new AppException(ErrorCode.EMPLOYEE_INACTIVE, "Ky thuat vien khong con hoat dong");
+        }
+
+        LocalDateTime endTime = startTime.plusMinutes((long) service.getDuration());
+        if (!appointmentRepository.findOverlappingForCustomer(customer.getCustomerId(), startTime, endTime, excludeAppointmentId).isEmpty()) {
+            throw new AppException(ErrorCode.APPOINTMENT_TIME_CONFLICT);
+        }
+        if (!appointmentRepository.findTherapistConflicts(therapist.getEmployeeId(), startTime, endTime, excludeAppointmentId).isEmpty()) {
+            throw new AppException(ErrorCode.APPOINTMENT_THERAPIST_CONFLICT, "Ky thuat vien da co lich trong khung gio nay");
+        }
+
+        Room room = null;
+        if (roomId != null && !roomId.isBlank()) {
+            room = roomRepository.findById(roomId)
+                    .orElseThrow(() -> new AppException(ErrorCode.ROOM_NOT_FOUND, "Phong khong ton tai"));
+            if (room.getStatus() != RoomStatus.AVAILABLE) {
+                throw new AppException(ErrorCode.ROOM_INACTIVE, "Phong khong kha dung");
+            }
+            if (!appointmentRepository.findRoomConflicts(room.getRoomId(), startTime, endTime, excludeAppointmentId).isEmpty()) {
+                throw new AppException(ErrorCode.APPOINTMENT_ROOM_CONFLICT, "Phong da duoc dat trong khung gio nay");
+            }
+        }
+
+        return new ServiceSchedule(startTime, endTime, therapist, room);
+    }
+
     private BigDecimal calculateVoucherDiscount(BigDecimal amountAfterPromo, Voucher voucher) {
         if ("PERCENT".equals(voucher.getVoucherType())) {
             BigDecimal discount = amountAfterPromo.multiply(voucher.getDiscountValue().divide(BigDecimal.valueOf(100)));
@@ -538,6 +605,7 @@ public class OrderService {
                     .paymentMethod(p.getPaymentMethod().name())
                     .status(p.getStatus().name())
                     .transactionReference(p.getTransactionReference())
+                    .changeAmount(p.getChangeAmount())
                     .processedAt(p.getProcessedAt())
                     .build()
         ).collect(Collectors.toList());
@@ -563,5 +631,8 @@ public class OrderService {
                 .orderItems(items)
                 .payments(payments)
                 .build();
+    }
+
+    private record ServiceSchedule(LocalDateTime startTime, LocalDateTime endTime, Employee therapist, Room room) {
     }
 }

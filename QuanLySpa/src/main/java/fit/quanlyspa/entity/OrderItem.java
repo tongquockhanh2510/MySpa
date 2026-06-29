@@ -6,6 +6,7 @@ import lombok.*;
 import lombok.experimental.FieldDefaults;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.Set;
 
 @Getter
@@ -50,6 +51,17 @@ public class OrderItem {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "package_id")
     TreatmentPackage treatmentPackage;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "scheduled_therapist_id")
+    Employee scheduledTherapist;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "scheduled_room_id")
+    Room scheduledRoom;
+
+    @Column(name = "scheduled_date_time")
+    LocalDateTime scheduledDateTime;
 
     @OneToMany(fetch = FetchType.LAZY)
     @JoinColumn(name = "order_item_id")

@@ -49,6 +49,7 @@ public class OrderResponse {
         String paymentMethod;
         String status;
         String transactionReference;
+        BigDecimal changeAmount;
         LocalDateTime processedAt;
     }
 }

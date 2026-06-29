@@ -51,9 +51,9 @@ const employeeColors: Record<string, { bg: string; color: string }> = {
 };
 
 const orderColors: Record<string, { bg: string; color: string }> = {
-  UNPAID: { bg: '#FEE2E2', color: '#DC2626' },
-  PARTIALLY_PAIN: { bg: '#FEF3C7', color: '#D97706' },
-  PAIN: { bg: '#D1FAE5', color: '#059669' },
+  PENDING_PAYMENT: { bg: '#FEE2E2', color: '#DC2626' },
+  PARTIALLY_PAID: { bg: '#FEF3C7', color: '#D97706' },
+  PAID: { bg: '#D1FAE5', color: '#059669' },
   CANCELLED: { bg: '#F3F4F6', color: '#6B7280' },
 };
 
