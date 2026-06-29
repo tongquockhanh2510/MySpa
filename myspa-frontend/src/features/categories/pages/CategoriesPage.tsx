@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { DataGrid } from '@mui/x-data-grid';
 import type { GridColDef } from '@mui/x-data-grid';
 import { Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, InputAdornment, TextField } from '@mui/material';
@@ -8,7 +8,7 @@ import { z } from 'zod';
 import { toast } from 'sonner';
 import PageHeader from '@components/common/PageHeader';
 import ConfirmDialog from '@components/common/ConfirmDialog';
-import { mockCategories } from '@utils/mockData';
+import { createCategory, deleteCategory, getCategories, updateCategory } from '@/api/catalog';
 import type { Category, CategoryFormData } from '@/types';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -27,11 +27,12 @@ const inputSx = {
 };
 
 const CategoriesPage: React.FC = () => {
-  const [categories, setCategories] = useState<Category[]>(mockCategories);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [search, setSearch] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Category | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Category | null>(null);
+  const [loading, setLoading] = useState(false);
 
   const { control, handleSubmit, reset, formState: { errors } } = useForm<CategoryFormData>({
     resolver: zodResolver(schema),
@@ -47,6 +48,23 @@ const CategoriesPage: React.FC = () => {
 
   const totalProducts = useMemo(() => categories.reduce((sum, category) => sum + Number(category.productCount || 0), 0), [categories]);
 
+  const loadCategories = async () => {
+    setLoading(true);
+    try {
+      const data = await getCategories();
+      setCategories(data);
+    } catch (err) {
+      console.error(err);
+      toast.error('Loi khi tai danh muc tu database');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadCategories();
+  }, []);
+
   const openCreate = () => {
     setEditing(null);
     reset({ name: '' });
@@ -59,15 +77,33 @@ const CategoriesPage: React.FC = () => {
     setDialogOpen(true);
   };
 
-  const onSubmit = (data: CategoryFormData) => {
-    if (editing) {
-      setCategories((prev) => prev.map((category) => category.categoryId === editing.categoryId ? { ...category, ...data } : category));
-      toast.success('Cập nhật danh mục thành công');
-    } else {
-      setCategories((prev) => [{ ...data, categoryId: `CAT${Date.now()}`, productCount: 0 }, ...prev]);
-      toast.success('Thêm danh mục thành công');
+  const onSubmit = async (data: CategoryFormData) => {
+    try {
+      const saved = editing
+        ? await updateCategory(editing.categoryId, data)
+        : await createCategory(data);
+      setCategories((prev) => editing
+        ? prev.map((category) => category.categoryId === editing.categoryId ? saved : category)
+        : [saved, ...prev]);
+      toast.success(editing ? 'Cap nhat danh muc thanh cong' : 'Them danh muc thanh cong');
+      setDialogOpen(false);
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.response?.data?.message || (editing ? 'Cap nhat danh muc that bai' : 'Them danh muc that bai'));
     }
-    setDialogOpen(false);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      await deleteCategory(deleteTarget.categoryId);
+      setCategories((prev) => prev.filter((category) => category.categoryId !== deleteTarget.categoryId));
+      toast.success('Da xoa danh muc');
+      setDeleteTarget(null);
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.response?.data?.message || 'Xoa danh muc that bai');
+    }
   };
 
   const columns: GridColDef[] = [
@@ -132,6 +168,7 @@ const CategoriesPage: React.FC = () => {
           rows={filtered}
           columns={columns}
           getRowId={(row) => row.categoryId}
+          loading={loading}
           initialState={{ pagination: { paginationModel: { pageSize: 10 } } }}
           pageSizeOptions={[10, 20]}
           autoHeight
@@ -172,11 +209,7 @@ const CategoriesPage: React.FC = () => {
         message={`Bạn có chắc muốn xóa danh mục "${deleteTarget?.name}"?`}
         confirmLabel="Xóa"
         severity="error"
-        onConfirm={() => {
-          setCategories((prev) => prev.filter((category) => category.categoryId !== deleteTarget!.categoryId));
-          toast.success('Đã xóa danh mục');
-          setDeleteTarget(null);
-        }}
+        onConfirm={confirmDelete}
         onCancel={() => setDeleteTarget(null)}
       />
     </main>

@@ -69,3 +69,18 @@ export const getCategories = async () => {
   const response = await axiosInstance.get('/categories');
   return response.data.result || [];
 };
+
+export const createCategory = async (data: { name: string }) => {
+  const response = await axiosInstance.post('/categories', data);
+  return response.data.result;
+};
+
+export const updateCategory = async (id: string, data: { name: string }) => {
+  const response = await axiosInstance.put(`/categories/${id}`, data);
+  return response.data.result;
+};
+
+export const deleteCategory = async (id: string) => {
+  const response = await axiosInstance.delete(`/categories/${id}`);
+  return response.data;
+};
