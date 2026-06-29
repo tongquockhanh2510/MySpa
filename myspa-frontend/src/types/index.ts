@@ -273,6 +273,12 @@ export interface PackageConversion {
   note?: string;
   customerId?: string;
   packageId?: string;
+  targetProductId?: string;
+  targetProductName?: string;
+  targetPackageId?: string;
+  targetPackageName?: string;
+  voucherCode?: string;
+  convertedSessions?: number;
 }
 
 // ===== Order =====

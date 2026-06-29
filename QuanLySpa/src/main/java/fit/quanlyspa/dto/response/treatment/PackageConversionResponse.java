@@ -18,4 +18,10 @@ public class PackageConversionResponse {
     String customerName;
     String packageId;
     String packageName;
+    String targetProductId;
+    String targetProductName;
+    String targetPackageId;
+    String targetPackageName;
+    String voucherCode;
+    int convertedSessions;
 }

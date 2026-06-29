@@ -34,6 +34,12 @@ public class PackageConversion {
     @Column(name = "target_package_id")
     String targetPackageId;
 
+    @Column(name = "voucher_code")
+    String voucherCode;
+
+    @Column(name = "converted_sessions")
+    int convertedSessions;
+
     @OneToOne(mappedBy = "packageConversion")
     CustomerTreatment  customerTreatment;
 }

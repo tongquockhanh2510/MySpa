@@ -44,11 +44,19 @@ const PackageConversionsPage: React.FC = () => {
   const conversionType = watch('conversionType');
   const customerId = watch('customerId');
   const packageId = watch('packageId');
+  const targetProductId = watch('targetProductId');
+  const targetPackageId = watch('targetPackageId');
 
   const activeTreatments = useMemo(() => customerTreatments.filter(treatment => treatment.remainingSessions > 0), [customerTreatments]);
   const selectedTreatment = activeTreatments.find(treatment => treatment.customerId === customerId && treatment.packageId === packageId);
   const uniqueCustomers = activeTreatments.filter((item, index, arr) => arr.findIndex(other => other.customerId === item.customerId) === index);
   const packagesByCustomer = activeTreatments.filter(treatment => treatment.customerId === customerId);
+  const canSubmit = Boolean(
+    customerId
+    && packageId
+    && (conversionType !== ConversionType.TO_PRODUCT || targetProductId)
+    && (conversionType !== ConversionType.TO_PACKAGE || targetPackageId)
+  );
 
   const summary = useMemo(() => ({
     total: conversions.length,
@@ -132,6 +140,18 @@ const PackageConversionsPage: React.FC = () => {
       },
     },
     { field: 'conversionValue', headerName: 'Giá trị', width: 150, renderCell: ({ value }) => <span className="conversions-money">{formatCurrency(value || 0)}</span> },
+    {
+      field: 'outcome',
+      headerName: 'Kết quả',
+      flex: 1,
+      minWidth: 210,
+      renderCell: ({ row }) => {
+        if (row.voucherCode) return <span className="conversions-strong-cell">{row.voucherCode}</span>;
+        if (row.targetPackageName) return <span>{row.targetPackageName} - {row.convertedSessions || 0} buổi</span>;
+        if (row.targetProductName) return <span>{row.targetProductName}</span>;
+        return <span>—</span>;
+      },
+    },
     { field: 'conversionDate', headerName: 'Ngày chuyển đổi', width: 150, renderCell: ({ value }) => formatDate(value) },
     { field: 'note', headerName: 'Ghi chú', flex: 1, minWidth: 180 },
   ];
@@ -184,7 +204,7 @@ const PackageConversionsPage: React.FC = () => {
             <Controller name="conversionType" control={control} render={({ field }) => (
               <FormControl fullWidth size="small" sx={inputSx}>
                 <InputLabel>Kiểu chuyển đổi</InputLabel>
-                <Select {...field} label="Kiểu chuyển đổi">
+                <Select {...field} label="Kiểu chuyển đổi" onChange={event => { field.onChange(event); setValue('targetProductId', ''); setValue('targetPackageId', ''); }}>
                   <MenuItem value={ConversionType.TO_DISCOUNT}>Đổi thành tiền giảm đơn hàng</MenuItem>
                   <MenuItem value={ConversionType.TO_PRODUCT}>Đổi sang sản phẩm</MenuItem>
                   <MenuItem value={ConversionType.TO_PACKAGE}>Đổi sang gói liệu trình khác</MenuItem>
@@ -217,7 +237,7 @@ const PackageConversionsPage: React.FC = () => {
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 3, gap: 1 }}>
           <Button onClick={() => setDialogOpen(false)} sx={{ borderRadius: '10px', textTransform: 'none', border: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}>Hủy</Button>
-          <Button onClick={handleSubmit(onSubmit)} variant="contained" disabled={!customerId || !packageId} sx={{ borderRadius: '10px', textTransform: 'none', fontWeight: 700, background: 'linear-gradient(135deg, #D97706, #F59E0B)' }}>Chuyển đổi</Button>
+          <Button onClick={handleSubmit(onSubmit)} variant="contained" disabled={!canSubmit} sx={{ borderRadius: '10px', textTransform: 'none', fontWeight: 700, background: 'linear-gradient(135deg, #D97706, #F59E0B)' }}>Chuyển đổi</Button>
         </DialogActions>
       </Dialog>
     </main>
