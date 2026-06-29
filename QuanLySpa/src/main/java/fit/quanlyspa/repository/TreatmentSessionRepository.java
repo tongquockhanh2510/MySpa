@@ -13,4 +13,6 @@ public interface TreatmentSessionRepository extends JpaRepository<TreatmentSessi
 
     @Query("SELECT ts FROM TreatmentSession ts WHERE ts.treatmentSchedule.scheduleId = :scheduleId")
     List<TreatmentSession> findByScheduleId(@Param("scheduleId") String scheduleId);
+
+    boolean existsByTreatmentSchedule_ScheduleIdAndEndTimeIsNull(String scheduleId);
 }

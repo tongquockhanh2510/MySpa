@@ -41,6 +41,11 @@ public class TreatmentSessionService {
             throw new AppException(ErrorCode.OPERATION_NOT_ALLOWED, "Buổi trị liệu này đã được thực hiện và hoàn thành");
         }
 
+        if (schedule.getStatus() == TreatmentScheduleStatus.IN_PROGRESS
+                || treatmentSessionRepository.existsByTreatmentSchedule_ScheduleIdAndEndTimeIsNull(scheduleId)) {
+            throw new AppException(ErrorCode.OPERATION_NOT_ALLOWED, "Buổi trị liệu này đang được thực hiện");
+        }
+
         Employee therapist = null;
         if (therapistId != null && !therapistId.isBlank()) {
             therapist = employeeRepository.findById(therapistId).orElse(null);
