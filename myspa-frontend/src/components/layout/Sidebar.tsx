@@ -5,6 +5,7 @@ import { useAppSelector } from '@hooks/useAppSelector';
 import { logout } from '@store/authSlice';
 import { toggleSidebar } from '@store/uiSlice';
 import { ROUTES } from '@constants/routes';
+import { canAccessRoute } from '@utils/authorization';
 import { toast } from 'sonner';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import PeopleIcon from '@mui/icons-material/People';
@@ -84,6 +85,7 @@ const Sidebar: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const collapsed = useAppSelector((s) => s.ui.sidebarCollapsed);
+  const user = useAppSelector((s) => s.auth.user);
 
   const isActive = (path: string) => {
     if (path === '/') return location.pathname === '/';
@@ -170,7 +172,11 @@ const Sidebar: React.FC = () => {
 
       {/* Navigation */}
       <nav style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '12px 0' }}>
-        {menuGroups.map((group) => (
+        {menuGroups.map((group) => {
+          const visibleItems = group.items.filter((item) => canAccessRoute(user, item.path));
+          if (visibleItems.length === 0) return null;
+
+          return (
           <div key={group.title} style={{ marginBottom: 4 }}>
             {!collapsed && (
               <div style={{
@@ -184,7 +190,7 @@ const Sidebar: React.FC = () => {
                 {group.title}
               </div>
             )}
-            {group.items.map((item) => {
+            {visibleItems.map((item) => {
               const active = isActive(item.path);
               const menuItem = (
                 <button
@@ -235,7 +241,8 @@ const Sidebar: React.FC = () => {
               ) : menuItem;
             })}
           </div>
-        ))}
+          );
+        })}
       </nav>
 
       {/* Logout */}
