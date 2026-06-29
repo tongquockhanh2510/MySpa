@@ -17,9 +17,11 @@ import PageHeader from '@components/common/PageHeader';
 import StatusChip from '@components/common/StatusChip';
 import ConfirmDialog from '@components/common/ConfirmDialog';
 import { formatDateTime } from '@utils/formatters';
-import { cancelAppointment, getAppointments } from '@/api/appointments';
+import { cancelAppointment, createAppointment, getAppointments, updateAppointment } from '@/api/appointments';
+import { getCustomers } from '@/api/customers';
+import { getEmployees, getRooms, getServices } from '@/api/catalog';
 import { StatusOfAppointment } from '@/types';
-import type { Appointment } from '@/types';
+import type { Appointment, Customer, Employee, Service } from '@/types';
 import SearchIcon from '@mui/icons-material/Search';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -58,9 +60,19 @@ const statusOptions = [
 const schema = z.object({
   customerId: z.string().min(1, 'Vui lòng chọn khách hàng'),
   dateTime: z.string().min(1, 'Vui lòng chọn ngày giờ'),
+  serviceId: z.string().min(1, 'Vui lòng chọn dịch vụ'),
+  employeeId: z.string().min(1, 'Vui lòng chọn nhân viên'),
+  roomId: z.string().optional(),
   note: z.string().optional(),
-  statusOfAppointment: z.nativeEnum(StatusOfAppointment),
 });
+
+type AppointmentFormValues = z.infer<typeof schema>;
+
+interface RoomOption {
+  roomId: string;
+  roomName: string;
+  roomNumber?: string;
+}
 
 const inputSx = {
   '& .MuiOutlinedInput-root': { borderRadius: '10px', fontSize: 14 },
@@ -76,20 +88,22 @@ const AppointmentsPage: React.FC = () => {
   const [editing, setEditing] = useState<Appointment | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Appointment | null>(null);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [rooms, setRooms] = useState<RoomOption[]>([]);
 
-  const { control, handleSubmit, reset, formState: { errors } } = useForm<{
-    customerId: string;
-    dateTime: string;
-    note?: string;
-    statusOfAppointment: StatusOfAppointment;
-  }>({
+  const { control, handleSubmit, reset, formState: { errors } } = useForm<AppointmentFormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
       customerId: '',
       dateTime: '',
+      serviceId: '',
+      employeeId: '',
+      roomId: '',
       note: '',
-      statusOfAppointment: StatusOfAppointment.PENDING,
     },
   });
 
@@ -108,8 +122,27 @@ const AppointmentsPage: React.FC = () => {
     }
   };
 
+  const loadFormCatalog = async () => {
+    try {
+      const [customerData, serviceData, employeeData, roomData] = await Promise.all([
+        getCustomers(),
+        getServices(),
+        getEmployees(),
+        getRooms(),
+      ]);
+      setCustomers(customerData);
+      setServices(serviceData);
+      setEmployees(employeeData);
+      setRooms(roomData);
+    } catch (error) {
+      console.error(error);
+      toast.error('Không tải được dữ liệu đặt lịch');
+    }
+  };
+
   useEffect(() => {
     loadAppointments();
+    loadFormCatalog();
   }, []);
 
   const summary = useMemo(() => {
@@ -153,41 +186,63 @@ const AppointmentsPage: React.FC = () => {
     reset({
       customerId: '',
       dateTime: '',
+      serviceId: '',
+      employeeId: '',
+      roomId: '',
       note: '',
-      statusOfAppointment: StatusOfAppointment.PENDING,
     });
     setDialogOpen(true);
   };
 
   const openEdit = (appointment: Appointment) => {
+    const firstDetail = appointment.details?.[0];
     setEditing(appointment);
     reset({
       customerId: appointment.customerId,
       dateTime: appointment.dateTime.slice(0, 16),
+      serviceId: firstDetail?.serviceId ?? '',
+      employeeId: firstDetail?.employeeId ?? '',
+      roomId: appointment.roomId ?? '',
       note: appointment.note,
-      statusOfAppointment: appointment.statusOfAppointment,
     });
     setDialogOpen(true);
   };
 
-  const onSubmit = (data: { customerId: string; dateTime: string; note?: string; statusOfAppointment: StatusOfAppointment }) => {
-    if (editing) {
-      setAppointments((prev) => prev.map((appointment) => appointment.appointmentId === editing.appointmentId
-        ? { ...appointment, ...data, dateTime: new Date(data.dateTime).toISOString() }
-        : appointment));
-      toast.success('Cập nhật lịch hẹn thành công');
-    } else {
-      const newAppointment: Appointment = {
-        appointmentId: `AP${Date.now()}`,
-        customerName: 'Khách hàng mới',
-        customerPhone: '',
-        ...data,
-        dateTime: new Date(data.dateTime).toISOString(),
-      };
-      setAppointments((prev) => [newAppointment, ...prev]);
-      toast.success('Thêm lịch hẹn thành công');
+  const getErrorMessage = (error: unknown, fallback: string) => {
+    if (typeof error === 'object' && error !== null && 'response' in error) {
+      const response = (error as { response?: { data?: { message?: string } } }).response;
+      return response?.data?.message || fallback;
     }
-    setDialogOpen(false);
+    return fallback;
+  };
+
+  const onSubmit = async (data: AppointmentFormValues) => {
+    const dateTime = data.dateTime.length === 16 ? `${data.dateTime}:00` : data.dateTime;
+    const payload = {
+      customerId: data.customerId,
+      dateTime,
+      roomId: data.roomId || null,
+      note: data.note,
+      details: [{ serviceId: data.serviceId, employeeId: data.employeeId }],
+    };
+
+    setSaving(true);
+    try {
+      const saved = editing
+        ? await updateAppointment(editing.appointmentId, payload)
+        : await createAppointment(payload);
+
+      setAppointments((prev) => editing
+        ? prev.map((appointment) => appointment.appointmentId === saved.appointmentId ? saved : appointment)
+        : [saved, ...prev]);
+      toast.success(editing ? 'Cập nhật lịch hẹn thành công' : 'Đặt lịch hẹn thành công');
+      setDialogOpen(false);
+    } catch (error) {
+      console.error(error);
+      toast.error(getErrorMessage(error, editing ? 'Cập nhật lịch hẹn không thành công' : 'Đặt lịch hẹn không thành công'));
+    } finally {
+      setSaving(false);
+    }
   };
 
   const confirmCancel = async () => {
@@ -427,17 +482,53 @@ const AppointmentsPage: React.FC = () => {
         <DialogContent sx={{ pt: '16px !important' }}>
           <form noValidate className="appointments-form">
             <Controller name="customerId" control={control} render={({ field }) => (
-              <TextField {...field} label="Mã khách hàng *" error={!!errors.customerId} helperText={errors.customerId?.message} fullWidth size="small" sx={inputSx} />
+              <FormControl fullWidth size="small" sx={inputSx} error={!!errors.customerId}>
+                <InputLabel>Khách hàng *</InputLabel>
+                <Select {...field} label="Khách hàng *">
+                  {customers.map((customer) => (
+                    <MenuItem key={customer.customerId} value={customer.customerId}>
+                      {customer.name} - {customer.phone}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
             )} />
             <Controller name="dateTime" control={control} render={({ field }) => (
               <TextField {...field} label="Ngày giờ hẹn *" type="datetime-local" slotProps={{ inputLabel: { shrink: true } }} error={!!errors.dateTime} helperText={errors.dateTime?.message} fullWidth size="small" sx={inputSx} />
             )} />
-            <Controller name="statusOfAppointment" control={control} render={({ field }) => (
+            <Controller name="serviceId" control={control} render={({ field }) => (
+              <FormControl fullWidth size="small" sx={inputSx} error={!!errors.serviceId}>
+                <InputLabel>Dịch vụ *</InputLabel>
+                <Select {...field} label="Dịch vụ *">
+                  {services.map((service) => (
+                    <MenuItem key={service.serviceId} value={service.serviceId}>
+                      {service.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            )} />
+            <Controller name="employeeId" control={control} render={({ field }) => (
+              <FormControl fullWidth size="small" sx={inputSx} error={!!errors.employeeId}>
+                <InputLabel>Nhân viên *</InputLabel>
+                <Select {...field} label="Nhân viên *">
+                  {employees.map((employee) => (
+                    <MenuItem key={employee.employeeId} value={employee.employeeId}>
+                      {employee.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            )} />
+            <Controller name="roomId" control={control} render={({ field }) => (
               <FormControl fullWidth size="small" sx={inputSx}>
-                <InputLabel>Trạng thái</InputLabel>
-                <Select {...field} label="Trạng thái">
-                  {statusOptions.filter((option) => option.value !== 'ALL').map((option) => (
-                    <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>
+                <InputLabel>Phòng</InputLabel>
+                <Select {...field} label="Phòng">
+                  <MenuItem value="">Không chọn phòng</MenuItem>
+                  {rooms.map((room) => (
+                    <MenuItem key={room.roomId} value={room.roomId}>
+                      {room.roomName}
+                    </MenuItem>
                   ))}
                 </Select>
               </FormControl>
@@ -451,8 +542,8 @@ const AppointmentsPage: React.FC = () => {
           <Button onClick={() => setDialogOpen(false)} sx={{ borderRadius: '10px', textTransform: 'none', fontFamily: 'inherit', border: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}>
             Hủy
           </Button>
-          <Button onClick={handleSubmit(onSubmit)} variant="contained" sx={{ borderRadius: '10px', textTransform: 'none', fontFamily: 'inherit', fontWeight: 700, background: 'linear-gradient(135deg, #D97706, #F59E0B)' }}>
-            {editing ? 'Lưu thay đổi' : 'Đặt lịch'}
+          <Button onClick={handleSubmit(onSubmit)} disabled={saving} variant="contained" sx={{ borderRadius: '10px', textTransform: 'none', fontFamily: 'inherit', fontWeight: 700, background: 'linear-gradient(135deg, #D97706, #F59E0B)' }}>
+            {saving ? 'Đang lưu...' : (editing ? 'Lưu thay đổi' : 'Đặt lịch')}
           </Button>
         </DialogActions>
       </Dialog>

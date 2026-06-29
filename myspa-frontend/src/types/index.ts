@@ -197,6 +197,8 @@ export interface Appointment {
   customerId: string;
   customerName: string;
   customerPhone: string;
+  roomId?: string;
+  roomName?: string;
   details?: AppointmentDetail[];
 }
 

@@ -37,6 +37,15 @@ public interface AppointmentRepository extends JpaRepository<Appointment, String
                                          @Param("endTime") LocalDateTime endTime,
                                          @Param("excludeId") String excludeId);
 
+    @Query("SELECT a FROM Appointment a JOIN a.details d WHERE d.employee.employeeId = :employeeId " +
+           "AND a.statusOfAppointment NOT IN ('CANCELLED', 'NO_SHOW', 'COMPLETED') " +
+           "AND a.dateTime < :endTime AND a.endTime > :startTime " +
+           "AND (:excludeId IS NULL OR a.appointmentId != :excludeId)")
+    List<Appointment> findTherapistConflicts(@Param("employeeId") String employeeId,
+                                             @Param("startTime") LocalDateTime startTime,
+                                             @Param("endTime") LocalDateTime endTime,
+                                             @Param("excludeId") String excludeId);
+
     // For dashboard: today's appointments
     @Query("SELECT a FROM Appointment a WHERE DATE(a.dateTime) = CURRENT_DATE " +
            "ORDER BY a.dateTime ASC")

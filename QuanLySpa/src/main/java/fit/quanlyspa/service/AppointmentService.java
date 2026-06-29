@@ -5,6 +5,7 @@ import fit.quanlyspa.dto.request.appointment.AppointmentRequest;
 import fit.quanlyspa.dto.response.PagedResponse;
 import fit.quanlyspa.dto.response.appointment.AppointmentResponse;
 import fit.quanlyspa.entity.*;
+import fit.quanlyspa.enums.RoomStatus;
 import fit.quanlyspa.enums.StatusOfAppointment;
 import fit.quanlyspa.enums.StatusOfEmployee;
 import fit.quanlyspa.enums.StatusOfService;
@@ -32,6 +33,7 @@ public class AppointmentService {
     EmployeeRepository employeeRepository;
     ServiceRepository serviceRepository;
     AppoinmentDetailRepository appointmentDetailRepository;
+    RoomRepository roomRepository;
 
     // ===== STATE TRANSITION MAP =====
     private static final Map<StatusOfAppointment, Set<StatusOfAppointment>> VALID_TRANSITIONS = Map.of(
@@ -69,6 +71,8 @@ public class AppointmentService {
             throw new AppException(ErrorCode.APPOINTMENT_TIME_CONFLICT);
         }
 
+        Room room = resolveAvailableRoom(request.getRoomId(), request.getDateTime(), endTime, null);
+
         // Build appointment
         Appointment appointment = Appointment.builder()
                 .customer(customer)
@@ -77,26 +81,68 @@ public class AppointmentService {
                 .statusOfAppointment(StatusOfAppointment.PENDING)
                 .note(request.getNote())
                 .createdBy(createdBy)
+                .room(room)
                 .build();
-
-        // Assign room if provided
-        if (request.getRoomId() != null) {
-            // Business Rule: Room cannot be double-booked
-            appointmentRepository.findRoomConflicts(request.getRoomId(), request.getDateTime(), endTime, null)
-                    .stream().findAny().ifPresent(c -> {
-                        throw new AppException(ErrorCode.APPOINTMENT_ROOM_CONFLICT);
-                    });
-        }
 
         appointment = appointmentRepository.save(appointment);
 
         // Create appointment details (service + therapist assignments)
-        List<AppoinmentDetail> details = buildDetails(appointment, request.getDetails());
+        List<AppoinmentDetail> details = buildDetails(appointment, request.getDetails(), null);
         appointmentDetailRepository.saveAll(details);
         appointment.setDetails(details);
 
         log.info("Appointment created: {} for customer {}", appointment.getAppointmentId(), customer.getName());
         return toResponse(appointment);
+    }
+
+    @Transactional
+    public AppointmentResponse update(String appointmentId, AppointmentRequest request) {
+        Appointment appointment = findById(appointmentId);
+
+        if (appointment.getStatusOfAppointment() == StatusOfAppointment.IN_PROGRESS ||
+            appointment.getStatusOfAppointment() == StatusOfAppointment.COMPLETED ||
+            appointment.getStatusOfAppointment() == StatusOfAppointment.CANCELLED ||
+            appointment.getStatusOfAppointment() == StatusOfAppointment.NO_SHOW) {
+            throw new AppException(ErrorCode.OPERATION_NOT_ALLOWED,
+                    "KhĂ´ng thá»ƒ cáº­p nháº­t lá»‹ch háº¹n á»Ÿ tráº¡ng thĂ¡i nĂ y");
+        }
+
+        if (request.getDateTime().isBefore(LocalDateTime.now().plusMinutes(30))) {
+            throw new AppException(ErrorCode.APPOINTMENT_TOO_SOON);
+        }
+
+        Customer customer = customerRepository.findById(request.getCustomerId())
+                .orElseThrow(() -> new AppException(ErrorCode.CUSTOMER_NOT_FOUND));
+
+        double totalDuration = calculateTotalDuration(request.getDetails());
+        LocalDateTime endTime = request.getDateTime().plusMinutes((long) totalDuration);
+
+        List<Appointment> customerConflicts = appointmentRepository.findOverlappingForCustomer(
+                customer.getCustomerId(), request.getDateTime(), endTime, appointmentId);
+        if (!customerConflicts.isEmpty()) {
+            throw new AppException(ErrorCode.APPOINTMENT_TIME_CONFLICT);
+        }
+
+        Room room = resolveAvailableRoom(request.getRoomId(), request.getDateTime(), endTime, appointmentId);
+
+        if (appointment.getDetails() != null && !appointment.getDetails().isEmpty()) {
+            appointmentDetailRepository.deleteAll(appointment.getDetails());
+            appointment.getDetails().clear();
+        }
+
+        appointment.setCustomer(customer);
+        appointment.setDateTime(request.getDateTime());
+        appointment.setEndTime(endTime);
+        appointment.setRoom(room);
+        appointment.setNote(request.getNote());
+
+        Appointment saved = appointmentRepository.save(appointment);
+        List<AppoinmentDetail> details = buildDetails(saved, request.getDetails(), appointmentId);
+        appointmentDetailRepository.saveAll(details);
+        saved.setDetails(details);
+
+        log.info("Appointment updated: {} for customer {}", appointmentId, customer.getName());
+        return toResponse(saved);
     }
 
     // ===== STATE TRANSITIONS =====
@@ -237,7 +283,26 @@ public class AppointmentService {
         }).sum();
     }
 
-    private List<AppoinmentDetail> buildDetails(Appointment appointment, List<AppointmentDetailRequest> detailRequests) {
+    private Room resolveAvailableRoom(String roomId, LocalDateTime startTime, LocalDateTime endTime, String excludeId) {
+        if (roomId == null || roomId.isBlank()) {
+            return null;
+        }
+
+        Room room = roomRepository.findById(roomId)
+                .orElseThrow(() -> new AppException(ErrorCode.ROOM_NOT_FOUND));
+
+        if (room.getStatus() != RoomStatus.AVAILABLE) {
+            throw new AppException(ErrorCode.ROOM_INACTIVE);
+        }
+
+        if (!appointmentRepository.findRoomConflicts(roomId, startTime, endTime, excludeId).isEmpty()) {
+            throw new AppException(ErrorCode.APPOINTMENT_ROOM_CONFLICT);
+        }
+
+        return room;
+    }
+
+    private List<AppoinmentDetail> buildDetails(Appointment appointment, List<AppointmentDetailRequest> detailRequests, String excludeId) {
         List<AppoinmentDetail> result = new ArrayList<>();
         LocalDateTime slotStart = appointment.getDateTime();
 
@@ -262,10 +327,9 @@ public class AppointmentService {
 
             // Business Rule: Therapist cannot serve multiple appointments simultaneously
             LocalDateTime slotEnd = slotStart.plusMinutes((long) service.getDuration());
-            List<Employee> available = employeeRepository.findAvailableEmployees(slotStart, slotEnd);
-            boolean isAvailable = available.stream()
-                    .anyMatch(e -> e.getEmployeeId().equals(employee.getEmployeeId()));
-            if (!isAvailable) {
+            List<Appointment> therapistConflicts = appointmentRepository.findTherapistConflicts(
+                    employee.getEmployeeId(), slotStart, slotEnd, excludeId);
+            if (!therapistConflicts.isEmpty()) {
                 throw new AppException(ErrorCode.APPOINTMENT_THERAPIST_CONFLICT,
                         "Nhân viên '" + employee.getName() + "' đã có lịch phục vụ trong khung giờ này");
             }

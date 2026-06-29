@@ -59,6 +59,16 @@ public class AppointmentController {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(apt, "Đặt lịch hẹn thành công"));
     }
 
+    @PutMapping("/{id}")
+    @Operation(summary = "Cap nhat lich hen")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'RECEPTIONIST')")
+    public ResponseEntity<ApiResponse<AppointmentResponse>> update(
+            @PathVariable String id,
+            @Valid @RequestBody AppointmentRequest request
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(appointmentService.update(id, request), "Cap nhat lich hen thanh cong"));
+    }
+
     @PatchMapping("/{id}/confirm")
     @Operation(summary = "Xác nhận lịch hẹn")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'RECEPTIONIST')")
