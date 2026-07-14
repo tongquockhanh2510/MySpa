@@ -6,10 +6,12 @@ import fit.quanlyspa.dto.response.catalog.ServiceResponse;
 import fit.quanlyspa.entity.Category;
 import fit.quanlyspa.entity.Service;
 import fit.quanlyspa.enums.StatusOfService;
+import fit.quanlyspa.enums.CategoryType;
 import fit.quanlyspa.exception.AppException;
 import fit.quanlyspa.exception.ErrorCode;
 import fit.quanlyspa.repository.CategoryRepository;
 import fit.quanlyspa.repository.ServiceRepository;
+import fit.quanlyspa.service.DisplayCodeService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -29,6 +31,7 @@ public class ServiceController {
 
     private final ServiceRepository serviceRepository;
     private final CategoryRepository categoryRepository;
+    private final DisplayCodeService displayCodeService;
 
     @GetMapping
     @Operation(summary = "List active services")
@@ -51,6 +54,8 @@ public class ServiceController {
 
         Service service = new Service();
         applyRequest(service, request);
+        service.setDisplayCode(displayCodeService.nextServiceCode(
+                service.getCategory() == null ? null : service.getCategory().getName()));
         Service saved = serviceRepository.save(service);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(toResponse(saved), "Them dich vu thanh cong"));
@@ -96,6 +101,9 @@ public class ServiceController {
         if (request.getCategoryId() != null && !request.getCategoryId().isBlank()) {
             Category category = categoryRepository.findById(request.getCategoryId())
                     .orElseThrow(() -> new AppException(ErrorCode.CATEGORY_NOT_FOUND));
+            if (category.getType() != CategoryType.SERVICE) {
+                throw new AppException(ErrorCode.VALIDATION_ERROR, "Danh muc da chon khong phai danh muc dich vu");
+            }
             service.setCategory(category);
         } else {
             service.setCategory(null);
@@ -106,6 +114,7 @@ public class ServiceController {
         Category category = service.getCategory();
         return ServiceResponse.builder()
                 .serviceId(service.getServiceId())
+                .displayCode(service.getDisplayCode())
                 .name(service.getName())
                 .price(service.getPrice())
                 .costPrice(service.getCostPrice() == null ? 0 : service.getCostPrice())

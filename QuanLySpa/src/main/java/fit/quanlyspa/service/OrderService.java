@@ -1,5 +1,6 @@
 package fit.quanlyspa.service;
 
+import fit.quanlyspa.configuration.PricingProperties;
 import fit.quanlyspa.dto.request.customer.CustomerRequest;
 import fit.quanlyspa.dto.request.order.OrderItemRequest;
 import fit.quanlyspa.dto.request.order.OrderRequest;
@@ -42,6 +43,7 @@ public class OrderService {
     TreatmentPackageRepository treatmentPackageRepository;
     VoucherRepository voucherRepository;
     PromotionRepository promotionRepository;
+    PromotionUsageRepository promotionUsageRepository;
     PaymentRepository paymentRepository;
     PaymentTransactionRepository paymentTransactionRepository;
     LoyaltyPointRepository loyaltyPointRepository;
@@ -57,6 +59,8 @@ public class OrderService {
     InvoiceDetailRepository invoiceDetailRepository;
     CommissionService commissionService;
     NotificationService notificationService;
+    PricingProperties pricingProperties;
+    DisplayCodeService displayCodeService;
 
     // ===== STEP 1, 2, 3: CREATE ORDER DRAFT =====
     @Transactional
@@ -120,6 +124,7 @@ public class OrderService {
 
         // Build Order entity
         Order order = Order.builder()
+                .displayCode(displayCodeService.nextOrderCode(LocalDate.now()))
                 .customer(customer)
                 .appointment(sourceAppointment)
                 .orderStatus(OrderStatus.DRAFT)
@@ -186,13 +191,19 @@ public class OrderService {
             Promotion promotion = promotionRepository.findById(request.getPromotionId())
                     .orElseThrow(() -> new AppException(ErrorCode.PROMOTION_NOT_FOUND));
             validatePromotionUsable(promotion, subtotal);
+            if (promotion.getMaxUsesPerCustomer() != null) {
+                long customerUses = promotionUsageRepository
+                        .countByPromotion_PromotionIdAndCustomer_CustomerId(
+                                promotion.getPromotionId(), customer.getCustomerId());
+                if (customerUses >= promotion.getMaxUsesPerCustomer()) {
+                    throw new AppException(ErrorCode.VALIDATION_ERROR,
+                            "Khách hàng đã dùng hết số lượt cho khuyến mãi này");
+                }
+            }
             BigDecimal promotionBase = calculatePromotionBase(orderItems, subtotal, promotion);
             promoDiscount = calculatePromoDiscount(promotionBase, promotion);
             order.setPromoDiscount(promoDiscount);
-            if (promotion.getQuantity() != null && promoDiscount.compareTo(BigDecimal.ZERO) > 0) {
-                promotion.setQuantity(promotion.getQuantity() - 1);
-                promotionRepository.save(promotion);
-            }
+            order.setPromotion(promotion);
         }
 
         // B. Voucher Discount
@@ -232,6 +243,9 @@ public class OrderService {
         BigDecimal loyaltyDiscount = BigDecimal.ZERO;
         if (request.getLoyaltyPointsToUse() != null && request.getLoyaltyPointsToUse() > 0) {
             double pointsRequested = request.getLoyaltyPointsToUse();
+            if (pointsRequested != Math.floor(pointsRequested)) {
+                throw new AppException(ErrorCode.VALIDATION_ERROR, "Điểm tích lũy phải là số nguyên");
+            }
             if (pointsRequested > customer.getLoyaltyPoints()) {
                 throw new AppException(ErrorCode.VALIDATION_ERROR,
                         "Khách hàng chỉ có " + customer.getLoyaltyPoints() + " điểm, không đủ " + pointsRequested + " điểm để quy đổi");
@@ -277,11 +291,22 @@ public class OrderService {
                 .subtract(membershipDiscount).subtract(loyaltyDiscount);
         if (taxableAmount.compareTo(BigDecimal.ZERO) < 0) taxableAmount = BigDecimal.ZERO;
         
-        BigDecimal taxAmount = taxableAmount.multiply(BigDecimal.valueOf(0.10)).setScale(2, RoundingMode.HALF_UP); // 10% tax
+        BigDecimal rate = pricingProperties.getVatRate().max(BigDecimal.ZERO);
+        BigDecimal taxAmount;
+        BigDecimal totalAmount;
+        if (pricingProperties.isVatInclusive()) {
+            BigDecimal divisor = BigDecimal.valueOf(100).add(rate);
+            taxAmount = rate.signum() == 0 ? BigDecimal.ZERO
+                    : taxableAmount.multiply(rate).divide(divisor, 2, RoundingMode.HALF_UP);
+            totalAmount = taxableAmount.setScale(2, RoundingMode.HALF_UP);
+        } else {
+            taxAmount = taxableAmount.multiply(rate)
+                    .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+            totalAmount = taxableAmount.add(taxAmount).setScale(2, RoundingMode.HALF_UP);
+        }
         order.setTaxAmount(taxAmount);
 
         // E. Final Amount & Grand Total
-        BigDecimal totalAmount = taxableAmount.add(taxAmount).setScale(2, RoundingMode.HALF_UP);
         order.setTotalAmount(totalAmount);
         order.setRemainingAmount(totalAmount);
         order.setOrderStatus(OrderStatus.PENDING_PAYMENT);
@@ -351,6 +376,7 @@ public class OrderService {
         // Update Order Status
         if (order.getRemainingAmount().compareTo(BigDecimal.ZERO) <= 0) {
             order.setOrderStatus(OrderStatus.PAID);
+            consumePromotion(order);
 
             // Execute Post-payment workflows
             executePostPaymentFlows(order, processedBy);
@@ -412,7 +438,33 @@ public class OrderService {
             }
             // STEP 6: SERVICE PURCHASE FLOW
             else if (item.getItemType() == OrderItemType.SERVICE && item.getService() != null) {
-                validateStoredServiceSchedule(item, customer, order.getAppointment());
+                ServiceSchedule schedule = validateStoredServiceSchedule(item, customer, order.getAppointment());
+                if (order.getAppointment() == null) {
+                    Appointment appointment = Appointment.builder()
+                            .displayCode(displayCodeService.nextAppointmentCode(schedule.startTime().toLocalDate()))
+                            .customer(customer)
+                            .room(schedule.room())
+                            .dateTime(schedule.startTime())
+                            .endTime(schedule.endTime())
+                            .statusOfAppointment(StatusOfAppointment.CONFIRMED)
+                            .createdBy(processedBy)
+                            .note("Tạo từ đơn " + shortOrderCode(order.getOrderId()))
+                            .build();
+                    appointment = appointmentRepository.save(appointment);
+
+                    AppoinmentDetail detail = new AppoinmentDetail();
+                    detail.setId(new AppoimentDetalId(
+                            appointment.getAppointmentId(),
+                            item.getService().getServiceId(),
+                            schedule.therapist().getEmployeeId()));
+                    detail.setAppointment(appointment);
+                    detail.setService(item.getService());
+                    detail.setEmployee(schedule.therapist());
+                    detail.setPrice(item.getUnitPrice().doubleValue());
+                    appointmentDetailRepository.save(detail);
+                    appointment.getDetails().add(detail);
+                    order.setAppointment(appointment);
+                }
             }
             
             // STEP 7 & 8: PACKAGE PURCHASE FLOW (Create customer package and schedules)
@@ -456,7 +508,7 @@ public class OrderService {
         }
 
         // STEP 11: LOYALTY POINTS (100,000 VND = 1 Point)
-        double pointsEarned = order.getTotalAmount().divide(BigDecimal.valueOf(100000), 2, RoundingMode.DOWN).doubleValue();
+        double pointsEarned = order.getTotalAmount().divide(BigDecimal.valueOf(100000), 0, RoundingMode.DOWN).doubleValue();
         if (pointsEarned > 0) {
             customerService.addLoyaltyPoints(customer.getCustomerId(), pointsEarned, "Mua hàng theo đơn " + order.getOrderId());
             
@@ -487,6 +539,28 @@ public class OrderService {
         // STEP 12: AUTO-GENERATE INVOICE
         generateInvoiceFromOrder(order, processedBy);
         completeSourceAppointmentIfNeeded(order);
+    }
+
+    private void consumePromotion(Order order) {
+        Promotion promotion = order.getPromotion();
+        if (promotion == null || order.getPromoDiscount() == null
+                || order.getPromoDiscount().compareTo(BigDecimal.ZERO) <= 0
+                || promotionUsageRepository.existsByPromotion_PromotionIdAndOrder_OrderId(
+                        promotion.getPromotionId(), order.getOrderId())) {
+            return;
+        }
+        if (promotion.getQuantity() != null) {
+            if (promotion.getQuantity() <= 0) {
+                throw new AppException(ErrorCode.VALIDATION_ERROR, "Khuyến mãi đã hết lượt sử dụng");
+            }
+            promotion.setQuantity(promotion.getQuantity() - 1);
+            promotionRepository.save(promotion);
+        }
+        promotionUsageRepository.save(PromotionUsage.builder()
+                .promotion(promotion)
+                .customer(order.getCustomer())
+                .order(order)
+                .build());
     }
 
     private void generateInvoiceFromOrder(Order order, String createdBy) {
@@ -562,12 +636,11 @@ public class OrderService {
             throw new AppException(ErrorCode.OPERATION_NOT_ALLOWED,
                     "Lich hen da huy hoac khach khong den, khong the hoan tat thanh toan");
         }
-        if (appointment.getStatusOfAppointment() != StatusOfAppointment.COMPLETED) {
-            appointment.setStatusOfAppointment(StatusOfAppointment.COMPLETED);
-            appointment.setCompletedAt(LocalDateTime.now());
-            appointmentRepository.save(appointment);
+        // Payment must never advance the operational appointment state. A prepaid
+        // future service remains CONFIRMED; commission is generated only after the
+        // appointment state machine has completed it.
+        if (appointment.getStatusOfAppointment() == StatusOfAppointment.COMPLETED) {
             commissionService.generateForCompletedAppointment(appointment);
-            log.info("Completed appointment {} from paid order {}", appointment.getAppointmentId(), order.getOrderId());
         }
     }
 
@@ -634,6 +707,14 @@ public class OrderService {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
+    private String shortOrderCode(String orderId) {
+        if (orderId == null || orderId.isBlank()) {
+            return "DH";
+        }
+        String compact = orderId.replace("-", "").toUpperCase(Locale.ROOT);
+        return "DH-" + compact.substring(0, Math.min(8, compact.length()));
+    }
+
     private boolean promotionMatchesItem(OrderItem item, String targetType, String targetId) {
         return switch (targetType.toUpperCase()) {
             case "PRODUCT" -> item.getProduct() != null && targetId.equals(item.getProduct().getProductId());
@@ -682,8 +763,20 @@ public class OrderService {
         if (therapist.getStatusOfEmployee() != StatusOfEmployee.ACTIVE) {
             throw new AppException(ErrorCode.EMPLOYEE_INACTIVE, "Ky thuat vien khong con hoat dong");
         }
-
+        if (therapist.getServiceSkills() != null && !therapist.getServiceSkills().isEmpty()
+                && therapist.getServiceSkills().stream().noneMatch(skill -> skill.getServiceId().equals(service.getServiceId()))) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR, "Ky thuat vien chua duoc cap ky nang cho dich vu nay");
+        }
+        if (therapist.getWorkDays() != null && !therapist.getWorkDays().isEmpty()
+                && !therapist.getWorkDays().contains(startTime.getDayOfWeek())) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR, "Ky thuat vien khong co ca lam trong ngay da chon");
+        }
         LocalDateTime endTime = startTime.plusMinutes((long) service.getDuration());
+        if (therapist.getShiftStart() != null && therapist.getShiftEnd() != null
+                && (startTime.toLocalTime().isBefore(therapist.getShiftStart())
+                || endTime.toLocalTime().isAfter(therapist.getShiftEnd()))) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR, "Khung gio nam ngoai ca lam cua ky thuat vien");
+        }
         if (!appointmentRepository.findOverlappingForCustomer(customer.getCustomerId(), startTime, endTime, excludeAppointmentId).isEmpty()) {
             throw new AppException(ErrorCode.APPOINTMENT_TIME_CONFLICT);
         }
@@ -755,6 +848,7 @@ public class OrderService {
 
         return OrderResponse.builder()
                 .orderId(order.getOrderId())
+                .displayCode(order.getDisplayCode())
                 .orderStatus(order.getOrderStatus())
                 .typeOfOrder(order.getTypeOfOrder())
                 .subtotal(order.getSubtotal())
@@ -768,7 +862,9 @@ public class OrderService {
                 .paidAmount(order.getPaidAmount())
                 .remainingAmount(order.getRemainingAmount())
                 .appointmentId(order.getAppointment() != null ? order.getAppointment().getAppointmentId() : null)
+                .appointmentDisplayCode(order.getAppointment() != null ? order.getAppointment().getDisplayCode() : null)
                 .customerId(order.getCustomer().getCustomerId())
+                .customerDisplayCode(order.getCustomer().getDisplayCode())
                 .customerName(order.getCustomer().getName())
                 .customerPhone(order.getCustomer().getPhone())
                 .createdBy(order.getCreatedBy())

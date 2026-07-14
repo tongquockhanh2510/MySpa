@@ -8,6 +8,7 @@ import fit.quanlyspa.exception.AppException;
 import fit.quanlyspa.exception.ErrorCode;
 import fit.quanlyspa.repository.CategoryRepository;
 import fit.quanlyspa.repository.ProductRepository;
+import fit.quanlyspa.repository.ServiceRepository;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -28,6 +29,7 @@ public class CategoryController {
 
     private final CategoryRepository categoryRepository;
     private final ProductRepository productRepository;
+    private final ServiceRepository serviceRepository;
 
     @GetMapping
     @Operation(summary = "List categories")
@@ -50,6 +52,7 @@ public class CategoryController {
         Category category = new Category();
         category.setCategoryId("CAT-" + UUID.randomUUID());
         category.setName(request.getName().trim());
+        category.setType(request.getType());
         Category saved = categoryRepository.save(category);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(toResponse(saved), "Them danh muc thanh cong"));
@@ -66,6 +69,7 @@ public class CategoryController {
         }
 
         category.setName(request.getName().trim());
+        category.setType(request.getType());
         Category saved = categoryRepository.save(category);
         return ResponseEntity.ok(ApiResponse.success(toResponse(saved), "Cap nhat danh muc thanh cong"));
     }
@@ -76,7 +80,7 @@ public class CategoryController {
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable String id) {
         Category category = categoryRepository.findById(id)
                 .orElseThrow(() -> new AppException(ErrorCode.CATEGORY_NOT_FOUND));
-        if (productRepository.existsByCategory_CategoryId(id)) {
+        if (productRepository.existsByCategory_CategoryId(id) || serviceRepository.existsByCategory_CategoryId(id)) {
             throw new AppException(ErrorCode.CATEGORY_IN_USE);
         }
 
@@ -88,7 +92,9 @@ public class CategoryController {
         return CategoryResponse.builder()
                 .categoryId(category.getCategoryId())
                 .name(category.getName())
+                .type(category.getType())
                 .productCount(category.getProducts() == null ? 0 : category.getProducts().size())
+                .serviceCount(category.getServices() == null ? 0 : category.getServices().size())
                 .build();
     }
 }

@@ -14,6 +14,7 @@ import java.time.LocalDateTime;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class CustomerResponse {
     String customerId;
+    String displayCode;
     String name;
     String phone;
     String email;

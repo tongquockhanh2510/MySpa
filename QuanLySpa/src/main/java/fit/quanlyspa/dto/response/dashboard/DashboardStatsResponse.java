@@ -18,6 +18,7 @@ public class DashboardStatsResponse {
     BigDecimal monthRevenue;
     BigDecimal yearRevenue;
     Double revenueGrowthPercent; // null = khong co du lieu thang truoc de so sanh
+    Double todayRevenueGrowthPercent; // compared with the same weekday last week
 
     // Appointment KPIs
     long todayAppointments;

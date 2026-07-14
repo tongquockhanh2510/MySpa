@@ -4,6 +4,8 @@ import fit.quanlyspa.dto.response.ApiResponse;
 import fit.quanlyspa.dto.response.salary.CommissionDetailResponse;
 import fit.quanlyspa.dto.response.salary.EmployeeSalaryResponse;
 import fit.quanlyspa.service.CommissionService;
+import fit.quanlyspa.dto.request.salary.PayrollUpdateRequest;
+import jakarta.validation.Valid;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -58,6 +60,18 @@ public class SalaryController {
         int created = commissionService.backfill();
         return ResponseEntity.ok(ApiResponse.success(created,
                 "Đã sinh bù " + created + " bản ghi hoa hồng từ dữ liệu cũ"));
+    }
+
+    @PutMapping("/{employeeId}/period")
+    @Operation(summary = "Cap nhat thuong, phat, ung luong va trang thai ky luong")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    public ResponseEntity<ApiResponse<EmployeeSalaryResponse>> updatePayroll(
+            @PathVariable String employeeId,
+            @RequestParam int month,
+            @RequestParam int year,
+            @Valid @RequestBody PayrollUpdateRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(
+                commissionService.updatePayroll(employeeId, month, year, request)));
     }
 
     @GetMapping("/{employeeId}/commissions")

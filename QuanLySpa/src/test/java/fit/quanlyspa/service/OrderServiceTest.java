@@ -1,6 +1,7 @@
 package fit.quanlyspa.service;
 
 import fit.quanlyspa.dto.request.order.PaymentProcessRequest;
+import fit.quanlyspa.configuration.PricingProperties;
 import fit.quanlyspa.entity.AppoinmentDetail;
 import fit.quanlyspa.entity.Appointment;
 import fit.quanlyspa.entity.Customer;
@@ -36,6 +37,7 @@ import fit.quanlyspa.repository.PaymentRepository;
 import fit.quanlyspa.repository.PaymentTransactionRepository;
 import fit.quanlyspa.repository.ProductRepository;
 import fit.quanlyspa.repository.PromotionRepository;
+import fit.quanlyspa.repository.PromotionUsageRepository;
 import fit.quanlyspa.repository.RoomRepository;
 import fit.quanlyspa.repository.ServiceRepository;
 import fit.quanlyspa.repository.TreatmentPackageRepository;
@@ -74,6 +76,7 @@ class OrderServiceTest {
     @Mock TreatmentPackageRepository treatmentPackageRepository;
     @Mock VoucherRepository voucherRepository;
     @Mock PromotionRepository promotionRepository;
+    @Mock PromotionUsageRepository promotionUsageRepository;
     @Mock PaymentRepository paymentRepository;
     @Mock PaymentTransactionRepository paymentTransactionRepository;
     @Mock LoyaltyPointRepository loyaltyPointRepository;
@@ -90,6 +93,8 @@ class OrderServiceTest {
     @Mock PackageConversionRepository packageConversionRepository;
     @Mock CommissionService commissionService;
     @Mock NotificationService notificationService;
+    @Mock PricingProperties pricingProperties;
+    @Mock DisplayCodeService displayCodeService;
 
     @InjectMocks OrderService orderService;
 
@@ -156,7 +161,10 @@ class OrderServiceTest {
                 .roomName("Room 1")
                 .status(RoomStatus.AVAILABLE)
                 .build();
-        LocalDateTime scheduledAt = LocalDateTime.now().plusDays(2).withNano(0);
+        // Keep the test independent from the wall-clock time at which the suite runs.
+        // now().plusDays(2) can fall outside the configured 08:00-21:00 opening hours.
+        LocalDateTime scheduledAt = LocalDateTime.now().plusDays(2)
+                .withHour(10).withMinute(0).withSecond(0).withNano(0);
 
         OrderItem item = OrderItem.builder()
                 .itemType(OrderItemType.SERVICE)

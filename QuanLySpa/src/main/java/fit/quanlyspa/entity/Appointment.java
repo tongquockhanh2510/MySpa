@@ -30,6 +30,9 @@ public class Appointment {
     @Column(name = "appointment_id", updatable = false)
     String appointmentId;
 
+    @Column(name = "display_code", unique = true, length = 30)
+    String displayCode;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status_of_appointment", nullable = false)
     @Builder.Default

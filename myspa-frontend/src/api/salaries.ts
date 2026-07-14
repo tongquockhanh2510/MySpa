@@ -9,6 +9,10 @@ export interface EmployeeSalary {
   baseSalary: number;
   totalCommission: number;
   commissionCount: number;
+  bonus: number;
+  penalty: number;
+  salaryAdvance: number;
+  payrollStatus: 'DRAFT' | 'LOCKED' | 'PAID';
   totalSalary: number;
 }
 
@@ -58,4 +62,12 @@ export const getMyCommissionDetails = async (
 ): Promise<CommissionDetail[]> => {
   const response = await axiosInstance.get('/salaries/me/commissions', { params: { month, year } });
   return response.data.result || [];
+};
+
+export const updatePayroll = async (
+  employeeId: string, month: number, year: number,
+  data: { bonus: number; penalty: number; salaryAdvance: number; status: 'DRAFT' | 'LOCKED' | 'PAID' },
+): Promise<EmployeeSalary> => {
+  const response = await axiosInstance.put(`/salaries/${employeeId}/period`, data, { params: { month, year } });
+  return response.data.result;
 };

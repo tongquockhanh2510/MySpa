@@ -2,6 +2,7 @@ import axiosInstance from './axiosInstance';
 
 export interface Customer {
   customerId: string;
+  displayCode?: string;
   name: string;
   phone: string;
   email: string;

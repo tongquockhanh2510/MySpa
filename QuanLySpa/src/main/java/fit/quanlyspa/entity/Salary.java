@@ -13,7 +13,8 @@ import lombok.experimental.FieldDefaults;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class Salary {
     @Id
-            @Column(name = "salary_id")
+    @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(name = "salary_id")
     String salaryId;
     int month;
     int year;
@@ -21,6 +22,11 @@ public class Salary {
     double totalWorkingHours;
     double bonus;
     double penalty;
+    @Column(name = "salary_advance")
+    double salaryAdvance;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "payroll_status")
+    fit.quanlyspa.enums.PayrollStatus payrollStatus = fit.quanlyspa.enums.PayrollStatus.DRAFT;
     @Column(name = "total_salary")
     double totalSalary;
     @Column(name = "total_commission")

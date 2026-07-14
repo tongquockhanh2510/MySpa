@@ -16,6 +16,9 @@ public class CustomerTreatmentResponse {
     int totalSessions;
     double packagePrice;
     int remainingSessions;
+    int consumedSessions;
+    int reservedSessions;
+    int availableSessions;
     LocalDate purchaseDate;
     LocalDate expiryDate;
     LocalDate cancelDate;

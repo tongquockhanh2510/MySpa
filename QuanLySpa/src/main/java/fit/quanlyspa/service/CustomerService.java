@@ -30,6 +30,7 @@ public class CustomerService {
 
     CustomerRepository customerRepository;
     AppointmentRepository appointmentRepository;
+    DisplayCodeService displayCodeService;
 
     // ===== CREATE =====
     @Transactional
@@ -44,6 +45,7 @@ public class CustomerService {
         }
 
         Customer customer = Customer.builder()
+                .displayCode(displayCodeService.nextCustomerCode())
                 .name(request.getName())
                 .phone(request.getPhone())
                 .email(request.getEmail())
@@ -166,6 +168,7 @@ public class CustomerService {
 
         return CustomerResponse.builder()
                 .customerId(c.getCustomerId())
+                .displayCode(c.getDisplayCode())
                 .name(c.getName())
                 .phone(c.getPhone())
                 .email(c.getEmail())

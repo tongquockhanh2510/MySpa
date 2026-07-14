@@ -10,6 +10,7 @@ import java.time.LocalDateTime;
 @Builder
 public class ServiceResponse {
     String serviceId;
+    String displayCode;
     String name;
     double price;
     double costPrice;

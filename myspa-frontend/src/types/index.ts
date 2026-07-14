@@ -128,6 +128,7 @@ export interface UserInfo {
 
 export interface Customer {
   customerId: string;
+  displayCode?: string;
   name: string;
   phone: string;
   email: string;
@@ -149,6 +150,7 @@ export interface CustomerFormData {
 
 export interface Employee {
   employeeId: string;
+  displayCode?: string;
   name: string;
   phone: string;
   email: string;
@@ -159,6 +161,13 @@ export interface Employee {
   accountUserName?: string | null;
   accountActive?: boolean | null;
   accountRoles?: string[];
+  hireDate?: string;
+  employeeLevel?: 'TRAINEE' | 'STANDARD' | 'SENIOR';
+  commissionRate?: number;
+  skillServiceIds?: string[];
+  workDays?: string[];
+  shiftStart?: string;
+  shiftEnd?: string;
 }
 
 export interface EmployeeAccount {
@@ -175,12 +184,20 @@ export interface EmployeeFormData {
   statusOfEmployee: StatusOfEmployee;
   position: string;
   baseSalary: number;
+  hireDate?: string;
+  employeeLevel: 'TRAINEE' | 'STANDARD' | 'SENIOR';
+  commissionRate: number;
+  skillServiceIds: string[];
+  workDays: string[];
+  shiftStart?: string;
+  shiftEnd?: string;
 }
 
 // ===== Service =====
 
 export interface Service {
   serviceId: string;
+  displayCode?: string;
   name: string;
   price: number;
   costPrice?: number;
@@ -191,6 +208,8 @@ export interface Service {
   image?: string;
   employeeId?: string;
   employeeName?: string;
+  categoryId?: string;
+  categoryName?: string;
 }
 
 export interface ServiceFormData {
@@ -204,16 +223,19 @@ export interface ServiceFormData {
   commissionRate: number;
   image?: string;
   employeeId?: string;
+  categoryId: string;
 }
 
 // ===== Appointment =====
 
 export interface Appointment {
   appointmentId: string;
+  displayCode?: string;
   statusOfAppointment: StatusOfAppointment;
   dateTime: string;
   note?: string;
   customerId: string;
+  customerDisplayCode?: string;
   customerName: string;
   customerPhone: string;
   roomId?: string;
@@ -275,6 +297,9 @@ export interface CustomerTreatment {
   totalSessions?: number;
   packagePrice?: number;
   remainingSessions: number;
+  consumedSessions?: number;
+  reservedSessions?: number;
+  availableSessions?: number;
   purchaseDate: string;
   expiryDate: string;
   cancelDate?: string;
@@ -304,12 +329,16 @@ export interface PackageConversion {
 
 export interface Order {
   orderId: string;
+  displayCode?: string;
   totalAmount: number;
   orderStatus: OrderStatus;
   typeOfOrder: TypeOfOrder;
   paidAmount: number;
   remainingAmount: number;
   customerId: string;
+  customerDisplayCode?: string;
+  appointmentId?: string;
+  appointmentDisplayCode?: string;
   customerName: string;
   items?: OrderItem[];
   createdAt?: string;
@@ -386,11 +415,14 @@ export interface Category {
   categoryId: string;
   name: string;
   productCount?: number;
+  serviceCount?: number;
+  type: 'PRODUCT' | 'SERVICE';
 }
 
 export interface CategoryFormData {
   categoryId?: string;
   name: string;
+  type: 'PRODUCT' | 'SERVICE';
 }
 
 // ===== Promotion =====
@@ -402,7 +434,10 @@ export interface Promotion {
   minOrderValue: number;
   effective: string;
   expiration: string;
-  quantity: number;
+  quantity?: number | null;
+  initialQuantity?: number | null;
+  maxUsesPerCustomer?: number | null;
+  usedCount?: number;
   isActive: boolean;
   createAt?: string;
   type: 'AMOUNT' | 'PERCENT';
@@ -428,7 +463,8 @@ export interface AmountPromotionFormData {
   minOrderValue: number;
   effective: string;
   expiration: string;
-  quantity: number;
+  quantity?: number;
+  maxUsesPerCustomer?: number;
   isActive: boolean;
   discount: number;
   applyScope?: 'ORDER' | 'ITEM';
@@ -442,7 +478,8 @@ export interface PercentPromotionFormData {
   minOrderValue: number;
   effective: string;
   expiration: string;
-  quantity: number;
+  quantity?: number;
+  maxUsesPerCustomer?: number;
   isActive: boolean;
   percent: number;
   maxDiscount: number;

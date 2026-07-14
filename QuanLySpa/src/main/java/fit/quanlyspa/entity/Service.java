@@ -26,6 +26,9 @@ public class Service {
     @Column(name = "service_id", updatable = false)
     String serviceId;
 
+    @Column(name = "display_code", unique = true, length = 30)
+    String displayCode;
+
     @Column(name = "name", nullable = false, length = 200)
     String name;
 

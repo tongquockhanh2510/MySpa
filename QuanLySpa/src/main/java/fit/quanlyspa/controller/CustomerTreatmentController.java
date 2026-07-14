@@ -6,6 +6,7 @@ import fit.quanlyspa.entity.Customer;
 import fit.quanlyspa.entity.CustomerTreatment;
 import fit.quanlyspa.entity.TreatmentPackage;
 import fit.quanlyspa.repository.CustomerTreatmentRepository;
+import fit.quanlyspa.repository.TreatmentScheduleRepository;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +26,7 @@ import java.util.List;
 public class CustomerTreatmentController {
 
     private final CustomerTreatmentRepository customerTreatmentRepository;
+    private final TreatmentScheduleRepository treatmentScheduleRepository;
 
     @GetMapping
     @Operation(summary = "List customer treatment packages")
@@ -49,15 +51,24 @@ public class CustomerTreatmentController {
     private CustomerTreatmentResponse toResponse(CustomerTreatment ct) {
         Customer customer = ct.getCustomer();
         TreatmentPackage pack = ct.getTreatmentPackage();
+        int total = pack != null ? pack.getTotalSessions() : 0;
+        int remaining = ct.getRemainingSessions();
+        int consumed = Math.max(0, total - remaining);
+        int reserved = customer == null || pack == null ? 0 : Math.toIntExact(
+                treatmentScheduleRepository.countReservedByTreatment(
+                        customer.getCustomerId(), pack.getTreatmentPackageId()));
         return CustomerTreatmentResponse.builder()
                 .customerId(customer != null ? customer.getCustomerId() : null)
                 .packageId(pack != null ? pack.getTreatmentPackageId() : null)
                 .customerName(customer != null ? customer.getName() : null)
                 .customerPhone(customer != null ? customer.getPhone() : null)
                 .packageName(pack != null ? pack.getPackageName() : null)
-                .totalSessions(pack != null ? pack.getTotalSessions() : 0)
+                .totalSessions(total)
                 .packagePrice(pack != null ? pack.getPackagePrice() : 0)
-                .remainingSessions(ct.getRemainingSessions())
+                .remainingSessions(remaining)
+                .consumedSessions(consumed)
+                .reservedSessions(reserved)
+                .availableSessions(Math.max(0, remaining - reserved))
                 .purchaseDate(ct.getPurchaseDate())
                 .expiryDate(ct.getExpiryDate())
                 .cancelDate(ct.getCancelDate())

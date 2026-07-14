@@ -12,6 +12,9 @@ import fit.quanlyspa.exception.ErrorCode;
 import fit.quanlyspa.repository.EmployeeRepository;
 import fit.quanlyspa.repository.RoleRepository;
 import fit.quanlyspa.repository.UserRepository;
+import fit.quanlyspa.repository.ServiceRepository;
+import fit.quanlyspa.enums.EmployeeLevel;
+import fit.quanlyspa.service.DisplayCodeService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -40,6 +43,8 @@ public class EmployeeController {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
+    private final ServiceRepository serviceRepository;
+    private final DisplayCodeService displayCodeService;
 
     @GetMapping
     @Operation(summary = "Danh sách tất cả nhân viên")
@@ -60,6 +65,7 @@ public class EmployeeController {
         }
 
         Employee employee = new Employee();
+        employee.setDisplayCode(displayCodeService.nextEmployeeCode());
         applyRequest(employee, request);
         Employee saved = employeeRepository.save(employee);
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -146,5 +152,22 @@ public class EmployeeController {
         employee.setPosition(request.getPosition());
         employee.setBaseSalary(request.getBaseSalary());
         employee.setStatusOfEmployee(request.getStatusOfEmployee() == null ? StatusOfEmployee.ACTIVE : request.getStatusOfEmployee());
+        employee.setHireDate(request.getHireDate());
+        employee.setEmployeeLevel(request.getEmployeeLevel() == null ? EmployeeLevel.STANDARD : request.getEmployeeLevel());
+        employee.setCommissionRate(request.getCommissionRate());
+        employee.setServiceSkills(request.getSkillServiceIds() == null || request.getSkillServiceIds().isEmpty()
+                ? new java.util.HashSet<>()
+                : new java.util.HashSet<>(serviceRepository.findAllById(request.getSkillServiceIds())));
+        if (request.getSkillServiceIds() != null
+                && employee.getServiceSkills().size() != request.getSkillServiceIds().size()) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR, "Mot hoac nhieu ky nang dich vu khong ton tai");
+        }
+        if (request.getShiftStart() != null && request.getShiftEnd() != null
+                && !request.getShiftEnd().isAfter(request.getShiftStart())) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR, "Gio ket thuc ca phai sau gio bat dau");
+        }
+        employee.setWorkDays(request.getWorkDays() == null ? new java.util.HashSet<>() : new java.util.HashSet<>(request.getWorkDays()));
+        employee.setShiftStart(request.getShiftStart());
+        employee.setShiftEnd(request.getShiftEnd());
     }
 }

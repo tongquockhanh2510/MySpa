@@ -2,6 +2,7 @@ package fit.quanlyspa.entity;
 
 import fit.quanlyspa.enums.Gender;
 import fit.quanlyspa.enums.StatusOfEmployee;
+import fit.quanlyspa.enums.EmployeeLevel;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
@@ -10,6 +11,8 @@ import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.DayOfWeek;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -34,6 +37,9 @@ public class Employee {
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "employee_id", updatable = false)
     String employeeId;
+
+    @Column(name = "display_code", unique = true, length = 30)
+    String displayCode;
 
     @Column(name = "name", nullable = false, length = 150)
     String name;
@@ -77,6 +83,37 @@ public class Employee {
 
     @Column(name = "hire_date")
     LocalDate hireDate;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "employee_level")
+    @Builder.Default
+    EmployeeLevel employeeLevel = EmployeeLevel.STANDARD;
+
+    @JsonIgnore
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(name = "employee_service_skills",
+            joinColumns = @JoinColumn(name = "employee_id"),
+            inverseJoinColumns = @JoinColumn(name = "service_id"))
+    @Builder.Default
+    Set<Service> serviceSkills = new HashSet<>();
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "employee_work_days", joinColumns = @JoinColumn(name = "employee_id"))
+    @Enumerated(EnumType.STRING)
+    @Column(name = "day_of_week")
+    @Builder.Default
+    Set<DayOfWeek> workDays = new HashSet<>();
+
+    @Column(name = "shift_start")
+    LocalTime shiftStart;
+
+    @Column(name = "shift_end")
+    LocalTime shiftEnd;
+
+    @com.fasterxml.jackson.annotation.JsonProperty("skillServiceIds")
+    public List<String> getSkillServiceIds() {
+        return serviceSkills == null ? List.of() : serviceSkills.stream().map(Service::getServiceId).sorted().toList();
+    }
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

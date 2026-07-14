@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { DataGrid } from '@mui/x-data-grid';
 import type { GridColDef } from '@mui/x-data-grid';
-import { Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, InputAdornment, TextField } from '@mui/material';
+import { Button, Dialog, DialogActions, DialogContent, DialogTitle, FormControl, IconButton, InputAdornment, InputLabel, MenuItem, Select, TextField } from '@mui/material';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -19,6 +19,7 @@ import './CategoriesPage.css';
 
 const schema = z.object({
   name: z.string().min(2, 'Tên danh mục phải có ít nhất 2 ký tự'),
+  type: z.enum(['PRODUCT', 'SERVICE']),
 });
 
 const inputSx = {
@@ -36,7 +37,7 @@ const CategoriesPage: React.FC = () => {
 
   const { control, handleSubmit, reset, formState: { errors } } = useForm<CategoryFormData>({
     resolver: zodResolver(schema),
-    defaultValues: { name: '' },
+    defaultValues: { name: '', type: 'PRODUCT' },
   });
 
   const filtered = useMemo(() => {
@@ -67,13 +68,13 @@ const CategoriesPage: React.FC = () => {
 
   const openCreate = () => {
     setEditing(null);
-    reset({ name: '' });
+    reset({ name: '', type: 'PRODUCT' });
     setDialogOpen(true);
   };
 
   const openEdit = (category: Category) => {
     setEditing(category);
-    reset({ name: category.name });
+    reset({ name: category.name, type: category.type });
     setDialogOpen(true);
   };
 
@@ -116,12 +117,18 @@ const CategoriesPage: React.FC = () => {
       renderCell: ({ value }) => <span className="categories-name-cell">{value}</span>,
     },
     {
+      field: 'type',
+      headerName: 'Loại danh mục',
+      width: 150,
+      renderCell: ({ value }) => value === 'SERVICE' ? 'Dịch vụ' : 'Sản phẩm',
+    },
+    {
       field: 'productCount',
-      headerName: 'Số sản phẩm',
+      headerName: 'Số mục',
       width: 150,
       align: 'center',
       headerAlign: 'center',
-      renderCell: ({ value }) => <span className="categories-count-pill">{value || 0} sản phẩm</span>,
+      renderCell: ({ row }) => <span className="categories-count-pill">{row.type === 'SERVICE' ? (row.serviceCount || 0) : (row.productCount || 0)} {row.type === 'SERVICE' ? 'dịch vụ' : 'sản phẩm'}</span>,
     },
     {
       field: 'actions',
@@ -145,7 +152,7 @@ const CategoriesPage: React.FC = () => {
 
   return (
     <main className="categories-page animate-fadeIn">
-      <PageHeader title="Danh mục sản phẩm" subtitle={`${categories.length} danh mục`} action={{ label: 'Thêm danh mục', onClick: openCreate }} />
+      <PageHeader title="Danh mục sản phẩm & dịch vụ" subtitle={`${categories.length} danh mục`} action={{ label: 'Thêm danh mục', onClick: openCreate }} />
 
       <section className="categories-summary" aria-label="Tóm tắt danh mục">
         <div className="categories-summary-card"><span><CategoryIcon /></span><div><strong>{categories.length}</strong><p>Tổng danh mục</p></div></div>
@@ -191,6 +198,15 @@ const CategoriesPage: React.FC = () => {
         <DialogContent sx={{ pt: '16px !important' }}>
           <Controller name="name" control={control} render={({ field }) => (
             <TextField {...field} label="Tên danh mục *" error={!!errors.name} helperText={errors.name?.message} fullWidth size="small" sx={inputSx} />
+          )} />
+          <Controller name="type" control={control} render={({ field }) => (
+            <FormControl fullWidth size="small" sx={{ mt: 2, ...inputSx }}>
+              <InputLabel>Loại danh mục</InputLabel>
+              <Select {...field} label="Loại danh mục">
+                <MenuItem value="PRODUCT">Sản phẩm</MenuItem>
+                <MenuItem value="SERVICE">Dịch vụ</MenuItem>
+              </Select>
+            </FormControl>
           )} />
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 3, gap: 1 }}>

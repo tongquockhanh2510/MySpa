@@ -9,4 +9,5 @@ public interface ServiceRepository extends JpaRepository<Service, String> {
     boolean existsByNameIgnoreCase(String name);
 
     boolean existsByNameIgnoreCaseAndServiceIdNot(String name, String serviceId);
+    boolean existsByCategory_CategoryId(String categoryId);
 }

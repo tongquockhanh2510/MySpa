@@ -28,8 +28,8 @@ const RolesPage: React.FC = () => {
       setUsers(userData);
     } catch (error) {
       console.error(error);
-      setLoadError('Khong the tai danh sach vai tro. Vui long thu lai.');
-      toast.error('Loi khi tai danh sach vai tro');
+      setLoadError('Không thể tải danh sách vai trò. Vui lòng thử lại.');
+      toast.error('Lỗi khi tải danh sách vai trò');
     } finally {
       setLoading(false);
     }
@@ -72,34 +72,34 @@ const RolesPage: React.FC = () => {
   const columns: GridColDef[] = [
     {
       field: 'name',
-      headerName: 'Ten vai tro',
+      headerName: 'Tên vai trò',
       minWidth: 170,
       renderCell: ({ value }) => <strong className="roles-page__role-name">{value}</strong>,
     },
     {
       field: 'description',
-      headerName: 'Mo ta',
+      headerName: 'Mô tả',
       flex: 1,
       minWidth: 220,
       renderCell: ({ value }) => <span className="roles-page__description">{value}</span>,
     },
     {
       field: 'userCount',
-      headerName: 'Nguoi dung',
+      headerName: 'Người dùng',
       width: 120,
       align: 'center',
       headerAlign: 'center',
     },
     {
       field: 'permissionCount',
-      headerName: 'So quyen',
+      headerName: 'Số quyền',
       width: 110,
       align: 'center',
       headerAlign: 'center',
     },
     {
       field: 'permissions',
-      headerName: 'Quyen han',
+      headerName: 'Quyền hạn',
       flex: 1.5,
       minWidth: 320,
       renderCell: ({ value }) => {
@@ -119,39 +119,39 @@ const RolesPage: React.FC = () => {
 
   return (
     <main className="roles-page animate-fadeIn">
-      <PageHeader title="Quan ly vai tro" subtitle={`${roles.length} vai tro dang cau hinh`} />
+      <PageHeader title="Quản lý vai trò" subtitle={`${roles.length} vai trò đang cấu hình`} />
 
       {loadError && <Alert severity="warning">{loadError}</Alert>}
 
-      <section className="roles-page__summary" aria-label="Tong quan vai tro">
+      <section className="roles-page__summary" aria-label="Tổng quan vai trò">
         <article className="roles-page__summary-card">
           <AdminPanelSettingsIcon />
           <div>
-            <span>Tong vai tro</span>
+            <span>Tổng vai trò</span>
             <strong>{loading ? '...' : roles.length}</strong>
           </div>
         </article>
         <article className="roles-page__summary-card">
           <GroupIcon />
           <div>
-            <span>Nguoi dung co vai tro</span>
+            <span>Người dùng có vai trò</span>
             <strong>{loading ? '...' : users.length}</strong>
           </div>
         </article>
         <article className="roles-page__summary-card">
           <SecurityIcon />
           <div>
-            <span>Quyen duy nhat</span>
+            <span>Quyền duy nhất</span>
             <strong>{loading ? '...' : totalPermissions}</strong>
           </div>
         </article>
       </section>
 
-      <section className="roles-page__toolbar" aria-label="Bo loc vai tro">
+      <section className="roles-page__toolbar" aria-label="Bộ lọc vai trò">
         <TextField
           value={searchTerm}
           onChange={(event) => setSearchTerm(event.target.value)}
-          placeholder="Tim vai tro, mo ta hoac ma quyen"
+          placeholder="Tìm vai trò, mô tả hoặc mã quyền"
           size="small"
           className="roles-page__search"
           slotProps={{
@@ -164,7 +164,7 @@ const RolesPage: React.FC = () => {
             },
           }}
         />
-        <span>{filteredRows.length} vai tro phu hop</span>
+        <span>{filteredRows.length} vai trò phù hợp</span>
       </section>
 
       <div className="roles-page__panel">
@@ -183,7 +183,7 @@ const RolesPage: React.FC = () => {
               background: 'var(--bg-tertiary)',
             },
           }}
-          localeText={{ noRowsLabel: 'Khong co vai tro phu hop' }}
+          localeText={{ noRowsLabel: 'Không có vai trò phù hợp' }}
         />
       </div>
     </main>

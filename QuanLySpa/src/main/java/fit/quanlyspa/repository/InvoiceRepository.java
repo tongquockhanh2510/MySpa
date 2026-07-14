@@ -35,6 +35,10 @@ public interface InvoiceRepository extends JpaRepository<Invoice, String> {
     BigDecimal getTodayRevenue();
 
     @Query("SELECT COALESCE(SUM(i.totalAmount), 0) FROM Invoice i " +
+           "WHERE i.createdAt >= :from AND i.createdAt < :to AND i.status = 'PAID'")
+    BigDecimal getRevenueBetween(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
+
+    @Query("SELECT COALESCE(SUM(i.totalAmount), 0) FROM Invoice i " +
            "WHERE MONTH(i.createdAt) = :month AND YEAR(i.createdAt) = :year AND i.status = 'PAID'")
     BigDecimal getMonthlyRevenue(@Param("month") int month, @Param("year") int year);
 

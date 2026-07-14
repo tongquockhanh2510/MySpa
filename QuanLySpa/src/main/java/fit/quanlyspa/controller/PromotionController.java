@@ -11,6 +11,7 @@ import fit.quanlyspa.exception.ErrorCode;
 import fit.quanlyspa.repository.AmountPromotionRepository;
 import fit.quanlyspa.repository.PercentPromotionRepository;
 import fit.quanlyspa.repository.PromotionRepository;
+import fit.quanlyspa.repository.PromotionUsageRepository;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -32,6 +33,7 @@ public class PromotionController {
     private final PromotionRepository promotionRepository;
     private final AmountPromotionRepository amountPromotionRepository;
     private final PercentPromotionRepository percentPromotionRepository;
+    private final PromotionUsageRepository promotionUsageRepository;
 
     @GetMapping
     @Operation(summary = "List active promotions")
@@ -114,12 +116,27 @@ public class PromotionController {
     }
 
     private void applyBaseFields(Promotion promotion, PromotionRequest request) {
+        if (request.getEffective() != null && request.getExpiration() != null
+                && !request.getExpiration().isAfter(request.getEffective())) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR, "Thoi gian ket thuc phai sau thoi gian bat dau");
+        }
+        if (promotion instanceof PercentPromotion && (request.getPercent() <= 0 || request.getPercent() > 100)) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR, "Phan tram giam phai lon hon 0 va khong vuot qua 100");
+        }
+        if (promotion instanceof PercentPromotion && request.getMaxDiscount() <= 0) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR, "Khuyen mai phan tram phai co muc giam toi da");
+        }
         promotion.setName(request.getName());
-        promotion.setCode(request.getCode());
+        promotion.setCode(request.getCode().trim().toUpperCase());
         promotion.setMinOrderValue(request.getMinOrderValue() == null ? BigDecimal.ZERO : request.getMinOrderValue());
         promotion.setEffective(request.getEffective());
         promotion.setExpiration(request.getExpiration());
         promotion.setQuantity(request.getQuantity());
+        if (promotion.getInitialQuantity() == null) {
+            promotion.setInitialQuantity(request.getQuantity());
+        }
+        promotion.setMaxUsesPerCustomer(request.getMaxUsesPerCustomer() == null
+                || request.getMaxUsesPerCustomer() <= 0 ? null : request.getMaxUsesPerCustomer());
         promotion.setIsActive(request.getIsActive() == null || request.getIsActive());
         promotion.setApplyScope(request.getApplyScope() == null || request.getApplyScope().isBlank() ? "ORDER" : request.getApplyScope());
         promotion.setTargetType(request.getTargetType());
@@ -156,6 +173,9 @@ public class PromotionController {
                 .effective(promotion.getEffective())
                 .expiration(promotion.getExpiration())
                 .quantity(promotion.getQuantity())
+                .initialQuantity(promotion.getInitialQuantity())
+                .maxUsesPerCustomer(promotion.getMaxUsesPerCustomer())
+                .usedCount(promotionUsageRepository.countByPromotion_PromotionId(promotion.getPromotionId()))
                 .isActive(promotion.getIsActive())
                 .createAt(promotion.getCreateAt())
                 .applyScope(promotion.getApplyScope())

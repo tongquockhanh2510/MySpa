@@ -17,7 +17,7 @@ const actionLabels: Record<string, string> = {
   CREATE: 'Tao moi',
   UPDATE: 'Cap nhat',
   DELETE: 'Xoa',
-  MANAGE: 'Quan ly',
+  MANAGE: 'Quản lý',
 };
 
 const moduleLabels: Record<string, string> = {
@@ -26,8 +26,8 @@ const moduleLabels: Record<string, string> = {
   APPOINTMENT: 'Lich hen',
   ORDER: 'Don hang',
   REPORT: 'Bao cao',
-  USER: 'Nguoi dung',
-  ROLE: 'Vai tro',
+  USER: 'Người dùng',
+  ROLE: 'Vai trò',
 };
 
 const getPermissionParts = (name: string) => {
@@ -53,8 +53,8 @@ const PermissionsPage: React.FC = () => {
       setPermissions(await getPermissions());
     } catch (error) {
       console.error(error);
-      setLoadError('Khong the tai danh sach quyen. Vui long thu lai.');
-      toast.error('Loi khi tai danh sach quyen');
+      setLoadError('Không thể tải danh sách quyền. Vui lòng thử lại.');
+      toast.error('Lỗi khi tải danh sách quyền');
     } finally {
       setLoading(false);
     }
@@ -90,32 +90,32 @@ const PermissionsPage: React.FC = () => {
 
   const modules = useMemo(() => new Set(permissionRows.map((permission) => permission.module)).size, [permissionRows]);
   const managementPermissions = useMemo(
-    () => permissionRows.filter((permission) => permission.action === 'Quan ly').length,
+    () => permissionRows.filter((permission) => permission.action === 'Quản lý').length,
     [permissionRows]
   );
 
   const columns: GridColDef[] = [
     {
       field: 'name',
-      headerName: 'Ma quyen',
+      headerName: 'Mã quyền',
       minWidth: 220,
       flex: 0.8,
       renderCell: (params) => <strong className="permissions-page__code">{params.value}</strong>,
     },
     {
       field: 'module',
-      headerName: 'Phan he',
+      headerName: 'Phân hệ',
       minWidth: 150,
       renderCell: (params) => <Chip size="small" label={params.value} className="permissions-page__chip" />,
     },
     {
       field: 'action',
-      headerName: 'Thao tac',
+      headerName: 'Thao tác',
       minWidth: 130,
     },
     {
       field: 'description',
-      headerName: 'Mo ta',
+      headerName: 'Mô tả',
       flex: 1,
       minWidth: 260,
       renderCell: (params) => <span className="permissions-page__description">{params.value}</span>,
@@ -124,39 +124,39 @@ const PermissionsPage: React.FC = () => {
 
   return (
     <main className="permissions-page animate-fadeIn">
-      <PageHeader title="Phan quyen he thong" subtitle={`${permissions.length} quyen han dang cau hinh`} />
+      <PageHeader title="Phân quyền hệ thống" subtitle={`${permissions.length} quyền hạn đang cấu hình`} />
 
       {loadError && <Alert severity="warning">{loadError}</Alert>}
 
-      <section className="permissions-page__summary" aria-label="Tong quan quyen he thong">
+      <section className="permissions-page__summary" aria-label="Tổng quan quyền hệ thống">
         <article className="permissions-page__summary-card">
           <SecurityIcon />
           <div>
-            <span>Tong quyen</span>
+            <span>Tổng quyền</span>
             <strong>{loading ? '...' : permissions.length}</strong>
           </div>
         </article>
         <article className="permissions-page__summary-card">
           <Inventory2Icon />
           <div>
-            <span>Phan he</span>
+            <span>Phân hệ</span>
             <strong>{loading ? '...' : modules}</strong>
           </div>
         </article>
         <article className="permissions-page__summary-card">
           <VpnKeyIcon />
           <div>
-            <span>Quyen quan ly</span>
+            <span>Quyền quản lý</span>
             <strong>{loading ? '...' : managementPermissions}</strong>
           </div>
         </article>
       </section>
 
-      <section className="permissions-page__toolbar" aria-label="Bo loc quyen">
+      <section className="permissions-page__toolbar" aria-label="Bộ lọc quyền">
         <TextField
           value={searchTerm}
           onChange={(event) => setSearchTerm(event.target.value)}
-          placeholder="Tim theo ma quyen, phan he hoac mo ta"
+          placeholder="Tìm theo mã quyền, phân hệ hoặc mô tả"
           size="small"
           className="permissions-page__search"
           slotProps={{
@@ -169,7 +169,7 @@ const PermissionsPage: React.FC = () => {
             },
           }}
         />
-        <span>{filteredRows.length} quyen phu hop</span>
+        <span>{filteredRows.length} quyền phù hợp</span>
       </section>
 
       <div className="permissions-page__panel">
@@ -189,7 +189,7 @@ const PermissionsPage: React.FC = () => {
                 background: 'var(--bg-tertiary)',
               },
             }}
-            localeText={{ noRowsLabel: 'Khong co quyen phu hop' }}
+            localeText={{ noRowsLabel: 'Không có quyền phù hợp' }}
           />
         </Box>
       </div>

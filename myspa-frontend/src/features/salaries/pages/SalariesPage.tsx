@@ -13,6 +13,7 @@ import {
   MenuItem,
   Select,
   Skeleton,
+  TextField,
 } from '@mui/material';
 import PageHeader from '@components/common/PageHeader';
 import ExportButtons from '@components/common/ExportButtons';
@@ -27,6 +28,7 @@ import {
   getCommissionDetails,
   getMyCommissionDetails,
   backfillCommissions,
+  updatePayroll,
   type EmployeeSalary,
   type CommissionDetail,
 } from '@/api/salaries';
@@ -61,6 +63,9 @@ const SalariesPage: React.FC = () => {
   const [commissionRows, setCommissionRows] = useState<CommissionDetail[]>([]);
   const [commissionLoading, setCommissionLoading] = useState(false);
   const [backfilling, setBackfilling] = useState(false);
+  const [payrollTarget, setPayrollTarget] = useState<EmployeeSalary | null>(null);
+  const [payrollForm, setPayrollForm] = useState({ bonus: 0, penalty: 0, salaryAdvance: 0, status: 'DRAFT' as 'DRAFT' | 'LOCKED' | 'PAID' });
+  const [payrollSaving, setPayrollSaving] = useState(false);
 
   const loadSalaries = async () => {
     setLoading(true);
@@ -129,6 +134,9 @@ const SalariesPage: React.FC = () => {
     { field: 'employeeName', headerName: 'Nhân viên', flex: 1, minWidth: 180 },
     { field: 'position', headerName: 'Vị trí', width: 150, renderCell: ({ value }) => value || '—' },
     { field: 'baseSalary', headerName: 'Lương cơ bản', width: 150, renderCell: ({ value }) => formatCurrency(value ?? 0) },
+    { field: 'bonus', headerName: 'Thưởng', width: 115, renderCell: ({ value }) => formatCurrency(value || 0) },
+    { field: 'penalty', headerName: 'Phạt', width: 115, renderCell: ({ value }) => formatCurrency(value || 0) },
+    { field: 'salaryAdvance', headerName: 'Đã ứng', width: 115, renderCell: ({ value }) => formatCurrency(value || 0) },
     {
       field: 'totalCommission',
       headerName: 'Hoa hồng',
@@ -155,7 +163,26 @@ const SalariesPage: React.FC = () => {
       width: 170,
       renderCell: ({ value }) => <span style={{ fontWeight: 700, color: 'var(--primary)', fontSize: 14 }}>{formatCurrency(value)}</span>,
     },
+    {
+      field: 'payrollStatus', headerName: 'Kỳ lương', width: 130,
+      renderCell: ({ row, value }) => <Button size="small" disabled={!canViewCompanyPayroll || value === 'PAID'} onClick={() => { setPayrollTarget(row); setPayrollForm({ bonus: row.bonus || 0, penalty: row.penalty || 0, salaryAdvance: row.salaryAdvance || 0, status: row.payrollStatus || 'DRAFT' }); }} sx={{ textTransform: 'none' }}>{value === 'PAID' ? 'Đã chi' : value === 'LOCKED' ? 'Đã chốt' : 'Nháp'}</Button>,
+    },
   ];
+
+  const savePayroll = async () => {
+    if (!payrollTarget) return;
+    setPayrollSaving(true);
+    try {
+      const saved = await updatePayroll(payrollTarget.employeeId, filterMonth, filterYear, payrollForm);
+      setSalaries(rows => rows.map(row => row.employeeId === saved.employeeId ? saved : row));
+      setPayrollTarget(null);
+      toast.success('Đã cập nhật kỳ lương');
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Không thể cập nhật kỳ lương');
+    } finally {
+      setPayrollSaving(false);
+    }
+  };
 
   return (
     <div className="animate-fadeIn">
@@ -240,6 +267,17 @@ const SalariesPage: React.FC = () => {
           />
         )}
       </div>
+
+      <Dialog open={!!payrollTarget} onClose={() => !payrollSaving && setPayrollTarget(null)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 800 }}>Điều chỉnh kỳ lương · {payrollTarget?.employeeName}</DialogTitle>
+        <DialogContent sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, pt: '12px !important' }}>
+          <TextField label="Thưởng" type="number" value={payrollForm.bonus} onChange={e => setPayrollForm(form => ({ ...form, bonus: Number(e.target.value) }))} />
+          <TextField label="Phạt" type="number" value={payrollForm.penalty} onChange={e => setPayrollForm(form => ({ ...form, penalty: Number(e.target.value) }))} />
+          <TextField label="Đã ứng lương" type="number" value={payrollForm.salaryAdvance} onChange={e => setPayrollForm(form => ({ ...form, salaryAdvance: Number(e.target.value) }))} />
+          <FormControl><InputLabel>Trạng thái</InputLabel><Select value={payrollForm.status} label="Trạng thái" onChange={e => setPayrollForm(form => ({ ...form, status: e.target.value as any }))}><MenuItem value="DRAFT">Nháp</MenuItem><MenuItem value="LOCKED">Đã chốt</MenuItem><MenuItem value="PAID" disabled={payrollForm.status === 'DRAFT'}>Đã chi</MenuItem></Select></FormControl>
+        </DialogContent>
+        <DialogActions><Button onClick={() => setPayrollTarget(null)}>Hủy</Button><Button variant="contained" disabled={payrollSaving} onClick={savePayroll}>{payrollSaving ? 'Đang lưu...' : 'Lưu kỳ lương'}</Button></DialogActions>
+      </Dialog>
 
       <Dialog open={!!commissionTarget} onClose={() => setCommissionTarget(null)} maxWidth="md" fullWidth>
         <DialogTitle sx={{ fontWeight: 800 }}>

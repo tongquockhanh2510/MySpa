@@ -20,6 +20,7 @@ public interface CustomerRepository extends JpaRepository<Customer, String> {
     @Query("SELECT c FROM Customer c WHERE c.isActive = true AND (" +
            ":search IS NULL OR LOWER(c.name) LIKE LOWER(CONCAT('%', :search, '%')) " +
            "OR c.phone LIKE CONCAT('%', :search, '%') " +
+           "OR LOWER(c.displayCode) LIKE LOWER(CONCAT('%', :search, '%')) " +
            "OR LOWER(c.email) LIKE LOWER(CONCAT('%', :search, '%')))")
     Page<Customer> searchCustomers(@Param("search") String search, Pageable pageable);
 

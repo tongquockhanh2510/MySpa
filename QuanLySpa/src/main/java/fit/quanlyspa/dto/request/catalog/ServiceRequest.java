@@ -39,5 +39,6 @@ public class ServiceRequest {
     @Min(value = 1, message = "So luot dat toi da moi ngay phai lon hon 0")
     Integer maxDailyBookings;
 
+    @NotBlank(message = "Vui long chon danh muc dich vu")
     String categoryId;
 }

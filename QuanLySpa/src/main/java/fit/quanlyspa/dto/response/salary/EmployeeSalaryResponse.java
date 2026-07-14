@@ -17,5 +17,9 @@ public class EmployeeSalaryResponse {
     double baseSalary;
     double totalCommission;
     int commissionCount;
+    double bonus;
+    double penalty;
+    double salaryAdvance;
+    fit.quanlyspa.enums.PayrollStatus payrollStatus;
     double totalSalary;       // baseSalary + totalCommission
 }

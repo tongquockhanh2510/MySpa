@@ -36,6 +36,7 @@ public class AppointmentService {
     RoomRepository roomRepository;
     CommissionService commissionService;
     NotificationService notificationService;
+    DisplayCodeService displayCodeService;
 
     // ===== STATE TRANSITION MAP =====
     private static final Map<StatusOfAppointment, Set<StatusOfAppointment>> VALID_TRANSITIONS = Map.of(
@@ -72,6 +73,7 @@ public class AppointmentService {
 
         // Build appointment
         Appointment appointment = Appointment.builder()
+                .displayCode(displayCodeService.nextAppointmentCode(request.getDateTime().toLocalDate()))
                 .customer(customer)
                 .dateTime(request.getDateTime())
                 .endTime(endTime)
@@ -332,9 +334,23 @@ public class AppointmentService {
                 throw new AppException(ErrorCode.EMPLOYEE_INACTIVE,
                         "Nhân viên '" + employee.getName() + "' không còn làm việc");
             }
+            if (employee.getServiceSkills() != null && !employee.getServiceSkills().isEmpty()
+                    && employee.getServiceSkills().stream().noneMatch(skill -> skill.getServiceId().equals(service.getServiceId()))) {
+                throw new AppException(ErrorCode.VALIDATION_ERROR,
+                        "Nhan vien '" + employee.getName() + "' chua duoc cap ky nang cho dich vu nay");
+            }
+            if (employee.getWorkDays() != null && !employee.getWorkDays().isEmpty()
+                    && !employee.getWorkDays().contains(slotStart.getDayOfWeek())) {
+                throw new AppException(ErrorCode.VALIDATION_ERROR, "Nhan vien khong co ca lam trong ngay da chon");
+            }
 
             // Business Rule: Therapist cannot serve multiple appointments simultaneously
             LocalDateTime slotEnd = slotStart.plusMinutes((long) service.getDuration());
+            if (employee.getShiftStart() != null && employee.getShiftEnd() != null
+                    && (slotStart.toLocalTime().isBefore(employee.getShiftStart())
+                    || slotEnd.toLocalTime().isAfter(employee.getShiftEnd()))) {
+                throw new AppException(ErrorCode.VALIDATION_ERROR, "Khung gio nam ngoai ca lam cua nhan vien");
+            }
             List<Appointment> therapistConflicts = appointmentRepository.findTherapistConflicts(
                     employee.getEmployeeId(), slotStart, slotEnd, excludeId);
             if (!therapistConflicts.isEmpty()) {
@@ -371,6 +387,7 @@ public class AppointmentService {
 
         return AppointmentResponse.builder()
                 .appointmentId(appointment.getAppointmentId())
+                .displayCode(appointment.getDisplayCode())
                 .statusOfAppointment(appointment.getStatusOfAppointment())
                 .dateTime(appointment.getDateTime())
                 .endTime(appointment.getEndTime())
@@ -378,6 +395,7 @@ public class AppointmentService {
                 .cancelReason(appointment.getCancelReason())
                 .cancelledAt(appointment.getCancelledAt())
                 .customerId(appointment.getCustomer() != null ? appointment.getCustomer().getCustomerId() : null)
+                .customerDisplayCode(appointment.getCustomer() != null ? appointment.getCustomer().getDisplayCode() : null)
                 .customerName(appointment.getCustomer() != null ? appointment.getCustomer().getName() : "")
                 .customerPhone(appointment.getCustomer() != null ? appointment.getCustomer().getPhone() : "")
                 .roomId(appointment.getRoom() != null ? appointment.getRoom().getRoomId() : null)

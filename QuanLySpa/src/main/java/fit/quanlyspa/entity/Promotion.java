@@ -41,6 +41,12 @@ public abstract class Promotion {
     @Column(name = "quantity")
     Integer quantity;
 
+    @Column(name = "initial_quantity")
+    Integer initialQuantity;
+
+    @Column(name = "max_uses_per_customer")
+    Integer maxUsesPerCustomer;
+
     @Column(name = "is_active")
     Boolean isActive = true;
 

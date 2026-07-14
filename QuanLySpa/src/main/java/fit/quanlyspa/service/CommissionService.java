@@ -14,6 +14,9 @@ import fit.quanlyspa.repository.AppointmentRepository;
 import fit.quanlyspa.repository.CommissionRepository;
 import fit.quanlyspa.repository.EmployeeRepository;
 import fit.quanlyspa.repository.OrderRepository;
+import fit.quanlyspa.repository.SalaryRepository;
+import fit.quanlyspa.dto.request.salary.PayrollUpdateRequest;
+import fit.quanlyspa.enums.PayrollStatus;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -36,6 +39,7 @@ public class CommissionService {
     EmployeeRepository employeeRepository;
     AppointmentRepository appointmentRepository;
     OrderRepository orderRepository;
+    SalaryRepository salaryRepository;
 
     // ===== GENERATION =====
 
@@ -48,11 +52,6 @@ public class CommissionService {
         if (appointment == null || appointment.getDetails() == null) {
             return;
         }
-        String referenceId = appointment.getAppointmentId();
-        if (commissionRepository.existsByReferenceIdAndCommissionType(referenceId, CommissionType.SERVICE)) {
-            return; // đã sinh hoa hồng cho lịch hẹn này
-        }
-
         // Dùng ngày hoàn thành thực tế để tính kỳ hoa hồng (fallback hôm nay)
         LocalDate eventDate = appointment.getCompletedAt() != null
                 ? appointment.getCompletedAt().toLocalDate()
@@ -61,12 +60,22 @@ public class CommissionService {
 
         for (AppoinmentDetail detail : appointment.getDetails()) {
             Employee employee = detail.getEmployee();
-            double fraction = normalizeFraction(employee != null ? employee.getCommissionRate() : 0);
+            fit.quanlyspa.entity.Service service = detail.getService();
+            double configuredRate = service != null && service.getCommissionRate() > 0
+                    ? service.getCommissionRate()
+                    : (employee != null ? employee.getCommissionRate() : 0);
+            double fraction = normalizeFraction(configuredRate);
             if (employee == null || fraction <= 0) {
                 continue;
             }
+            String referenceId = appointment.getAppointmentId() + ":"
+                    + (service != null ? service.getServiceId() : "service") + ":"
+                    + employee.getEmployeeId();
+            if (commissionRepository.existsByReferenceIdAndCommissionType(referenceId, CommissionType.SERVICE)) {
+                continue;
+            }
             double base = detail.getPrice();
-            String serviceName = detail.getService() != null ? detail.getService().getName() : "Dịch vụ";
+            String serviceName = service != null ? service.getName() : "Dịch vụ";
 
             Commission commission = Commission.builder()
                     .employee(employee)
@@ -192,6 +201,11 @@ public class CommissionService {
                 .findByEmployeeAndPeriod(employee.getEmployeeId(), month, year);
         double totalCommission = commissions.stream().mapToDouble(Commission::getCommissionAmount).sum();
         double baseSalary = employee.getBaseSalary();
+        Salary salary = salaryRepository.findByEmployee_EmployeeIdAndMonthAndYear(employee.getEmployeeId(), month, year)
+                .orElse(null);
+        double bonus = salary == null ? 0 : salary.getBonus();
+        double penalty = salary == null ? 0 : salary.getPenalty();
+        double advance = salary == null ? 0 : salary.getSalaryAdvance();
         return EmployeeSalaryResponse.builder()
                 .employeeId(employee.getEmployeeId())
                 .employeeName(employee.getName())
@@ -201,8 +215,46 @@ public class CommissionService {
                 .baseSalary(baseSalary)
                 .totalCommission(totalCommission)
                 .commissionCount(commissions.size())
-                .totalSalary(baseSalary + totalCommission)
+                .bonus(bonus)
+                .penalty(penalty)
+                .salaryAdvance(advance)
+                .payrollStatus(salary == null || salary.getPayrollStatus() == null ? PayrollStatus.DRAFT : salary.getPayrollStatus())
+                .totalSalary(baseSalary + totalCommission + bonus - penalty - advance)
                 .build();
+    }
+
+    @Transactional
+    public EmployeeSalaryResponse updatePayroll(String employeeId, int month, int year, PayrollUpdateRequest request) {
+        Employee employee = employeeRepository.findById(employeeId)
+                .orElseThrow(() -> new AppException(ErrorCode.EMPLOYEE_NOT_FOUND));
+        Salary salary = salaryRepository.findByEmployee_EmployeeIdAndMonthAndYear(employeeId, month, year)
+                .orElseGet(() -> {
+                    Salary created = new Salary();
+                    created.setEmployee(employee);
+                    created.setMonth(month);
+                    created.setYear(year);
+                    created.setPayrollStatus(PayrollStatus.DRAFT);
+                    return created;
+                });
+        if (salary.getPayrollStatus() == PayrollStatus.PAID) {
+            throw new AppException(ErrorCode.OPERATION_NOT_ALLOWED, "Ky luong da chi khong the sua");
+        }
+        salary.setBonus(request.getBonus());
+        salary.setPenalty(request.getPenalty());
+        salary.setSalaryAdvance(request.getSalaryAdvance());
+        if (request.getStatus() != null) {
+            if (salary.getPayrollStatus() == PayrollStatus.DRAFT && request.getStatus() == PayrollStatus.PAID) {
+                throw new AppException(ErrorCode.VALIDATION_ERROR, "Can chot ky luong truoc khi danh dau da chi");
+            }
+            salary.setPayrollStatus(request.getStatus());
+        }
+        double totalCommission = commissionRepository.findByEmployeeAndPeriod(employeeId, month, year)
+                .stream().mapToDouble(Commission::getCommissionAmount).sum();
+        salary.setTotalCommission(totalCommission);
+        salary.setTotalSalary(employee.getBaseSalary() + totalCommission + salary.getBonus()
+                - salary.getPenalty() - salary.getSalaryAdvance());
+        salaryRepository.save(salary);
+        return toSalaryResponse(employee, month, year);
     }
 
     private CommissionDetailResponse toResponse(Commission c) {

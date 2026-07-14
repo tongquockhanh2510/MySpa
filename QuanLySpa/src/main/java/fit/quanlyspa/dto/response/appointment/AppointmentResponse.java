@@ -11,6 +11,7 @@ import java.util.List;
 @Builder
 public class AppointmentResponse {
     String appointmentId;
+    String displayCode;
     StatusOfAppointment statusOfAppointment;
     LocalDateTime dateTime;
     LocalDateTime endTime;
@@ -18,6 +19,7 @@ public class AppointmentResponse {
     String cancelReason;
     LocalDateTime cancelledAt;
     String customerId;
+    String customerDisplayCode;
     String customerName;
     String customerPhone;
     String roomId;

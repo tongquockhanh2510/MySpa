@@ -59,6 +59,16 @@ server:
 
 app:
   upload-dir: uploads
+  pricing:
+    vat-inclusive: ${VAT_INCLUSIVE:true}
+    vat-rate: ${VAT_RATE:10}
+  reminders:
+    enabled: ${REMINDERS_ENABLED:true}
+    channel: ${REMINDER_CHANNEL:IN_APP}
+    provider-url: ${REMINDER_PROVIDER_URL:}
+    api-key: ${REMINDER_API_KEY:}
+    poll-ms: ${REMINDER_POLL_MS:300000}
+    scan-window-minutes: ${REMINDER_SCAN_WINDOW_MINUTES:5}
 
 # Thanh toan chuyen khoan ngan hang (VietQR + webhook bao co tu SePay/Casso)
 payment:

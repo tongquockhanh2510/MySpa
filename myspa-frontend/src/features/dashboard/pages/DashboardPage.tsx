@@ -33,6 +33,7 @@ const emptyStats = {
   monthRevenue: 0,
   yearRevenue: 0,
   revenueGrowthPercent: null as number | null,
+  todayRevenueGrowthPercent: null as number | null,
   todayAppointments: 0,
   monthAppointments: 0,
   totalCustomers: 0,
@@ -240,7 +241,7 @@ const DashboardPage: React.FC = () => {
           ))
         ) : (
           <>
-            <StatCard title="Doanh thu hôm nay" value={Number(stats.todayRevenue || 0)} format="currency" icon={<AttachMoneyIcon />} color="#D97706" trend={stats.revenueGrowthPercent == null ? undefined : Math.round(Number(stats.revenueGrowthPercent))} onClick={() => navigate(ROUTES.ORDERS)} />
+            <StatCard title="Doanh thu hôm nay" value={Number(stats.todayRevenue || 0)} format="currency" icon={<AttachMoneyIcon />} color="#D97706" trend={stats.todayRevenueGrowthPercent == null ? undefined : Math.round(Number(stats.todayRevenueGrowthPercent))} trendLabel="so với cùng ngày tuần trước" onClick={() => navigate(ROUTES.ORDERS)} />
             <StatCard title="Lịch hẹn hôm nay" value={Number(stats.todayAppointments || 0)} icon={<CalendarMonthIcon />} color="#2563EB" subtitle="buổi cần phục vụ" onClick={() => navigate(ROUTES.APPOINTMENTS)} />
             <StatCard title="Khách hàng mới" value={Number(stats.newCustomersThisMonth || 0)} icon={<PeopleIcon />} color="#10B981" trend={stats.customerGrowthPercent == null ? undefined : Math.round(Number(stats.customerGrowthPercent))} subtitle="trong tháng này" onClick={() => navigate(ROUTES.CUSTOMERS)} />
             <StatCard title="Nhân viên đang làm" value={Number(stats.activeEmployees || 0)} icon={<BadgeIcon />} color="#7C3AED" subtitle={`/${Number(stats.totalEmployees || 0)} người`} onClick={() => navigate(ROUTES.EMPLOYEES)} />

@@ -27,7 +27,6 @@ import { createProduct, deleteProduct, getCategories, getProducts, updateProduct
 import { formatCurrency } from '@utils/formatters';
 import { exportToExcel } from '@utils/exportExcel';
 import type { Category, Product, ProductFormData } from '@/types';
-import { LOW_STOCK_THRESHOLD } from '@constants/config';
 import SearchIcon from '@mui/icons-material/Search';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -105,7 +104,7 @@ const ProductsPage: React.FC = () => {
     try {
       const [prodData, catData] = await Promise.all([getProducts(), getCategories()]);
       setProducts(prodData);
-      setCategories(catData);
+      setCategories(catData.filter((category: Category) => category.type === 'PRODUCT'));
     } catch (err) {
       console.error(err);
       toast.error('Lỗi khi tải danh sách sản phẩm và danh mục');
@@ -129,16 +128,16 @@ const ProductsPage: React.FC = () => {
       const matchesCategory = categoryFilter === 'all' || product.categoryId === categoryFilter;
       const matchesStock =
         stockFilter === 'all' ||
-        (stockFilter === 'low' && product.stockQuantity > 0 && product.stockQuantity <= LOW_STOCK_THRESHOLD) ||
+        (stockFilter === 'low' && product.stockQuantity > 0 && product.stockQuantity <= (product.minStockLevel ?? 0)) ||
         (stockFilter === 'out' && product.stockQuantity === 0);
 
       return matchesSearch && matchesCategory && matchesStock;
     });
   }, [categoryFilter, products, search, stockFilter]);
 
-  const lowStockCount = products.filter((product) => product.stockQuantity <= LOW_STOCK_THRESHOLD).length;
+  const lowStockCount = products.filter((product) => product.stockQuantity <= (product.minStockLevel ?? 0)).length;
   const outOfStockCount = products.filter((product) => product.stockQuantity === 0).length;
-  const inventoryValue = products.reduce((total, product) => total + product.price * product.stockQuantity, 0);
+  const inventoryValue = products.reduce((total, product) => total + (product.costPrice ?? 0) * product.stockQuantity, 0);
 
   const openCreate = () => {
     setEditing(null);
@@ -213,7 +212,7 @@ const ProductsPage: React.FC = () => {
       headerName: 'Ảnh',
       width: 76,
       sortable: false,
-      renderCell: ({ value }) => (
+      renderCell: ({ value, row }) => (
         <img src={value || DEFAULT_PRODUCT_IMAGE} alt="" className="products-page__product-image" />
       ),
     },
@@ -242,9 +241,9 @@ const ProductsPage: React.FC = () => {
       field: 'stockQuantity',
       headerName: 'Tồn kho',
       width: 130,
-      renderCell: ({ value }) => (
+      renderCell: ({ value, row }) => (
         <div className="products-page__stock-cell">
-          {value <= LOW_STOCK_THRESHOLD && (
+          {value <= (row.minStockLevel ?? 0) && (
             <WarningAmberIcon sx={{ fontSize: 14, color: value <= 3 ? '#EF4444' : '#F59E0B' }} />
           )}
           <Chip
@@ -253,7 +252,7 @@ const ProductsPage: React.FC = () => {
             className={
               value <= 3
                 ? 'products-page__stock-chip products-page__stock-chip--danger'
-                : value <= LOW_STOCK_THRESHOLD
+                : value <= (row.minStockLevel ?? 0)
                   ? 'products-page__stock-chip products-page__stock-chip--warning'
                   : 'products-page__stock-chip products-page__stock-chip--ok'
             }

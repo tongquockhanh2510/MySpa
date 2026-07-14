@@ -37,11 +37,11 @@ export const mockEmployees: Employee[] = [
 
 // ===== Categories =====
 export const mockCategories: Category[] = [
-  { categoryId: 'CAT001', name: 'Chăm sóc da mặt', productCount: 12 },
-  { categoryId: 'CAT002', name: 'Dưỡng thể', productCount: 8 },
-  { categoryId: 'CAT003', name: 'Tinh dầu', productCount: 6 },
-  { categoryId: 'CAT004', name: 'Dụng cụ spa', productCount: 15 },
-  { categoryId: 'CAT005', name: 'Mỹ phẩm', productCount: 20 },
+  { categoryId: 'CAT001', name: 'Chăm sóc da mặt', productCount: 12, type: 'PRODUCT' },
+  { categoryId: 'CAT002', name: 'Dưỡng thể', productCount: 8, type: 'PRODUCT' },
+  { categoryId: 'CAT003', name: 'Tinh dầu', productCount: 6, type: 'PRODUCT' },
+  { categoryId: 'CAT004', name: 'Dụng cụ spa', productCount: 15, type: 'PRODUCT' },
+  { categoryId: 'CAT005', name: 'Mỹ phẩm', productCount: 20, type: 'PRODUCT' },
 ];
 
 // ===== Services =====

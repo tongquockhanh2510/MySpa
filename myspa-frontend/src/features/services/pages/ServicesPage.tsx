@@ -15,11 +15,11 @@ import PageHeader from '@components/common/PageHeader';
 import StatusChip from '@components/common/StatusChip';
 import ConfirmDialog from '@components/common/ConfirmDialog';
 import { useAppSelector } from '@hooks/useAppSelector';
-import { createService, deleteService, getServices, updateService } from '@/api/catalog';
+import { createService, deleteService, getCategories, getServices, updateService } from '@/api/catalog';
 import { formatCurrency, formatDuration } from '@utils/formatters';
 import { hasAnyRole } from '@utils/authorization';
 import { StatusOfService } from '@/types';
-import type { Service, ServiceFormData } from '@/types';
+import type { Category, Service, ServiceFormData } from '@/types';
 import SearchIcon from '@mui/icons-material/Search';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -32,11 +32,14 @@ const schema = z.object({
   description: z.string().min(1, 'Vui lòng nhập mô tả'),
   commissionRate: z.number().min(0).max(100, 'Hoa hồng từ 0-100%'),
   statusOfService: z.nativeEnum(StatusOfService),
+  categoryId: z.string().min(1, 'Vui lòng chọn danh mục dịch vụ'),
 });
 
 const ServicesPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const [services, setServices] = useState<Service[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [categoryFilter, setCategoryFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Service | null>(null);
@@ -49,8 +52,9 @@ const ServicesPage: React.FC = () => {
     const fetchServices = async () => {
       setLoading(true);
       try {
-        const data = await getServices();
+        const [data, categoryData] = await Promise.all([getServices(), getCategories()]);
         setServices(data);
+        setCategories(categoryData.filter((category: Category) => category.type === 'SERVICE'));
       } catch (err) {
         console.error(err);
         toast.error('Lỗi khi tải danh sách dịch vụ từ database');
@@ -70,16 +74,18 @@ const ServicesPage: React.FC = () => {
 
   const { control, handleSubmit, reset, formState: { errors } } = useForm<ServiceFormData>({
     resolver: zodResolver(schema),
-    defaultValues: { name: '', price: 0, costPrice: 0, duration: 60, description: '', commissionRate: 15, statusOfService: StatusOfService.ACTIVE },
+    defaultValues: { name: '', price: 0, costPrice: 0, duration: 60, description: '', commissionRate: 15, statusOfService: StatusOfService.ACTIVE, categoryId: '' },
   });
 
   const filtered = useMemo(() =>
-    services.filter(s => s.name.toLowerCase().includes(search.toLowerCase())),
-    [services, search]);
+    services.filter(s => (s.name.toLowerCase().includes(search.toLowerCase())
+        || s.displayCode?.toLowerCase().includes(search.toLowerCase()))
+      && (categoryFilter === 'all' || s.categoryId === categoryFilter)),
+    [services, search, categoryFilter]);
 
   const openCreate = () => {
     setEditing(null);
-    reset({ name: '', price: 0, costPrice: 0, duration: 60, description: '', commissionRate: 15, statusOfService: StatusOfService.ACTIVE });
+    reset({ name: '', price: 0, costPrice: 0, duration: 60, description: '', commissionRate: 15, statusOfService: StatusOfService.ACTIVE, categoryId: '' });
     setDialogOpen(true);
   };
   const openEdit = (s: Service) => { setEditing(s); reset({ ...s, costPrice: s.costPrice ?? 0 }); setDialogOpen(true); };
@@ -116,8 +122,9 @@ const ServicesPage: React.FC = () => {
   const inputSx = { '& .MuiOutlinedInput-root': { borderRadius: '10px', fontSize: 14 }, '& .MuiInputLabel-root': { fontSize: 14 } };
 
   const columns: GridColDef[] = [
-    { field: 'serviceId', headerName: 'Mã DV', width: 100 },
+    { field: 'displayCode', headerName: 'Mã DV', width: 130, renderCell: ({ row }) => row.displayCode || row.serviceId },
     { field: 'name', headerName: 'Tên dịch vụ', flex: 1, minWidth: 200 },
+    { field: 'categoryName', headerName: 'Danh mục', width: 160 },
     { field: 'price', headerName: 'Giá bán', width: 130, renderCell: ({ value }) => <span style={{ fontWeight: 600, color: 'var(--primary)' }}>{formatCurrency(value)}</span> },
     {
       field: 'costPrice', headerName: 'Tiền vốn', width: 150,
@@ -155,6 +162,13 @@ const ServicesPage: React.FC = () => {
         <TextField placeholder="Tìm kiếm dịch vụ..." value={search} onChange={e => setSearch(e.target.value)} size="small"
           slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" sx={{ color: 'var(--text-tertiary)' }} /></InputAdornment> } }}
           sx={{ width: 360, ...inputSx }} />
+        <FormControl size="small" sx={{ ml: 2, minWidth: 200, ...inputSx }}>
+          <InputLabel>Danh mục</InputLabel>
+          <Select value={categoryFilter} label="Danh mục" onChange={e => setCategoryFilter(e.target.value)}>
+            <MenuItem value="all">Tất cả danh mục</MenuItem>
+            {categories.map(category => <MenuItem key={category.categoryId} value={category.categoryId}>{category.name}</MenuItem>)}
+          </Select>
+        </FormControl>
       </div>
       <div style={{ background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-card)', overflow: 'hidden' }}>
         <DataGrid rows={filtered} columns={visibleColumns} getRowId={r => r.serviceId} initialState={{ pagination: { paginationModel: { pageSize: 10 } } }}
@@ -175,6 +189,14 @@ const ServicesPage: React.FC = () => {
           <form noValidate style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <Controller name="name" control={control} render={({ field }) => (
               <TextField {...field} label="Tên dịch vụ *" error={!!errors.name} helperText={errors.name?.message} fullWidth size="small" sx={inputSx} />
+            )} />
+            <Controller name="categoryId" control={control} render={({ field }) => (
+              <FormControl fullWidth size="small" error={!!errors.categoryId} sx={inputSx}>
+                <InputLabel>Danh mục dịch vụ *</InputLabel>
+                <Select {...field} label="Danh mục dịch vụ *">
+                  {categories.map(category => <MenuItem key={category.categoryId} value={category.categoryId}>{category.name}</MenuItem>)}
+                </Select>
+              </FormControl>
             )} />
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
               <Controller name="price" control={control} render={({ field }) => (

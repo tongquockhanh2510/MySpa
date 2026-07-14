@@ -1,12 +1,18 @@
 package fit.quanlyspa.dto.request.employee;
 
 import fit.quanlyspa.enums.StatusOfEmployee;
+import fit.quanlyspa.enums.EmployeeLevel;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
+
+import java.time.LocalDate;
+import java.util.Set;
+import java.time.DayOfWeek;
+import java.time.LocalTime;
 
 @Data
 public class EmployeeRequest {
@@ -29,4 +35,12 @@ public class EmployeeRequest {
     double baseSalary;
 
     StatusOfEmployee statusOfEmployee;
+    LocalDate hireDate;
+    EmployeeLevel employeeLevel;
+    @Min(value = 0, message = "Hoa hong khong duoc am")
+    double commissionRate;
+    Set<String> skillServiceIds;
+    Set<DayOfWeek> workDays;
+    LocalTime shiftStart;
+    LocalTime shiftEnd;
 }

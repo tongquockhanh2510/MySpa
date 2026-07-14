@@ -41,6 +41,14 @@ public class DashboardService {
 
         // Revenue KPIs
         BigDecimal todayRevenue = invoiceRepository.getTodayRevenue();
+        LocalDate previousWeekDay = now.toLocalDate().minusWeeks(1);
+        BigDecimal previousWeekDayRevenue = invoiceRepository.getRevenueBetween(
+                previousWeekDay.atStartOfDay(), previousWeekDay.plusDays(1).atStartOfDay());
+        Double todayRevenueGrowth = previousWeekDayRevenue.compareTo(BigDecimal.ZERO) > 0
+                ? todayRevenue.subtract(previousWeekDayRevenue)
+                    .divide(previousWeekDayRevenue, 4, java.math.RoundingMode.HALF_UP)
+                    .multiply(BigDecimal.valueOf(100)).doubleValue()
+                : null;
         BigDecimal monthRevenue = invoiceRepository.getMonthlyRevenue(currentMonth, currentYear);
         BigDecimal prevMonthRevenue = invoiceRepository.getMonthlyRevenue(prevMonth, prevYear);
         BigDecimal yearRevenue = invoiceRepository.getMonthlyRevenue(1, currentYear)
@@ -151,6 +159,7 @@ public class DashboardService {
                 .monthRevenue(monthRevenue)
                 .yearRevenue(yearRevenue)
                 .revenueGrowthPercent(revenueGrowth)
+                .todayRevenueGrowthPercent(todayRevenueGrowth)
                 .todayAppointments(todayAppts)
                 .monthAppointments(monthAppts)
                 .cancellationRatePercent(cancellationRate)

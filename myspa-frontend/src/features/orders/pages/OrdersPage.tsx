@@ -42,6 +42,7 @@ const OrdersPage: React.FC = () => {
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const [detailOpen, setDetailOpen] = useState(false);
+  const [debtOpen, setDebtOpen] = useState(false);
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [payAmount, setPayAmount] = useState('');
   const [payMethod, setPayMethod] = useState('CASH');
@@ -56,7 +57,7 @@ const OrdersPage: React.FC = () => {
     name: '',
     phone: '',
     email: '',
-    gender: 'FEMALE',
+    gender: '',
     dateOfBirth: '',
     address: '',
   });
@@ -338,7 +339,7 @@ const OrdersPage: React.FC = () => {
       setPromoId('');
       setPointsToUse('');
       setSelectedCustomer(null);
-      setNewCustomerForm({ name: '', phone: '', email: '', gender: 'FEMALE', dateOfBirth: '', address: '' });
+      setNewCustomerForm({ name: '', phone: '', email: '', gender: '', dateOfBirth: '', address: '' });
       loadOrders();
       setSelectedOrder(created);
       setPayAmount(created.remainingAmount.toString());
@@ -400,22 +401,27 @@ const OrdersPage: React.FC = () => {
     return Math.min(Number(selectedPromo.discount || 0), base);
   }, [selectedPromo, cart, cartSubtotal]);
 
-  const availablePoints = customerMode === 'existing' ? Number(selectedCustomer?.loyaltyPoints || 0) : 0;
+  const availablePoints = customerMode === 'existing' ? Math.floor(Number(selectedCustomer?.loyaltyPoints || 0)) : 0;
   const amountAfterPromo = Math.max(0, cartSubtotal - promoDiscountEstimate);
   const maxUsablePoints = Math.min(availablePoints, Math.floor(amountAfterPromo / 1000));
   const loyaltyDiscountEstimate = Math.min(Number(pointsToUse || 0) * 1000, amountAfterPromo);
   const taxableEstimate = Math.max(0, cartSubtotal - promoDiscountEstimate - loyaltyDiscountEstimate);
-  const taxEstimate = taxableEstimate * 0.1;
-  const totalEstimate = taxableEstimate + taxEstimate;
+  const taxEstimate = taxableEstimate * 10 / 110;
+  const totalEstimate = taxableEstimate;
 
   const filteredOrders = useMemo(() => {
     const query = ordersSearch.trim().toLowerCase();
     return orders.filter((order) => {
       const matchesSearch = !query
+        || order.displayCode?.toLowerCase().includes(query)
         || order.orderId?.toLowerCase().includes(query)
         || order.customerName?.toLowerCase().includes(query)
         || order.customerPhone?.includes(query);
-      const matchesStatus = orderStatusFilter === 'ALL' || order.orderStatus === orderStatusFilter;
+      const ageDays = order.createdAt ? Math.floor((Date.now() - new Date(order.createdAt).getTime()) / 86400000) : 0;
+      const matchesStatus = orderStatusFilter === 'ALL'
+        || (orderStatusFilter === 'OVERDUE'
+          ? Number(order.remainingAmount || 0) > 0 && order.orderStatus !== 'CANCELLED' && ageDays >= 7
+          : order.orderStatus === orderStatusFilter);
       return matchesSearch && matchesStatus;
     });
   }, [orders, ordersSearch, orderStatusFilter]);
@@ -427,8 +433,26 @@ const OrdersPage: React.FC = () => {
     open: orders.filter((order) => Number(order.remainingAmount || 0) > 0 && order.orderStatus !== 'CANCELLED').length,
   }), [orders]);
 
+  const debtsByCustomer = useMemo(() => {
+    const grouped = new Map<string, any>();
+    orders.filter(order => Number(order.remainingAmount || 0) > 0 && order.orderStatus !== 'CANCELLED')
+      .forEach(order => {
+        const key = order.customerId || order.customerName || 'guest';
+        const current = grouped.get(key) || {
+          id: key, customerName: order.customerName || 'Khách lẻ', customerPhone: order.customerPhone || '',
+          totalDebt: 0, orderCount: 0, oldestDays: 0,
+        };
+        const ageDays = order.createdAt ? Math.max(0, Math.floor((Date.now() - new Date(order.createdAt).getTime()) / 86400000)) : 0;
+        current.totalDebt += Number(order.remainingAmount || 0);
+        current.orderCount += 1;
+        current.oldestDays = Math.max(current.oldestDays, ageDays);
+        grouped.set(key, current);
+      });
+    return [...grouped.values()].sort((a, b) => b.totalDebt - a.totalDebt);
+  }, [orders]);
+
   const columns: GridColDef[] = [
-    { field: 'orderId', headerName: 'Mã đơn', width: 220 },
+    { field: 'displayCode', headerName: 'Mã đơn', width: 150, renderCell: ({ row }) => row.displayCode || row.orderId },
     {
       field: 'customerName',
       headerName: 'Khách hàng',
@@ -496,6 +520,7 @@ const OrdersPage: React.FC = () => {
             title="Quản lý đơn hàng & POS"
             subtitle={`${orders.length} hóa đơn spa`}
             action={{ label: 'Tạo đơn mới (POS)', onClick: () => setView('create'), icon: <PointOfSaleIcon /> }}
+            extra={<Button variant="outlined" onClick={() => setDebtOpen(true)} startIcon={<AccountBalanceWalletIcon />} sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}>Công nợ khách hàng</Button>}
           />
 
           {loadError && <Alert severity="warning" className="orders-alert">{loadError}</Alert>}
@@ -522,6 +547,7 @@ const OrdersPage: React.FC = () => {
                 <MenuItem value="ALL">Tất cả trạng thái</MenuItem>
                 <MenuItem value="PENDING_PAYMENT">Chưa thanh toán</MenuItem>
                 <MenuItem value="PARTIALLY_PAID">Thanh toán một phần</MenuItem>
+                <MenuItem value="OVERDUE">Quá hạn từ 7 ngày</MenuItem>
                 <MenuItem value="PAID">Đã thanh toán</MenuItem>
                 <MenuItem value="CANCELLED">Đã hủy</MenuItem>
               </Select>
@@ -556,6 +582,24 @@ const OrdersPage: React.FC = () => {
               />
             )}
           </section>
+
+          <Dialog open={debtOpen} onClose={() => setDebtOpen(false)} maxWidth="md" fullWidth>
+            <DialogTitle sx={{ fontWeight: 800 }}>Công nợ theo khách hàng</DialogTitle>
+            <DialogContent>
+              <Box sx={{ display: 'grid', gap: 1.5, mt: 1 }}>
+                {debtsByCustomer.map(debt => (
+                  <Box key={debt.id} sx={{ display: 'grid', gridTemplateColumns: '1fr 130px 110px 130px', gap: 2, alignItems: 'center', p: 1.5, border: '1px solid var(--border-color)', borderRadius: 2 }}>
+                    <div><strong>{debt.customerName}</strong><Typography variant="caption" sx={{ display: 'block' }} color="text.secondary">{debt.customerPhone || 'Chưa có SĐT'}</Typography></div>
+                    <Typography variant="body2">{debt.orderCount} đơn còn nợ</Typography>
+                    <Typography variant="body2" color={debt.oldestDays >= 7 ? 'error' : 'text.secondary'}>Cũ nhất {debt.oldestDays} ngày</Typography>
+                    <strong style={{ color: '#DC2626', textAlign: 'right' }}>{formatCurrency(debt.totalDebt)}</strong>
+                  </Box>
+                ))}
+                {debtsByCustomer.length === 0 && <Typography color="text.secondary">Không có công nợ cần thu.</Typography>}
+              </Box>
+            </DialogContent>
+            <DialogActions><Button onClick={() => setDebtOpen(false)} sx={{ textTransform: 'none' }}>Đóng</Button></DialogActions>
+          </Dialog>
         </>
       ) : (
         <>
@@ -596,7 +640,8 @@ const OrdersPage: React.FC = () => {
                       <TextField label="Email" size="small" fullWidth value={newCustomerForm.email} onChange={e => setNewCustomerForm({ ...newCustomerForm, email: e.target.value })} sx={inputSx} />
                       <FormControl fullWidth size="small" sx={inputSx}>
                         <InputLabel>Giới tính</InputLabel>
-                        <Select value={newCustomerForm.gender} label="Giới tính" onChange={e => setNewCustomerForm({ ...newCustomerForm, gender: e.target.value })}>
+                        <Select value={newCustomerForm.gender} label="Giới tính" displayEmpty onChange={e => setNewCustomerForm({ ...newCustomerForm, gender: e.target.value })}>
+                          <MenuItem value="" disabled>Chọn giới tính</MenuItem>
                           <MenuItem value="MALE">Nam</MenuItem>
                           <MenuItem value="FEMALE">Nữ</MenuItem>
                           <MenuItem value="OTHER">Khác</MenuItem>
@@ -725,10 +770,11 @@ const OrdersPage: React.FC = () => {
                           fullWidth
                           value={pointsToUse}
                           onChange={e => {
-                            const value = Math.max(0, Math.min(Number(e.target.value || 0), maxUsablePoints));
+                            const value = Math.floor(Math.max(0, Math.min(Number(e.target.value || 0), maxUsablePoints)));
                             setPointsToUse(e.target.value === '' ? '' : String(value));
                           }}
                           helperText="1 điểm = 1.000đ"
+                          slotProps={{ htmlInput: { step: 1, min: 0 } }}
                           disabled={availablePoints <= 0}
                           sx={inputSx}
                         />
@@ -751,7 +797,7 @@ const OrdersPage: React.FC = () => {
                     {loyaltyDiscountEstimate > 0 && (
                       <Box sx={{ display: 'flex', justifyContent: 'space-between' }}><Typography variant="body2">Quy đổi {Number(pointsToUse)} điểm:</Typography><Typography variant="body2" sx={{ fontWeight: 700, color: '#059669' }}>-{formatCurrency(loyaltyDiscountEstimate)}</Typography></Box>
                     )}
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}><Typography variant="body2">Thuế (10% VAT):</Typography><Typography variant="body2" sx={{ fontWeight: 700 }}>{formatCurrency(taxEstimate)}</Typography></Box>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}><Typography variant="body2">VAT 10% (đã gồm trong giá):</Typography><Typography variant="body2" sx={{ fontWeight: 700 }}>{formatCurrency(taxEstimate)}</Typography></Box>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}><Typography variant="subtitle1" sx={{ fontWeight: 800 }}>Tổng tiền thanh toán:</Typography><Typography variant="subtitle1" color="primary" sx={{ fontWeight: 900 }}>{formatCurrency(totalEstimate)}</Typography></Box>
                     {(voucherCode || customerMode === 'existing') && (
                       <Typography variant="caption" color="text.secondary">
@@ -774,7 +820,7 @@ const OrdersPage: React.FC = () => {
       )}
 
       <Dialog open={detailOpen} onClose={() => setDetailOpen(false)} slotProps={{ paper: { sx: { borderRadius: '16px', width: 'min(680px, calc(100vw - 32px))', background: 'var(--bg-secondary)' } } }}>
-        <DialogTitle sx={{ fontWeight: 800, fontSize: 17, pb: 0 }}>Chi tiết đơn hàng #{selectedOrder?.orderId}</DialogTitle>
+        <DialogTitle sx={{ fontWeight: 800, fontSize: 17, pb: 0 }}>Chi tiết đơn hàng #{selectedOrder?.displayCode || selectedOrder?.orderId}</DialogTitle>
         <DialogContent sx={{ pt: '16px !important' }}>
           {selectedOrder && (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -801,7 +847,7 @@ const OrdersPage: React.FC = () => {
                 {Number(selectedOrder.loyaltyPointsUsed || 0) > 0 && (
                   <Box sx={{ display: 'flex', justifyContent: 'space-between' }}><Typography variant="body2">Điểm đã quy đổi:</Typography><Typography variant="body2">{selectedOrder.loyaltyPointsUsed} điểm (-{formatCurrency(selectedOrder.loyaltyDiscount || 0)})</Typography></Box>
                 )}
-                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}><Typography variant="body2">VAT (10%):</Typography><Typography variant="body2">{formatCurrency(selectedOrder.taxAmount || 0)}</Typography></Box>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}><Typography variant="body2">VAT (đã gồm trong giá):</Typography><Typography variant="body2">{formatCurrency(selectedOrder.taxAmount || 0)}</Typography></Box>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between' }}><Typography variant="subtitle2" sx={{ fontWeight: 800 }}>Tổng tiền:</Typography><Typography variant="subtitle2" color="primary" sx={{ fontWeight: 900 }}>{formatCurrency(selectedOrder.totalAmount)}</Typography></Box>
               </Box>
 

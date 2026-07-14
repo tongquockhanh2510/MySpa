@@ -200,7 +200,7 @@ public class DataInitializer implements CommandLineRunner {
                     .user(staffUser1)
                     .hireDate(LocalDate.now())
                     .baseSalary(8000000.0)
-                    .commissionRate(0.10)
+                    .commissionRate(10)
                     .build();
             staff1 = employeeRepository.save(staff1);
             log.info("Created staff user: staff_lan / staff123");
@@ -228,17 +228,17 @@ public class DataInitializer implements CommandLineRunner {
                     .user(staffUser2)
                     .hireDate(LocalDate.now())
                     .baseSalary(8000000.0)
-                    .commissionRate(0.10)
+                    .commissionRate(10)
                     .build();
             staff2 = employeeRepository.save(staff2);
             log.info("Created staff user: staff_huong / staff123");
         }
 
         // 3. Create Categories
-        Category catSkincare = getOrCreateCategory("cat-skincare", "Chăm sóc da");
-        Category catMassage = getOrCreateCategory("cat-massage", "Massage trị liệu");
-        Category catAcne = getOrCreateCategory("cat-acne", "Điều trị mụn");
-        Category catCosmetic = getOrCreateCategory("cat-cosmetic", "Mỹ phẩm dưỡng da");
+        Category catSkincare = getOrCreateCategory("cat-skincare", "Chăm sóc da", CategoryType.SERVICE);
+        Category catMassage = getOrCreateCategory("cat-massage", "Massage trị liệu", CategoryType.SERVICE);
+        Category catAcne = getOrCreateCategory("cat-acne", "Điều trị mụn", CategoryType.SERVICE);
+        Category catCosmetic = getOrCreateCategory("cat-cosmetic", "Mỹ phẩm dưỡng da", CategoryType.PRODUCT);
 
         // 4. Create Rooms
         if (roomRepository.count() == 0) {
@@ -290,7 +290,7 @@ public class DataInitializer implements CommandLineRunner {
                     .duration(60.0)
                     .description("Liệu trình rửa mặt, tẩy da chết, xông hơi hút mụn cám, đắp mặt nạ và massage mặt thư giãn.")
                     .statusOfService(StatusOfService.ACTIVE)
-                    .commissionRate(0.05)
+                    .commissionRate(5)
                     .category(catSkincare)
                     .build());
             serviceRepository.save(Service.builder()
@@ -300,7 +300,7 @@ public class DataInitializer implements CommandLineRunner {
                     .duration(90.0)
                     .description("Kết hợp tinh dầu thiên nhiên và đá nóng bazan giúp giải tỏa căng thẳng cơ bắp.")
                     .statusOfService(StatusOfService.ACTIVE)
-                    .commissionRate(0.10)
+                    .commissionRate(10)
                     .category(catMassage)
                     .build());
             serviceRepository.save(Service.builder()
@@ -310,7 +310,7 @@ public class DataInitializer implements CommandLineRunner {
                     .duration(80.0)
                     .description("Liệu trình lấy nhân mụn chuẩn y khoa kết hợp sát khuẩn điện tím.")
                     .statusOfService(StatusOfService.ACTIVE)
-                    .commissionRate(0.08)
+                    .commissionRate(8)
                     .category(catAcne)
                     .build());
             log.info("Initialized default services");
@@ -389,15 +389,21 @@ public class DataInitializer implements CommandLineRunner {
         return role;
     }
 
-    private Category getOrCreateCategory(String categoryId, String name) {
-        return categoryRepository.findById(categoryId).orElseGet(() -> {
+    private Category getOrCreateCategory(String categoryId, String name, CategoryType type) {
+        Category category = categoryRepository.findById(categoryId).orElseGet(() -> {
             Category cat = new Category();
             cat.setCategoryId(categoryId);
             cat.setName(name);
+            cat.setType(type);
             cat = categoryRepository.save(cat);
             log.info("Created category: {}", name);
             return cat;
         });
+        if (category.getType() != type) {
+            category.setType(type);
+            category = categoryRepository.save(category);
+        }
+        return category;
     }
 
     private void reassignEmployeeRelations(Employee oldEmp, Employee newEmp) {

@@ -16,6 +16,9 @@ public class PromotionResponse {
     LocalDateTime effective;
     LocalDateTime expiration;
     Integer quantity;
+    Integer initialQuantity;
+    Integer maxUsesPerCustomer;
+    long usedCount;
     Boolean isActive;
     LocalDateTime createAt;
     String type;

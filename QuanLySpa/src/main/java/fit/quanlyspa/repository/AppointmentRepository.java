@@ -62,10 +62,15 @@ public interface AppointmentRepository extends JpaRepository<Appointment, String
            "ORDER BY a.dateTime ASC")
     List<Appointment> findUpcomingAppointments(@Param("from") LocalDateTime from, Pageable pageable);
 
+    @Query("SELECT a FROM Appointment a WHERE a.dateTime >= :from AND a.dateTime < :to " +
+           "AND a.statusOfAppointment IN ('PENDING', 'CONFIRMED') ORDER BY a.dateTime ASC")
+    List<Appointment> findReminderCandidates(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
+
     // Search with filters
     @Query("SELECT a FROM Appointment a JOIN a.customer c WHERE " +
            "(:search IS NULL OR LOWER(c.name) LIKE LOWER(CONCAT('%', :search, '%')) " +
-           "OR c.phone LIKE CONCAT('%', :search, '%')) " +
+           "OR c.phone LIKE CONCAT('%', :search, '%') " +
+           "OR LOWER(a.displayCode) LIKE LOWER(CONCAT('%', :search, '%'))) " +
            "AND (:status IS NULL OR a.statusOfAppointment = :status)")
     Page<Appointment> searchAppointments(@Param("search") String search,
                                           @Param("status") StatusOfAppointment status,

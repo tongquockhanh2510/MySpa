@@ -16,6 +16,7 @@ import java.util.List;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class OrderResponse {
     String orderId;
+    String displayCode;
     OrderStatus orderStatus;
     TypeOfOrder typeOfOrder;
     BigDecimal subtotal;
@@ -30,8 +31,10 @@ public class OrderResponse {
     BigDecimal remainingAmount;
 
     String appointmentId;
+    String appointmentDisplayCode;
 
     String customerId;
+    String customerDisplayCode;
     String customerName;
     String customerPhone;
 

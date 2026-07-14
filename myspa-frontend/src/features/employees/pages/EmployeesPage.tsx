@@ -15,13 +15,13 @@ import PageHeader from '@components/common/PageHeader';
 import StatusChip from '@components/common/StatusChip';
 import ConfirmDialog from '@components/common/ConfirmDialog';
 import ExportButtons from '@components/common/ExportButtons';
-import { createEmployee, createEmployeeAccount, deleteEmployee, getEmployees, updateEmployee } from '@/api/catalog';
+import { createEmployee, createEmployeeAccount, deleteEmployee, getEmployees, getServices, updateEmployee } from '@/api/catalog';
 import { useAppSelector } from '@hooks/useAppSelector';
 import { formatCurrency } from '@utils/formatters';
 import { exportToExcel } from '@utils/exportExcel';
 import { hasAnyRole } from '@utils/authorization';
 import { StatusOfEmployee } from '@/types';
-import type { Employee, EmployeeFormData } from '@/types';
+import type { Employee, EmployeeFormData, Service } from '@/types';
 import SearchIcon from '@mui/icons-material/Search';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -40,6 +40,13 @@ const schema = z.object({
   position: z.string().min(2, 'Vui lòng nhập chức vụ'),
   baseSalary: z.number({ message: 'Nhập số hợp lệ' }).positive('Lương phải > 0'),
   statusOfEmployee: z.nativeEnum(StatusOfEmployee),
+  hireDate: z.string().optional(),
+  employeeLevel: z.enum(['TRAINEE', 'STANDARD', 'SENIOR']),
+  commissionRate: z.number().min(0).max(100),
+  skillServiceIds: z.array(z.string()),
+  workDays: z.array(z.string()),
+  shiftStart: z.string().optional(),
+  shiftEnd: z.string().optional(),
 });
 
 const inputSx = {
@@ -61,6 +68,7 @@ const EmployeesPage: React.FC = () => {
   const canManageEmployees = hasAnyRole(user, ['ADMIN', 'MANAGER']);
   const isAdmin = hasAnyRole(user, ['ADMIN']);
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -81,6 +89,13 @@ const EmployeesPage: React.FC = () => {
       position: '',
       baseSalary: 7000000,
       statusOfEmployee: StatusOfEmployee.ACTIVE,
+      hireDate: '',
+      employeeLevel: 'STANDARD',
+      commissionRate: 0,
+      skillServiceIds: [],
+      workDays: ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'],
+      shiftStart: '08:00',
+      shiftEnd: '17:00',
     },
   });
 
@@ -88,8 +103,9 @@ const EmployeesPage: React.FC = () => {
     setLoading(true);
     setLoadError(null);
     try {
-      const data = await getEmployees();
+      const [data, serviceData] = await Promise.all([getEmployees(), getServices()]);
       setEmployees(data);
+      setServices(serviceData);
     } catch (err) {
       console.error(err);
       setLoadError('Không thể tải danh sách nhân viên. Vui lòng kiểm tra đăng nhập hoặc thử lại.');
@@ -115,6 +131,7 @@ const EmployeesPage: React.FC = () => {
     return employees.filter((employee) => {
       const matchesSearch = !query
         || employee.name.toLowerCase().includes(query)
+        || employee.displayCode?.toLowerCase().includes(query)
         || employee.phone.includes(query)
         || employee.position.toLowerCase().includes(query)
         || employee.email.toLowerCase().includes(query);
@@ -132,7 +149,7 @@ const EmployeesPage: React.FC = () => {
 
   const openCreate = () => {
     setEditing(null);
-    reset({ name: '', phone: '', email: '', position: '', baseSalary: 7000000, statusOfEmployee: StatusOfEmployee.ACTIVE });
+    reset({ name: '', phone: '', email: '', position: '', baseSalary: 7000000, statusOfEmployee: StatusOfEmployee.ACTIVE, hireDate: '', employeeLevel: 'STANDARD', commissionRate: 0, skillServiceIds: [], workDays: ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'], shiftStart: '08:00', shiftEnd: '17:00' });
     setDialogOpen(true);
   };
 
@@ -211,7 +228,7 @@ const EmployeesPage: React.FC = () => {
   const handleExportExcel = () => {
     exportToExcel(
       employees.map(employee => ({
-        'Mã NV': employee.employeeId,
+        'Mã NV': employee.displayCode || employee.employeeId,
         'Họ tên': employee.name,
         'Điện thoại': employee.phone,
         'Email': employee.email,
@@ -226,7 +243,7 @@ const EmployeesPage: React.FC = () => {
   };
 
   const columns: GridColDef[] = [
-    { field: 'employeeId', headerName: 'Mã NV', width: 110 },
+    { field: 'displayCode', headerName: 'Mã NV', width: 120, renderCell: ({ row }) => row.displayCode || row.employeeId },
     {
       field: 'name',
       headerName: 'Nhân viên',
@@ -390,6 +407,37 @@ const EmployeesPage: React.FC = () => {
               <Controller name="email" control={control} render={({ field }) => (
                 <TextField {...field} label="Email *" error={!!errors.email} helperText={errors.email?.message} fullWidth size="small" sx={inputSx} />
               )} />
+            </div>
+            <div className="employees-form-grid">
+              <Controller name="hireDate" control={control} render={({ field }) => (
+                <TextField {...field} label="Ngày vào làm" type="date" slotProps={{ inputLabel: { shrink: true } }} fullWidth size="small" sx={inputSx} />
+              )} />
+              <Controller name="employeeLevel" control={control} render={({ field }) => (
+                <FormControl fullWidth size="small" sx={inputSx}><InputLabel>Cấp bậc</InputLabel><Select {...field} label="Cấp bậc"><MenuItem value="TRAINEE">Học việc</MenuItem><MenuItem value="STANDARD">Chính thức</MenuItem><MenuItem value="SENIOR">Cao cấp</MenuItem></Select></FormControl>
+              )} />
+            </div>
+            <Controller name="commissionRate" control={control} render={({ field }) => (
+              <TextField {...field} onChange={event => field.onChange(Number(event.target.value))} label="Hoa hồng mặc định (%)" type="number" fullWidth size="small" sx={inputSx} />
+            )} />
+            <Controller name="skillServiceIds" control={control} render={({ field }) => (
+              <FormControl fullWidth size="small" sx={inputSx}>
+                <InputLabel>Kỹ năng dịch vụ</InputLabel>
+                <Select {...field} multiple label="Kỹ năng dịch vụ" renderValue={(selected) => `${selected.length} dịch vụ`}>
+                  {services.map(service => <MenuItem key={service.serviceId} value={service.serviceId}>{service.name}</MenuItem>)}
+                </Select>
+              </FormControl>
+            )} />
+            <Controller name="workDays" control={control} render={({ field }) => (
+              <FormControl fullWidth size="small" sx={inputSx}>
+                <InputLabel>Ngày làm trong tuần</InputLabel>
+                <Select {...field} multiple label="Ngày làm trong tuần" renderValue={(selected) => `${selected.length} ngày`}>
+                  {[['MONDAY','Thứ 2'],['TUESDAY','Thứ 3'],['WEDNESDAY','Thứ 4'],['THURSDAY','Thứ 5'],['FRIDAY','Thứ 6'],['SATURDAY','Thứ 7'],['SUNDAY','Chủ nhật']].map(([value,label]) => <MenuItem key={value} value={value}>{label}</MenuItem>)}
+                </Select>
+              </FormControl>
+            )} />
+            <div className="employees-form-grid">
+              <Controller name="shiftStart" control={control} render={({ field }) => <TextField {...field} label="Bắt đầu ca" type="time" slotProps={{ inputLabel: { shrink: true } }} fullWidth size="small" sx={inputSx} />} />
+              <Controller name="shiftEnd" control={control} render={({ field }) => <TextField {...field} label="Kết thúc ca" type="time" slotProps={{ inputLabel: { shrink: true } }} fullWidth size="small" sx={inputSx} />} />
             </div>
             <div className="employees-form-grid">
               <Controller name="position" control={control} render={({ field }) => (

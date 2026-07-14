@@ -55,7 +55,7 @@ const CustomersPage: React.FC = () => {
 
   const { control, handleSubmit, reset, formState: { errors } } = useForm<CustomerFormData>({
     resolver: zodResolver(schema),
-    defaultValues: { name: '', phone: '', email: '', gender: Gender.FEMALE, note: '' },
+    defaultValues: { name: '', phone: '', email: '', gender: undefined, note: '' },
   });
 
   const fetchCustomers = async (query = '') => {
@@ -96,7 +96,7 @@ const CustomersPage: React.FC = () => {
 
   const openCreate = () => {
     setEditing(null);
-    reset({ name: '', phone: '', email: '', gender: Gender.FEMALE, note: '' });
+    reset({ name: '', phone: '', email: '', gender: undefined, note: '' });
     setDialogOpen(true);
   };
 
@@ -139,7 +139,7 @@ const CustomersPage: React.FC = () => {
   const handleExportExcel = () => {
     exportToExcel(
       customers.map(customer => ({
-        'Mã KH': customer.customerId,
+        'Mã KH': customer.displayCode || customer.customerId,
         'Họ tên': customer.name,
         'Điện thoại': customer.phone,
         'Email': customer.email,
@@ -154,7 +154,7 @@ const CustomersPage: React.FC = () => {
   };
 
   const columns: GridColDef[] = [
-    { field: 'customerId', headerName: 'Mã KH', width: 110 },
+    { field: 'displayCode', headerName: 'Mã KH', width: 120, renderCell: ({ row }) => row.displayCode || row.customerId },
     {
       field: 'name',
       headerName: 'Khách hàng',
@@ -306,7 +306,8 @@ const CustomersPage: React.FC = () => {
               <Controller name="gender" control={control} render={({ field }) => (
                 <FormControl fullWidth size="small" sx={inputSx}>
                   <InputLabel>Giới tính</InputLabel>
-                  <Select {...field} label="Giới tính">
+                  <Select {...field} value={field.value ?? ''} label="Giới tính" displayEmpty>
+                    <MenuItem value="" disabled>Chọn giới tính</MenuItem>
                     <MenuItem value={Gender.FEMALE}>Nữ</MenuItem>
                     <MenuItem value={Gender.MALE}>Nam</MenuItem>
                     <MenuItem value={Gender.OTHER}>Khác</MenuItem>

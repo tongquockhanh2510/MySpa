@@ -5,6 +5,7 @@ import fit.quanlyspa.dto.response.ApiResponse;
 import fit.quanlyspa.dto.response.catalog.ProductResponse;
 import fit.quanlyspa.entity.Category;
 import fit.quanlyspa.entity.Product;
+import fit.quanlyspa.enums.CategoryType;
 import fit.quanlyspa.exception.AppException;
 import fit.quanlyspa.exception.ErrorCode;
 import fit.quanlyspa.repository.CategoryRepository;
@@ -125,6 +126,9 @@ public class ProductController {
         if (request.getCategoryId() != null && !request.getCategoryId().isBlank()) {
             Category category = categoryRepository.findById(request.getCategoryId())
                     .orElseThrow(() -> new AppException(ErrorCode.CATEGORY_NOT_FOUND));
+            if (category.getType() != CategoryType.PRODUCT) {
+                throw new AppException(ErrorCode.VALIDATION_ERROR, "Danh muc da chon khong phai danh muc san pham");
+            }
             product.setCategory(category);
         } else {
             product.setCategory(null);

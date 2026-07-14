@@ -25,6 +25,13 @@ public interface TreatmentScheduleRepository extends JpaRepository<TreatmentSche
     List<TreatmentSchedule> findScheduledByTreatment(@Param("customerId") String customerId,
                                                      @Param("packageId") String packageId);
 
+    @Query("SELECT COUNT(ts) FROM TreatmentSchedule ts " +
+           "WHERE ts.customerTreatment.id.customerId = :customerId " +
+           "AND ts.customerTreatment.id.packageId = :packageId " +
+           "AND ts.status IN ('SCHEDULED', 'IN_PROGRESS')")
+    long countReservedByTreatment(@Param("customerId") String customerId,
+                                  @Param("packageId") String packageId);
+
     @Query("SELECT ts FROM TreatmentSchedule ts " +
            "JOIN FETCH ts.customerTreatment ct " +
            "JOIN FETCH ct.customer " +

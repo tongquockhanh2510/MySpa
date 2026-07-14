@@ -198,11 +198,13 @@ const CustomerTreatmentsPage: React.FC = () => {
       renderCell: ({ row }) => {
         const total = row.totalSessions || 10;
         const remaining = row.remainingSessions;
-        const used = total - remaining;
+        const used = row.consumedSessions ?? (total - remaining);
+        const reserved = row.reservedSessions ?? 0;
+        const available = row.availableSessions ?? Math.max(0, remaining - reserved);
         const pct = Math.max(0, Math.min(100, (used / total) * 100));
         return (
           <div className="treatments-progress-cell">
-            <span>Đã dùng {used}/{total} buổi - còn {remaining}</span>
+            <span>Đã dùng {used}/{total} · Đã đặt {reserved} · Còn tự do {available}</span>
             <LinearProgress variant="determinate" value={pct} className="treatments-progress" />
           </div>
         );
@@ -272,7 +274,7 @@ const CustomerTreatmentsPage: React.FC = () => {
               <div className="treatments-schedule-list">
                 {scheduleLoading ? (
                   Array.from({ length: 4 }).map((_, index) => <Skeleton key={index} variant="rounded" height={76} />)
-                ) : schedules.map((schedule) => (
+                ) : [...schedules].sort((a, b) => a.sessionNumber - b.sessionNumber).map((schedule) => (
                   <Card key={schedule.scheduleId} variant="outlined" className="treatments-schedule-card">
                     <CardContent className="treatments-schedule-card__content">
                       <div>
@@ -283,11 +285,14 @@ const CustomerTreatmentsPage: React.FC = () => {
                       </div>
                       <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                         <Chip label={scheduleLabel(schedule.status)} size="small" color={scheduleColor(schedule.status) as any} sx={{ fontWeight: 700, fontSize: 11 }} />
-                        {schedule.status !== 'COMPLETED' && schedule.status !== 'IN_PROGRESS' && (
+                        {schedule.status === 'SCHEDULED' && (
                           <>
                             <IconButton size="small" aria-label="Đổi lịch" onClick={() => { setSelectedSchedule(schedule); setReschedDate(schedule.scheduledDate); setReschedTherapist(schedule.therapistId || ''); setReschedRoom(schedule.roomId || ''); setRescheduleOpen(true); }} sx={{ color: 'var(--primary)' }}><CalendarMonthIcon fontSize="small" /></IconButton>
                             <Button size="small" startIcon={<PlayArrowIcon />} onClick={() => handleCheckIn(schedule)} variant="contained" sx={{ textTransform: 'none', fontSize: 11, borderRadius: 2, background: 'linear-gradient(135deg, #D97706, #F59E0B)', color: '#fff', fontWeight: 700 }}>Check-in</Button>
                           </>
+                        )}
+                        {schedule.status === 'RESCHEDULED' && (
+                          <Button size="small" startIcon={<CalendarMonthIcon />} onClick={() => { setSelectedSchedule(schedule); setReschedDate(schedule.scheduledDate); setReschedTherapist(schedule.therapistId || ''); setReschedRoom(schedule.roomId || ''); setRescheduleOpen(true); }} variant="outlined" sx={{ textTransform: 'none', fontSize: 11, borderRadius: 2 }}>Đặt lịch lại</Button>
                         )}
                         {schedule.status === 'IN_PROGRESS' && (
                           <Button size="small" startIcon={<CheckCircleIcon />} onClick={() => handleOpenComplete(schedule)} variant="contained" sx={{ textTransform: 'none', fontSize: 11, borderRadius: 2, background: '#059669', color: '#fff', fontWeight: 700 }}>Hoàn thành</Button>

@@ -65,7 +65,8 @@ const PromotionsPage: React.FC = () => {
       minOrderValue: 0,
       effective: '',
       expiration: '',
-      quantity: 1,
+      quantity: undefined,
+      maxUsesPerCustomer: undefined,
       isActive: true,
       discount: 0,
       percent: 0,
@@ -128,7 +129,8 @@ const PromotionsPage: React.FC = () => {
       minOrderValue: 0,
       effective: '',
       expiration: '',
-      quantity: 1,
+      quantity: undefined,
+      maxUsesPerCustomer: undefined,
       isActive: true,
       discount: 0,
       percent: 0,
@@ -147,9 +149,9 @@ const PromotionsPage: React.FC = () => {
       setPromotions((prev) => [saved, ...prev]);
       toast.success('Thêm khuyến mãi thành công');
       setDialogOpen(false);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      toast.error('Thêm khuyến mãi thất bại');
+      toast.error(err.response?.data?.message || 'Thêm khuyến mãi thất bại');
     }
   };
 
@@ -218,7 +220,10 @@ const PromotionsPage: React.FC = () => {
     { field: 'minOrderValue', headerName: 'Đơn tối thiểu', width: 140, renderCell: ({ value }) => formatCurrency(value || 0) },
     { field: 'effective', headerName: 'Bắt đầu', width: 150, renderCell: ({ value }) => (value ? formatDateTime(value) : '') },
     { field: 'expiration', headerName: 'Kết thúc', width: 150, renderCell: ({ value }) => (value ? formatDateTime(value) : '') },
-    { field: 'quantity', headerName: 'Số lượng', width: 100, align: 'center', headerAlign: 'center' },
+    {
+      field: 'quantity', headerName: 'Đã dùng / giới hạn', width: 150, align: 'center', headerAlign: 'center',
+      renderCell: ({ row }) => `${row.usedCount || 0}/${row.initialQuantity == null ? '∞' : row.initialQuantity}`,
+    },
     { field: 'isActive', headerName: 'Trạng thái', width: 130, renderCell: statusCell },
     actionColumn,
   ];
@@ -389,7 +394,14 @@ const PromotionsPage: React.FC = () => {
                 name="quantity"
                 control={control}
                 render={({ field }) => (
-                  <TextField {...field} onChange={(event) => field.onChange(Number(event.target.value))} label="Số lượng" type="number" fullWidth size="small" sx={inputSx} />
+                  <TextField {...field} value={field.value ?? ''} onChange={(event) => field.onChange(event.target.value === '' ? undefined : Number(event.target.value))} label="Tổng lượt dùng" placeholder="Không giới hạn" helperText="Để trống nếu không giới hạn" type="number" fullWidth size="small" sx={inputSx} />
+                )}
+              />
+              <Controller
+                name="maxUsesPerCustomer"
+                control={control}
+                render={({ field }) => (
+                  <TextField {...field} value={field.value ?? ''} onChange={(event) => field.onChange(event.target.value === '' ? undefined : Number(event.target.value))} label="Lượt tối đa/khách" placeholder="Không giới hạn" type="number" fullWidth size="small" sx={inputSx} />
                 )}
               />
               <Controller name="effective" control={control} render={({ field }) => <TextField {...field} label="Bắt đầu" type="datetime-local" fullWidth size="small" sx={inputSx} slotProps={{ inputLabel: { shrink: true } }} />} />

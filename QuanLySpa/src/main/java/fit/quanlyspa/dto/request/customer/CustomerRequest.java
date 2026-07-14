@@ -24,6 +24,7 @@ public class CustomerRequest {
     @Email(message = "Email không hợp lệ")
     String email;
 
+    @NotNull(message = "Vui lòng chọn giới tính hoặc Không xác định")
     Gender gender;
 
     LocalDate dateOfBirth;

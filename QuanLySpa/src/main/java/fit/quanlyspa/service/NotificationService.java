@@ -63,7 +63,7 @@ public class NotificationService {
      * khong lam hong nghiep vu chinh (thanh toan, dat lich...).
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void notify(NotificationType type, String title, String message, String referenceId, String referenceType, Customer customer) {
+    public boolean notify(NotificationType type, String title, String message, String referenceId, String referenceType, Customer customer) {
         try {
             Notification notification = Notification.builder()
                     .notificationType(type)
@@ -76,8 +76,10 @@ public class NotificationService {
                     .sentAt(LocalDateTime.now())
                     .build();
             notificationRepository.save(notification);
+            return true;
         } catch (Exception e) {
             log.warn("Khong the tao thong bao [{}] {}: {}", type, title, e.getMessage());
+            return false;
         }
     }
 

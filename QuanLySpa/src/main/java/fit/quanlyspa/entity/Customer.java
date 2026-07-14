@@ -30,6 +30,9 @@ public class Customer {
     @Column(name = "customer_id", updatable = false)
     String customerId;
 
+    @Column(name = "display_code", unique = true, length = 30)
+    String displayCode;
+
     @Column(name = "name", nullable = false, length = 150)
     String name;
 

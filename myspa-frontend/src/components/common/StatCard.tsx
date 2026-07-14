@@ -11,6 +11,7 @@ interface StatCardProps {
   trend?: number;
   format?: 'currency' | 'number' | 'text';
   subtitle?: string;
+  trendLabel?: string;
   onClick?: () => void;
 }
 
@@ -22,6 +23,7 @@ const StatCard: React.FC<StatCardProps> = ({
   trend,
   format = 'number',
   subtitle,
+  trendLabel = 'so với tháng trước',
   onClick,
 }) => {
   const displayValue = () => {
@@ -108,7 +110,7 @@ const StatCard: React.FC<StatCardProps> = ({
           }}>
             {isPositive ? '+' : ''}{trend}%
           </span>
-          <span style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>so với tháng trước</span>
+          <span style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>{trendLabel}</span>
         </div>
       )}
     </div>

@@ -27,6 +27,9 @@ public class Order {
     @Column(name = "order_id", updatable = false)
     String orderId;
 
+    @Column(name = "display_code", unique = true, length = 30)
+    String displayCode;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "order_status", nullable = false)
     OrderStatus orderStatus;
@@ -83,6 +86,10 @@ public class Order {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "appointment_id")
     Appointment appointment;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "promotion_id")
+    Promotion promotion;
 
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default

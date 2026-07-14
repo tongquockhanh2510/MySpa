@@ -36,8 +36,8 @@ const UsersPage: React.FC = () => {
       setUsers(await getUsers());
     } catch (err) {
       console.error(err);
-      setLoadError('Khong the tai danh sach nguoi dung. Vui long thu lai.');
-      toast.error('Loi khi tai danh sach nguoi dung');
+      setLoadError('Không thể tải danh sách người dùng. Vui lòng thử lại.');
+      toast.error('Lỗi khi tải danh sách người dùng');
     } finally {
       setLoading(false);
     }
@@ -64,11 +64,11 @@ const UsersPage: React.FC = () => {
     try {
       const saved = await deactivateUser(deleteTarget.userId);
       setUsers((prev) => prev.map((user) => user.userId === saved.userId ? saved : user));
-      toast.success('Da vo hieu hoa nguoi dung');
+      toast.success('Đã vô hiệu hóa người dùng');
       setDeleteTarget(null);
     } catch (err) {
       console.error(err);
-      toast.error(getErrorMessage(err, 'Vo hieu hoa nguoi dung that bai'));
+      toast.error(getErrorMessage(err, 'Vô hiệu hóa người dùng thất bại'));
     }
   };
 
@@ -80,18 +80,18 @@ const UsersPage: React.FC = () => {
   const handleSaveRoles = async () => {
     if (!roleTarget) return;
     if (!selectedRoles.length) {
-      toast.warning('Phai chon it nhat mot vai tro');
+      toast.warning('Phải chọn ít nhất một vai trò');
       return;
     }
     setSaving(true);
     try {
       const saved = await updateUserRoles(roleTarget.userId, selectedRoles);
       setUsers((prev) => prev.map((user) => user.userId === saved.userId ? saved : user));
-      toast.success('Da cap nhat vai tro');
+      toast.success('Đã cập nhật vai trò');
       setRoleTarget(null);
     } catch (err) {
       console.error(err);
-      toast.error(getErrorMessage(err, 'Cap nhat vai tro that bai'));
+      toast.error(getErrorMessage(err, 'Cập nhật vai trò thất bại'));
     } finally {
       setSaving(false);
     }
@@ -121,24 +121,24 @@ const UsersPage: React.FC = () => {
     try {
       const saved = await activateUser(user.userId);
       setUsers((prev) => prev.map((item) => item.userId === saved.userId ? saved : item));
-      toast.success('Da kich hoat lai tai khoan');
+      toast.success('Đã kích hoạt lại tài khoản');
     } catch (err) {
       console.error(err);
-      toast.error(getErrorMessage(err, 'Kich hoat tai khoan that bai'));
+      toast.error(getErrorMessage(err, 'Kích hoạt tài khoản thất bại'));
     }
   };
 
   const columns: GridColDef[] = [
-    { field: 'userId', headerName: 'Ma nguoi dung', width: 140 },
-    { field: 'userName', headerName: 'Ten dang nhap', flex: 1, minWidth: 160 },
+    { field: 'userId', headerName: 'Mã người dùng', width: 140 },
+    { field: 'userName', headerName: 'Tên đăng nhập', flex: 1, minWidth: 160 },
     { field: 'employeeName', headerName: 'Nhan vien', flex: 1, minWidth: 180 },
     {
       field: 'isActive',
-      headerName: 'Trang thai',
+      headerName: 'Trạng thái',
       width: 140,
       renderCell: ({ value }) => (
         <Chip
-          label={value === false ? 'Vo hieu hoa' : 'Hoat dong'}
+          label={value === false ? 'Vô hiệu hóa' : 'Hoạt động'}
           size="small"
           sx={{
             background: value === false ? 'var(--error-light)' : 'var(--success-light)',
@@ -152,7 +152,7 @@ const UsersPage: React.FC = () => {
     },
     {
       field: 'roles',
-      headerName: 'Vai tro',
+      headerName: 'Vai trò',
       flex: 1,
       minWidth: 220,
       renderCell: ({ value }) => (
@@ -170,15 +170,15 @@ const UsersPage: React.FC = () => {
     },
     {
       field: 'actions',
-      headerName: 'Thao tac',
+      headerName: 'Thao tác',
       width: 170,
       sortable: false,
       align: 'center',
       headerAlign: 'center',
       renderCell: ({ row }) => (
         <div style={{ display: 'flex', gap: 2 }}>
-          <Tooltip title="Gan vai tro" arrow>
-            <IconButton size="small" aria-label="Gan vai tro" onClick={() => openRoleDialog(row)} sx={{ color: 'var(--primary)', '&:hover': { background: 'var(--primary-100)' } }}>
+          <Tooltip title="Gán vai trò" arrow>
+            <IconButton size="small" aria-label="Gán vai trò" onClick={() => openRoleDialog(row)} sx={{ color: 'var(--primary)', '&:hover': { background: 'var(--primary-100)' } }}>
               <ShieldIcon fontSize="small" />
             </IconButton>
           </Tooltip>
@@ -195,7 +195,7 @@ const UsersPage: React.FC = () => {
             </Tooltip>
           ) : (
             <Tooltip title="Vo hieu hoa" arrow>
-              <IconButton size="small" aria-label="Vo hieu hoa nguoi dung" onClick={() => setDeleteTarget(row)} sx={{ color: '#EF4444', '&:hover': { background: 'var(--error-light)' } }}>
+              <IconButton size="small" aria-label="Vô hiệu hóa người dùng" onClick={() => setDeleteTarget(row)} sx={{ color: '#EF4444', '&:hover': { background: 'var(--error-light)' } }}>
                 <DeleteIcon fontSize="small" />
               </IconButton>
             </Tooltip>
@@ -207,7 +207,7 @@ const UsersPage: React.FC = () => {
 
   return (
     <div className="animate-fadeIn">
-      <PageHeader title="Quan ly nguoi dung" subtitle={`${users.length} nguoi dung`} />
+      <PageHeader title="Quản lý người dùng" subtitle={`${users.length} người dùng`} />
       {loadError && <Alert severity="warning" sx={{ mb: 2 }}>{loadError}</Alert>}
       <div style={{ background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-card)', overflow: 'hidden' }}>
         <DataGrid
@@ -220,7 +220,7 @@ const UsersPage: React.FC = () => {
           disableRowSelectionOnClick
           loading={loading}
           sx={{ border: 'none', '& .MuiDataGrid-columnHeaders': { background: 'var(--bg-tertiary)' } }}
-          localeText={{ noRowsLabel: 'Khong co du lieu' }}
+          localeText={{ noRowsLabel: 'Không có dữ liệu' }}
         />
       </div>
       <Dialog
@@ -229,7 +229,7 @@ const UsersPage: React.FC = () => {
         slotProps={{ paper: { sx: { borderRadius: '16px', width: 'min(420px, calc(100vw - 32px))', background: 'var(--bg-secondary)' } } }}
       >
         <DialogTitle sx={{ fontWeight: 800, fontSize: 17, pb: 0 }}>
-          Gan vai tro — {roleTarget?.userName}
+          Gán vai trò — {roleTarget?.userName}
         </DialogTitle>
         <DialogContent sx={{ pt: '12px !important', display: 'flex', flexDirection: 'column' }}>
           {allRoles.map((role) => (
@@ -253,7 +253,7 @@ const UsersPage: React.FC = () => {
             Huy
           </Button>
           <Button onClick={handleSaveRoles} disabled={saving} variant="contained" sx={{ borderRadius: '10px', textTransform: 'none', fontFamily: 'inherit', fontWeight: 700, background: 'linear-gradient(135deg, #D97706, #F59E0B)' }}>
-            {saving ? 'Dang luu...' : 'Luu vai tro'}
+            {saving ? 'Đang lưu...' : 'Lưu vai trò'}
           </Button>
         </DialogActions>
       </Dialog>
@@ -288,8 +288,8 @@ const UsersPage: React.FC = () => {
 
       <ConfirmDialog
         open={!!deleteTarget}
-        title="Vo hieu hoa nguoi dung"
-        message={`Ban co chac muon vo hieu hoa nguoi dung "${deleteTarget?.userName}"?`}
+        title="Vô hiệu hóa người dùng"
+        message={`Bạn có chắc muốn vô hiệu hóa người dùng "${deleteTarget?.userName}"?`}
         confirmLabel="Vo hieu hoa"
         severity="error"
         onConfirm={handleDeactivate}

@@ -312,6 +312,7 @@ const AppointmentsPage: React.FC = () => {
       const matchesSearch = !normalizedSearch
         || appointment.customerName.toLowerCase().includes(normalizedSearch)
         || appointment.customerPhone.includes(normalizedSearch)
+        || appointment.displayCode?.toLowerCase().includes(normalizedSearch)
         || appointment.appointmentId.toLowerCase().includes(normalizedSearch);
       const matchesStatus = statusFilter === 'ALL' || appointment.statusOfAppointment === statusFilter;
       return matchesSearch && matchesStatus;
@@ -598,7 +599,7 @@ const AppointmentsPage: React.FC = () => {
   };
 
   const columns: GridColDef[] = [
-    { field: 'appointmentId', headerName: 'Mã LH', width: 112 },
+    { field: 'displayCode', headerName: 'Mã LH', width: 140, renderCell: ({ row }) => row.displayCode || row.appointmentId },
     {
       field: 'customerName',
       headerName: 'Khách hàng',
@@ -1237,5 +1238,4 @@ const AppointmentsPage: React.FC = () => {
 };
 
 export default AppointmentsPage;
-
 
