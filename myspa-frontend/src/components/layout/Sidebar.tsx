@@ -27,6 +27,7 @@ import VpnKeyIcon from '@mui/icons-material/VpnKey';
 import LogoutIcon from '@mui/icons-material/Logout';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import WorkspacePremiumIcon from '@mui/icons-material/WorkspacePremium';
 import Tooltip from '@mui/material/Tooltip';
 
 interface MenuGroup {
@@ -76,6 +77,7 @@ const menuGroups: MenuGroup[] = [
       { label: 'Người dùng', icon: <ManageAccountsIcon fontSize="small" />, path: ROUTES.USERS },
       { label: 'Vai trò', icon: <ShieldIcon fontSize="small" />, path: ROUTES.ROLES },
       { label: 'Phân quyền', icon: <VpnKeyIcon fontSize="small" />, path: ROUTES.PERMISSIONS },
+      { label: 'Gói dịch vụ', icon: <WorkspacePremiumIcon fontSize="small" />, path: ROUTES.SUBSCRIPTIONS },
     ],
   },
 ];

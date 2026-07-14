@@ -68,7 +68,7 @@ INSERT IGNORE INTO products (product_id, name, sku, price, cost_price, brand, st
 ('prod-toner', 'Toner Cấp Ẩm Klairs Supple Preparation 180ml', 'SKU-KLA-180', 270000.0, 180000.0, 'Dear Klairs', 35.0, 5.0, 'Chai', '893001001002', 'Cân bằng độ pH, cấp ẩm sâu tức thì cho làn da căng mịn.', NULL, 1, 'cat-cosmetic', NOW(), NOW()),
 ('prod-serum-b5', 'Tinh Chất Phục Hồi La Roche-Posay Hyalu B5 30ml', 'SKU-LRP-B5', 850000.0, 600000.0, 'La Roche-Posay', 20.0, 3.0, 'Chai', '893001001003', 'Serum chứa Hyaluronic Acid và Vitamin B5 giúp phục hồi và làm săn chắc da.', NULL, 1, 'cat-cosmetic', NOW(), NOW());
 
--- 11. Insert Treatment Packages (Status 0 = NOT_STARTED, 1 = IN_PROGRESS, 2 = COMPLETED)
+-- 11. Insert Treatment Packages
 INSERT IGNORE INTO treatment_packages (treatment_package_id, package_name, total_sessions, package_price, description, status_of_package, employee_id) VALUES
-('pkg-acne-10', 'Liệu trình trị mụn tận gốc 10 buổi', 10, 3500000.0, 'Liệu trình 10 buổi cam kết sạch mụn ẩn, mụn đầu đen và phục hồi da thâm.', 1, 'emp-staff1'),
-('pkg-whitening-5', 'Gói tắm dưỡng sáng da thảo mộc 5 buổi', 5, 2000000.0, 'Gói 5 buổi sử dụng thảo dược và cám gạo giúp nâng tông da tự nhiên, an toàn.', 1, 'emp-staff2');
+('pkg-acne-10', 'Liệu trình trị mụn tận gốc 10 buổi', 10, 3500000.0, 'Liệu trình 10 buổi cam kết sạch mụn ẩn, mụn đầu đen và phục hồi da thâm.', 'IN_PROGRESS', 'emp-staff1'),
+('pkg-whitening-5', 'Gói tắm dưỡng sáng da thảo mộc 5 buổi', 5, 2000000.0, 'Gói 5 buổi sử dụng thảo dược và cám gạo giúp nâng tông da tự nhiên, an toàn.', 'IN_PROGRESS', 'emp-staff2');

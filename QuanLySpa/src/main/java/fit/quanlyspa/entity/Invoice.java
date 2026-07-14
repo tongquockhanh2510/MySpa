@@ -113,4 +113,5 @@ public class Invoice {
     @OneToMany(mappedBy = "invoice", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @Builder.Default
     List<Payment> payments = new ArrayList<>();
+
 }

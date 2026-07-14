@@ -43,6 +43,9 @@ public class CustomerTreatment {
     LocalDate cancelDate;
     String cancelReason;
 
+    @Column(name = "package_conversion_id", insertable = false, updatable = false)
+    String packageConversionId;
+
     @OneToOne
     @JoinColumn(name = "package_conversion_id")
     PackageConversion packageConversion;

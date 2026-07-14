@@ -159,8 +159,10 @@ public class InvoiceService {
         if (invoice.getRemainingAmount().compareTo(BigDecimal.ZERO) <= 0) {
             invoice.setStatus(InvoiceStatus.PAID);
             invoice.setPaidAt(LocalDateTime.now());
-            // Earn loyalty points (1 point per 10,000 VND)
-            double pointsEarned = invoice.getTotalAmount().doubleValue() / 10000.0;
+            // Earn loyalty points (100,000 VND = 1 point)
+            double pointsEarned = invoice.getTotalAmount()
+                    .divide(BigDecimal.valueOf(100000), 2, java.math.RoundingMode.DOWN)
+                    .doubleValue();
             invoice.setLoyaltyPointsEarned(pointsEarned);
             customerService.addLoyaltyPoints(invoice.getCustomer().getCustomerId(), pointsEarned, "Thanh toán hóa đơn " + invoice.getInvoiceNumber());
         } else {

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { DataGrid } from '@mui/x-data-grid';
 import type { GridColDef } from '@mui/x-data-grid';
 import {
@@ -14,7 +15,7 @@ import PageHeader from '@components/common/PageHeader';
 import StatusChip from '@components/common/StatusChip';
 import ConfirmDialog from '@components/common/ConfirmDialog';
 import ExportButtons from '@components/common/ExportButtons';
-import { createEmployee, deleteEmployee, getEmployees, updateEmployee } from '@/api/catalog';
+import { createEmployee, createEmployeeAccount, deleteEmployee, getEmployees, updateEmployee } from '@/api/catalog';
 import { useAppSelector } from '@hooks/useAppSelector';
 import { formatCurrency } from '@utils/formatters';
 import { exportToExcel } from '@utils/exportExcel';
@@ -24,6 +25,7 @@ import type { Employee, EmployeeFormData } from '@/types';
 import SearchIcon from '@mui/icons-material/Search';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
+import KeyIcon from '@mui/icons-material/Key';
 import BadgeIcon from '@mui/icons-material/Badge';
 import GroupsIcon from '@mui/icons-material/Groups';
 import PaidIcon from '@mui/icons-material/Paid';
@@ -45,9 +47,19 @@ const inputSx = {
   '& .MuiInputLabel-root': { fontSize: 14 },
 };
 
+const ROLE_LABELS: Record<string, string> = {
+  ADMIN: 'Chủ spa',
+  MANAGER: 'Quản lý',
+  RECEPTIONIST: 'Lễ tân',
+  THERAPIST: 'Kỹ thuật viên',
+  STAFF: 'Nhân viên',
+};
+
 const EmployeesPage: React.FC = () => {
+  const [searchParams] = useSearchParams();
   const user = useAppSelector((state) => state.auth.user);
   const canManageEmployees = hasAnyRole(user, ['ADMIN', 'MANAGER']);
+  const isAdmin = hasAnyRole(user, ['ADMIN']);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -56,6 +68,9 @@ const EmployeesPage: React.FC = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Employee | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Employee | null>(null);
+  const [accountTarget, setAccountTarget] = useState<Employee | null>(null);
+  const [accountForm, setAccountForm] = useState({ userName: '', password: '', role: 'THERAPIST' });
+  const [accountSaving, setAccountSaving] = useState(false);
 
   const { control, handleSubmit, reset, formState: { errors } } = useForm<EmployeeFormData>({
     resolver: zodResolver(schema),
@@ -87,6 +102,13 @@ const EmployeesPage: React.FC = () => {
   useEffect(() => {
     fetchEmployees();
   }, []);
+
+  useEffect(() => {
+    const employeeId = searchParams.get('employeeId');
+    if (!employeeId || !employees.length) return;
+    const target = employees.find((employee) => employee.employeeId === employeeId);
+    if (target) openEdit(target);
+  }, [employees, searchParams]);
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -137,6 +159,42 @@ const EmployeesPage: React.FC = () => {
     }
   };
 
+  const openCreateAccount = (employee: Employee) => {
+    setAccountTarget(employee);
+    const suggested = (employee.email || '').split('@')[0].toLowerCase().replace(/[^a-z0-9._-]/g, '');
+    setAccountForm({ userName: suggested, password: '', role: 'THERAPIST' });
+  };
+
+  const handleCreateAccount = async () => {
+    if (!accountTarget) return;
+    if (accountForm.userName.trim().length < 4) {
+      toast.warning('Tên đăng nhập phải có ít nhất 4 ký tự');
+      return;
+    }
+    if (accountForm.password.length < 6) {
+      toast.warning('Mật khẩu phải có ít nhất 6 ký tự');
+      return;
+    }
+    setAccountSaving(true);
+    try {
+      const saved = await createEmployeeAccount(accountTarget.employeeId, {
+        userName: accountForm.userName.trim(),
+        password: accountForm.password,
+        role: accountForm.role,
+      });
+      setEmployees((prev) => prev.map((employee) => (
+        employee.employeeId === accountTarget.employeeId ? saved : employee
+      )));
+      toast.success(`Đã tạo tài khoản "${accountForm.userName.trim()}" cho ${accountTarget.name}`);
+      setAccountTarget(null);
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.response?.data?.message || 'Tạo tài khoản thất bại');
+    } finally {
+      setAccountSaving(false);
+    }
+  };
+
   const handleDelete = async () => {
     if (!deleteTarget) return;
     try {
@@ -184,6 +242,31 @@ const EmployeesPage: React.FC = () => {
     { field: 'email', headerName: 'Email', flex: 1, minWidth: 190, renderCell: ({ value }) => <span className="employees-muted-cell">{value}</span> },
     { field: 'position', headerName: 'Chức vụ', flex: 1, minWidth: 160, renderCell: ({ value }) => <span className="employees-position-cell">{value}</span> },
     { field: 'baseSalary', headerName: 'Lương cơ bản', width: 150, renderCell: ({ value }) => <span className="employees-salary">{formatCurrency(value || 0)}</span> },
+    {
+      field: 'accountUserName',
+      headerName: 'Tài khoản',
+      width: 190,
+      sortable: false,
+      renderCell: ({ row }) => row.accountUserName ? (
+        <div className="employees-name-cell">
+          <strong>{row.accountUserName}{row.accountActive === false ? ' (khóa)' : ''}</strong>
+          <span>{(row.accountRoles || []).map((role: string) => ROLE_LABELS[role] || role).join(', ')}</span>
+        </div>
+      ) : (
+        isAdmin ? (
+          <Button
+            size="small"
+            startIcon={<KeyIcon fontSize="small" />}
+            onClick={(event) => { event.stopPropagation(); openCreateAccount(row); }}
+            sx={{ borderRadius: '8px', textTransform: 'none', fontFamily: 'inherit', fontWeight: 700, fontSize: 12 }}
+          >
+            Cấp tài khoản
+          </Button>
+        ) : (
+          <span className="employees-muted-cell">Chưa có</span>
+        )
+      ),
+    },
     { field: 'statusOfEmployee', headerName: 'Trạng thái', width: 150, renderCell: ({ value }) => <StatusChip status={value} type="employee" /> },
     {
       field: 'actions',
@@ -194,10 +277,10 @@ const EmployeesPage: React.FC = () => {
       headerAlign: 'center',
       renderCell: ({ row }) => (
         <div className="employees-actions">
-          <IconButton size="small" aria-label="Cập nhật nhân viên" onClick={() => openEdit(row)} className="employees-icon-button employees-icon-button--edit">
+          <IconButton size="small" aria-label="Cập nhật nhân viên" onClick={(event) => { event.stopPropagation(); openEdit(row); }} className="employees-icon-button employees-icon-button--edit">
             <EditIcon fontSize="small" />
           </IconButton>
-          <IconButton size="small" aria-label="Xóa nhân viên" onClick={() => setDeleteTarget(row)} className="employees-icon-button employees-icon-button--delete">
+          <IconButton size="small" aria-label="Xóa nhân viên" onClick={(event) => { event.stopPropagation(); setDeleteTarget(row); }} className="employees-icon-button employees-icon-button--delete">
             <DeleteIcon fontSize="small" />
           </IconButton>
         </div>
@@ -269,7 +352,13 @@ const EmployeesPage: React.FC = () => {
             pageSizeOptions={[10, 20]}
             autoHeight
             disableRowSelectionOnClick
-            sx={{ border: 'none', '& .MuiDataGrid-columnHeaders': { background: 'var(--bg-tertiary)' } }}
+            onRowClick={({ row }) => openEdit(row)}
+            sx={{
+              border: 'none',
+              '& .MuiDataGrid-columnHeaders': { background: 'var(--bg-tertiary)' },
+              '& .MuiDataGrid-cell': { alignItems: 'center' },
+              '& .MuiDataGrid-row': { cursor: 'pointer' },
+            }}
             localeText={{
               MuiTablePagination: {
                 labelRowsPerPage: 'Hàng mỗi trang:',
@@ -331,6 +420,53 @@ const EmployeesPage: React.FC = () => {
         </DialogActions>
       </Dialog>
 
+      <Dialog
+        open={!!accountTarget}
+        onClose={() => !accountSaving && setAccountTarget(null)}
+        slotProps={{ paper: { sx: { borderRadius: '16px', width: 'min(460px, calc(100vw - 32px))', background: 'var(--bg-secondary)' } } }}
+      >
+        <DialogTitle sx={{ fontWeight: 800, fontSize: 17, pb: 0 }}>
+          Cấp tài khoản — {accountTarget?.name}
+        </DialogTitle>
+        <DialogContent sx={{ pt: '16px !important', display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <TextField
+            label="Tên đăng nhập *"
+            value={accountForm.userName}
+            onChange={(event) => setAccountForm((prev) => ({ ...prev, userName: event.target.value }))}
+            helperText="Chỉ gồm chữ thường, số, dấu chấm, gạch dưới, gạch ngang"
+            fullWidth size="small" sx={inputSx}
+          />
+          <TextField
+            label="Mật khẩu *"
+            type="password"
+            value={accountForm.password}
+            onChange={(event) => setAccountForm((prev) => ({ ...prev, password: event.target.value }))}
+            helperText="Ít nhất 6 ký tự — nhân viên có thể tự đổi sau khi đăng nhập"
+            fullWidth size="small" sx={inputSx}
+          />
+          <FormControl fullWidth size="small" sx={inputSx}>
+            <InputLabel>Vai trò *</InputLabel>
+            <Select
+              value={accountForm.role}
+              label="Vai trò *"
+              onChange={(event) => setAccountForm((prev) => ({ ...prev, role: event.target.value }))}
+            >
+              <MenuItem value="MANAGER">Quản lý — toàn quyền vận hành, xem báo cáo & lương</MenuItem>
+              <MenuItem value="RECEPTIONIST">Lễ tân — khách hàng, lịch hẹn, đơn hàng, khuyến mãi</MenuItem>
+              <MenuItem value="THERAPIST">Kỹ thuật viên — xem lịch hẹn, dịch vụ, sản phẩm</MenuItem>
+            </Select>
+          </FormControl>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 3, gap: 1 }}>
+          <Button onClick={() => setAccountTarget(null)} disabled={accountSaving} sx={{ borderRadius: '10px', textTransform: 'none', fontFamily: 'inherit', border: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}>
+            Hủy
+          </Button>
+          <Button onClick={handleCreateAccount} disabled={accountSaving} variant="contained" sx={{ borderRadius: '10px', textTransform: 'none', fontFamily: 'inherit', fontWeight: 700, background: 'linear-gradient(135deg, #D97706, #F59E0B)' }}>
+            {accountSaving ? 'Đang tạo...' : 'Tạo tài khoản'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       <ConfirmDialog
         open={!!deleteTarget}
         title="Đánh dấu nghỉ việc"
@@ -345,3 +481,4 @@ const EmployeesPage: React.FC = () => {
 };
 
 export default EmployeesPage;
+

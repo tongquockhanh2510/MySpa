@@ -32,6 +32,11 @@ public class Service {
     @Column(name = "price", nullable = false)
     double price;
 
+    // Wrapper type vi cac dich vu cu (truoc khi them cot) mang gia tri NULL trong DB
+    @Column(name = "cost_price")
+    @Builder.Default
+    Double costPrice = 0.0; // tien von (chi phi nguyen lieu, vat tu) cho 1 lan thuc hien
+
     @Column(name = "duration", nullable = false)
     double duration; // in minutes
 

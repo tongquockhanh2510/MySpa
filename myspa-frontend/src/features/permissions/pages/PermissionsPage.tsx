@@ -1,31 +1,33 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { DataGrid } from '@mui/x-data-grid';
 import type { GridColDef } from '@mui/x-data-grid';
-import { Box, Chip, InputAdornment, TextField } from '@mui/material';
+import { Alert, Box, Chip, InputAdornment, TextField } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import SecurityIcon from '@mui/icons-material/Security';
 import VpnKeyIcon from '@mui/icons-material/VpnKey';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
 import PageHeader from '@components/common/PageHeader';
-import { mockPermissions } from '@utils/mockData';
+import { getPermissions } from '@/api/accessControl';
+import type { Permission } from '@/types';
+import { toast } from 'sonner';
 import './PermissionsPage.css';
 
 const actionLabels: Record<string, string> = {
   VIEW: 'Xem',
-  CREATE: 'Tạo mới',
-  UPDATE: 'Cập nhật',
-  DELETE: 'Xóa',
-  MANAGE: 'Quản lý',
+  CREATE: 'Tao moi',
+  UPDATE: 'Cap nhat',
+  DELETE: 'Xoa',
+  MANAGE: 'Quan ly',
 };
 
 const moduleLabels: Record<string, string> = {
-  CUSTOMER: 'Khách hàng',
-  EMPLOYEE: 'Nhân viên',
-  APPOINTMENT: 'Lịch hẹn',
-  ORDER: 'Đơn hàng',
-  REPORT: 'Báo cáo',
-  USER: 'Người dùng',
-  ROLE: 'Vai trò',
+  CUSTOMER: 'Khach hang',
+  EMPLOYEE: 'Nhan vien',
+  APPOINTMENT: 'Lich hen',
+  ORDER: 'Don hang',
+  REPORT: 'Bao cao',
+  USER: 'Nguoi dung',
+  ROLE: 'Vai tro',
 };
 
 const getPermissionParts = (name: string) => {
@@ -40,22 +42,43 @@ const getPermissionParts = (name: string) => {
 
 const PermissionsPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [permissions, setPermissions] = useState<Permission[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const loadPermissions = async () => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      setPermissions(await getPermissions());
+    } catch (error) {
+      console.error(error);
+      setLoadError('Khong the tai danh sach quyen. Vui long thu lai.');
+      toast.error('Loi khi tai danh sach quyen');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      void loadPermissions();
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
+  }, []);
 
   const permissionRows = useMemo(
     () =>
-      mockPermissions.map((permission) => ({
+      permissions.map((permission) => ({
         ...permission,
         ...getPermissionParts(permission.name),
       })),
-    []
+    [permissions]
   );
 
   const filteredRows = useMemo(() => {
     const normalizedTerm = searchTerm.trim().toLowerCase();
-
-    if (!normalizedTerm) {
-      return permissionRows;
-    }
+    if (!normalizedTerm) return permissionRows;
 
     return permissionRows.filter((permission) =>
       [permission.name, permission.description, permission.module, permission.action]
@@ -67,32 +90,32 @@ const PermissionsPage: React.FC = () => {
 
   const modules = useMemo(() => new Set(permissionRows.map((permission) => permission.module)).size, [permissionRows]);
   const managementPermissions = useMemo(
-    () => permissionRows.filter((permission) => permission.action === 'Quản lý').length,
+    () => permissionRows.filter((permission) => permission.action === 'Quan ly').length,
     [permissionRows]
   );
 
   const columns: GridColDef[] = [
     {
       field: 'name',
-      headerName: 'Mã quyền',
+      headerName: 'Ma quyen',
       minWidth: 220,
       flex: 0.8,
       renderCell: (params) => <strong className="permissions-page__code">{params.value}</strong>,
     },
     {
       field: 'module',
-      headerName: 'Phân hệ',
+      headerName: 'Phan he',
       minWidth: 150,
       renderCell: (params) => <Chip size="small" label={params.value} className="permissions-page__chip" />,
     },
     {
       field: 'action',
-      headerName: 'Thao tác',
+      headerName: 'Thao tac',
       minWidth: 130,
     },
     {
       field: 'description',
-      headerName: 'Mô tả',
+      headerName: 'Mo ta',
       flex: 1,
       minWidth: 260,
       renderCell: (params) => <span className="permissions-page__description">{params.value}</span>,
@@ -101,50 +124,52 @@ const PermissionsPage: React.FC = () => {
 
   return (
     <main className="permissions-page animate-fadeIn">
-      <PageHeader title="Phân quyền hệ thống" subtitle={`${mockPermissions.length} quyền hạn đang cấu hình`} />
+      <PageHeader title="Phan quyen he thong" subtitle={`${permissions.length} quyen han dang cau hinh`} />
 
-      <section className="permissions-page__summary" aria-label="Tổng quan quyền hệ thống">
+      {loadError && <Alert severity="warning">{loadError}</Alert>}
+
+      <section className="permissions-page__summary" aria-label="Tong quan quyen he thong">
         <article className="permissions-page__summary-card">
           <SecurityIcon />
           <div>
-            <span>Tổng quyền</span>
-            <strong>{mockPermissions.length}</strong>
+            <span>Tong quyen</span>
+            <strong>{loading ? '...' : permissions.length}</strong>
           </div>
         </article>
         <article className="permissions-page__summary-card">
           <Inventory2Icon />
           <div>
-            <span>Phân hệ</span>
-            <strong>{modules}</strong>
+            <span>Phan he</span>
+            <strong>{loading ? '...' : modules}</strong>
           </div>
         </article>
         <article className="permissions-page__summary-card">
           <VpnKeyIcon />
           <div>
-            <span>Quyền quản lý</span>
-            <strong>{managementPermissions}</strong>
+            <span>Quyen quan ly</span>
+            <strong>{loading ? '...' : managementPermissions}</strong>
           </div>
         </article>
       </section>
 
-      <section className="permissions-page__toolbar" aria-label="Bộ lọc quyền">
+      <section className="permissions-page__toolbar" aria-label="Bo loc quyen">
         <TextField
           value={searchTerm}
           onChange={(event) => setSearchTerm(event.target.value)}
-          placeholder="Tìm theo mã quyền, phân hệ hoặc mô tả"
+          placeholder="Tim theo ma quyen, phan he hoac mo ta"
           size="small"
           className="permissions-page__search"
           slotProps={{
             input: {
               startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon fontSize="small" />
-              </InputAdornment>
+                <InputAdornment position="start">
+                  <SearchIcon fontSize="small" />
+                </InputAdornment>
               ),
             },
           }}
         />
-        <span>{filteredRows.length} quyền phù hợp</span>
+        <span>{filteredRows.length} quyen phu hop</span>
       </section>
 
       <div className="permissions-page__panel">
@@ -155,27 +180,16 @@ const PermissionsPage: React.FC = () => {
             getRowId={(row) => row.name}
             autoHeight
             disableRowSelectionOnClick
+            loading={loading}
             pageSizeOptions={[10, 25, 50]}
-            initialState={{
-              pagination: {
-                paginationModel: {
-                  pageSize: 10,
-                },
-              },
-            }}
+            initialState={{ pagination: { paginationModel: { pageSize: 10 } } }}
             sx={{
               border: 'none',
               '& .MuiDataGrid-columnHeaders': {
                 background: 'var(--bg-tertiary)',
               },
             }}
-            localeText={{
-              MuiTablePagination: {
-                labelRowsPerPage: 'Hàng mỗi trang:',
-                labelDisplayedRows: ({ from, to, count }: any) => `${from}-${to} / ${count}`,
-              },
-              noRowsLabel: 'Không có quyền phù hợp',
-            } as any}
+            localeText={{ noRowsLabel: 'Khong co quyen phu hop' }}
           />
         </Box>
       </div>

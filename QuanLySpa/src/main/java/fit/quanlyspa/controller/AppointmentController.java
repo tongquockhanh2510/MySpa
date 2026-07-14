@@ -83,6 +83,13 @@ public class AppointmentController {
         return ResponseEntity.ok(ApiResponse.success(appointmentService.checkIn(id), "Check-in thành công"));
     }
 
+    @PatchMapping("/{id}/waiting")
+    @Operation(summary = "Chuyển khách sang trạng thái đang chờ")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'RECEPTIONIST')")
+    public ResponseEntity<ApiResponse<AppointmentResponse>> markWaiting(@PathVariable String id) {
+        return ResponseEntity.ok(ApiResponse.success(appointmentService.markWaiting(id), "Đã chuyển sang trạng thái đang chờ"));
+    }
+
     @PatchMapping("/{id}/start")
     @Operation(summary = "Bắt đầu điều trị")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'THERAPIST')")

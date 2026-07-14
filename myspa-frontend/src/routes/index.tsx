@@ -26,9 +26,11 @@ const CategoriesPage = lazy(() => import('@features/categories/pages/CategoriesP
 const PromotionsPage = lazy(() => import('@features/promotions/pages/PromotionsPage'));
 const SalariesPage = lazy(() => import('@features/salaries/pages/SalariesPage'));
 const ReportsPage = lazy(() => import('@features/reports/pages/ReportsPage'));
+const NotificationsPage = lazy(() => import('@features/notifications/pages/NotificationsPage'));
 const UsersPage = lazy(() => import('@features/users/pages/UsersPage'));
 const RolesPage = lazy(() => import('@features/roles/pages/RolesPage'));
 const PermissionsPage = lazy(() => import('@features/permissions/pages/PermissionsPage'));
+const SubscriptionsPage = lazy(() => import('@features/subscriptions/pages/SubscriptionsPage'));
 
 // Protected route wrapper
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -125,11 +127,13 @@ const AppRouter: React.FC = () => {
           <Route path={ROUTES.PRODUCTS} element={withRole(<ProductsPage />, ['ADMIN', 'MANAGER', 'RECEPTIONIST', 'THERAPIST'])} />
           <Route path={ROUTES.CATEGORIES} element={withRole(<CategoriesPage />, ['ADMIN', 'MANAGER', 'RECEPTIONIST', 'THERAPIST'])} />
           <Route path={ROUTES.PROMOTIONS} element={withRole(<PromotionsPage />, ['ADMIN', 'MANAGER', 'RECEPTIONIST'])} />
-          <Route path={ROUTES.SALARIES} element={withRole(<SalariesPage />, ['ADMIN', 'MANAGER'])} />
+          <Route path={ROUTES.SALARIES} element={withRole(<SalariesPage />, ['ADMIN', 'MANAGER', 'RECEPTIONIST', 'THERAPIST'])} />
           <Route path={ROUTES.REPORTS} element={withRole(<ReportsPage />, ['ADMIN', 'MANAGER'])} />
+          <Route path={ROUTES.NOTIFICATIONS} element={withRole(<NotificationsPage />, ['ADMIN', 'MANAGER', 'RECEPTIONIST', 'THERAPIST'])} />
           <Route path={ROUTES.USERS} element={withRole(<UsersPage />, ['ADMIN'])} />
           <Route path={ROUTES.ROLES} element={withRole(<RolesPage />, ['ADMIN'])} />
           <Route path={ROUTES.PERMISSIONS} element={withRole(<PermissionsPage />, ['ADMIN'])} />
+          <Route path={ROUTES.SUBSCRIPTIONS} element={withRole(<SubscriptionsPage />, ['ADMIN'])} />
           <Route path={ROUTES.PROFILE} element={<SuspenseWrapper><ProfilePage /></SuspenseWrapper>} />
 
           {/* Fallback */}

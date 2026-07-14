@@ -24,4 +24,7 @@ public class PackageConversionResponse {
     String targetPackageName;
     String voucherCode;
     int convertedSessions;
+    String orderId;
+    Double topUpAmount;
+    String leftoverVoucherCode;
 }

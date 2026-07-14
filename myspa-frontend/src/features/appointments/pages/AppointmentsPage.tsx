@@ -4,12 +4,13 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import { DataGrid } from '@mui/x-data-grid';
 import type { GridColDef } from '@mui/x-data-grid';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Alert, Button, Dialog, DialogActions, DialogContent, DialogTitle,
-  FormControl, IconButton, InputAdornment, InputLabel, MenuItem, Select,
+  FormControl, IconButton, InputAdornment, InputLabel, Menu, MenuItem, Select,
   Skeleton, TextField, ToggleButton, ToggleButtonGroup, Tooltip,
 } from '@mui/material';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm, Controller, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
@@ -28,9 +29,12 @@ import {
   rescheduleAppointment,
   startAppointment,
   updateAppointment,
+  waitAppointment,
 } from '@/api/appointments';
-import { getCustomers } from '@/api/customers';
+import { getCustomers, createCustomer } from '@/api/customers';
 import { getEmployees, getRooms, getServices } from '@/api/catalog';
+import { getTreatmentSchedules } from '@/api/treatment';
+import { ROUTES } from '@constants/routes';
 import { StatusOfAppointment } from '@/types';
 import type { Appointment, Customer, Employee, Service } from '@/types';
 import SearchIcon from '@mui/icons-material/Search';
@@ -42,11 +46,16 @@ import TodayIcon from '@mui/icons-material/Today';
 import EventAvailableIcon from '@mui/icons-material/EventAvailable';
 import PendingActionsIcon from '@mui/icons-material/PendingActions';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import LoginIcon from '@mui/icons-material/Login';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
-import DoneAllIcon from '@mui/icons-material/DoneAll';
+import TaskAltIcon from '@mui/icons-material/TaskAlt';
+import LoginIcon from '@mui/icons-material/Login';
 import EventBusyIcon from '@mui/icons-material/EventBusy';
 import EventRepeatIcon from '@mui/icons-material/EventRepeat';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
+import PaymentIcon from '@mui/icons-material/Payment';
+import AddCircleIcon from '@mui/icons-material/AddCircle';
+import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import './AppointmentsPage.css';
 
 const statusColors: Record<string, string> = {
@@ -59,6 +68,20 @@ const statusColors: Record<string, string> = {
   CANCELLED: '#DC2626',
   NO_SHOW: '#4B5563',
   RESCHEDULED: '#4338CA',
+};
+
+const treatmentStatusColors: Record<string, string> = {
+  SCHEDULED: '#0EA5E9',
+  IN_PROGRESS: '#7C3AED',
+  COMPLETED: '#059669',
+  RESCHEDULED: '#B45309',
+};
+
+const treatmentStatusLabels: Record<string, string> = {
+  SCHEDULED: 'Đã lên lịch',
+  IN_PROGRESS: 'Đang thực hiện',
+  COMPLETED: 'Hoàn thành',
+  RESCHEDULED: 'Đã dời lịch',
 };
 
 const statusOptions = [
@@ -106,11 +129,12 @@ const validTransitions: Record<StatusOfAppointment, StatusOfAppointment[]> = {
   [StatusOfAppointment.RESCHEDULED]: [],
 };
 
-type LifecycleAction = 'confirm' | 'checkIn' | 'start' | 'complete' | 'noShow' | 'reschedule';
+type LifecycleAction = 'confirm' | 'checkIn' | 'wait' | 'start' | 'complete' | 'noShow' | 'reschedule';
 
 const lifecycleTargets: Record<LifecycleAction, StatusOfAppointment> = {
   confirm: StatusOfAppointment.CONFIRMED,
   checkIn: StatusOfAppointment.CHECKED_IN,
+  wait: StatusOfAppointment.WAITING,
   start: StatusOfAppointment.IN_PROGRESS,
   complete: StatusOfAppointment.COMPLETED,
   noShow: StatusOfAppointment.NO_SHOW,
@@ -118,30 +142,34 @@ const lifecycleTargets: Record<LifecycleAction, StatusOfAppointment> = {
 };
 
 const lifecycleSuccessMessages: Record<LifecycleAction, string> = {
-  confirm: 'Da xac nhan lich hen',
-  checkIn: 'Check-in thanh cong',
-  start: 'Da bat dau phuc vu',
-  complete: 'Da hoan thanh lich hen',
-  noShow: 'Da danh dau khach khong den',
-  reschedule: 'Da doi lich hen',
+  confirm: 'Đã xác nhận lịch hẹn',
+  checkIn: 'Check-in thành công',
+  wait: 'Đã chuyển khách sang trạng thái đang chờ',
+  start: 'Đã bắt đầu điều trị',
+  complete: 'Đã hoàn thành lịch hẹn',
+  noShow: 'Đã đánh dấu khách không đến',
+  reschedule: 'Đã dời lịch hẹn',
 };
 
 const lifecycleErrorMessages: Record<LifecycleAction, string> = {
-  confirm: 'Xac nhan lich hen khong thanh cong',
-  checkIn: 'Check-in khong thanh cong',
-  start: 'Bat dau lich hen khong thanh cong',
-  complete: 'Hoan thanh lich hen khong thanh cong',
-  noShow: 'Danh dau khong den khong thanh cong',
-  reschedule: 'Doi lich hen khong thanh cong',
+  confirm: 'Xác nhận lịch hẹn không thành công',
+  checkIn: 'Check-in không thành công',
+  wait: 'Chuyển sang đang chờ không thành công',
+  start: 'Bắt đầu điều trị không thành công',
+  complete: 'Hoàn thành lịch hẹn không thành công',
+  noShow: 'Đánh dấu không đến không thành công',
+  reschedule: 'Dời lịch hẹn không thành công',
 };
 
 const schema = z.object({
   customerId: z.string().min(1, 'Vui lòng chọn khách hàng'),
   dateTime: z.string().min(1, 'Vui lòng chọn ngày giờ'),
-  serviceId: z.string().min(1, 'Vui lòng chọn dịch vụ'),
-  employeeId: z.string().min(1, 'Vui lòng chọn nhân viên'),
   roomId: z.string().optional(),
   note: z.string().optional(),
+  details: z.array(z.object({
+    serviceId: z.string().min(1, 'Vui lòng chọn dịch vụ'),
+    employeeId: z.string().min(1, 'Vui lòng chọn nhân viên'),
+  })).min(1, 'Phải có ít nhất một dịch vụ'),
 });
 
 type AppointmentFormValues = z.infer<typeof schema>;
@@ -158,6 +186,8 @@ const inputSx = {
 };
 
 const AppointmentsPage: React.FC = () => {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [view, setView] = useState<'table' | 'calendar'>('table');
   const [search, setSearch] = useState('');
@@ -166,8 +196,11 @@ const AppointmentsPage: React.FC = () => {
   const [editing, setEditing] = useState<Appointment | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Appointment | null>(null);
   const [rescheduleTarget, setRescheduleTarget] = useState<Appointment | null>(null);
+  const [detailTargetId, setDetailTargetId] = useState<string | null>(null);
   const [rescheduleDateTime, setRescheduleDateTime] = useState('');
   const [activeAction, setActiveAction] = useState<string | null>(null);
+  const [moreAnchor, setMoreAnchor] = useState<HTMLElement | null>(null);
+  const [moreTarget, setMoreTarget] = useState<Appointment | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -175,17 +208,26 @@ const AppointmentsPage: React.FC = () => {
   const [services, setServices] = useState<Service[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [rooms, setRooms] = useState<RoomOption[]>([]);
+  const [treatmentSchedules, setTreatmentSchedules] = useState<any[]>([]);
+  const [treatmentDetail, setTreatmentDetail] = useState<any | null>(null);
+  const [newCustomerOpen, setNewCustomerOpen] = useState(false);
+  const [savingCustomer, setSavingCustomer] = useState(false);
+  const [newCustomer, setNewCustomer] = useState({ name: '', phone: '', gender: '' });
 
-  const { control, handleSubmit, reset, formState: { errors } } = useForm<AppointmentFormValues>({
+  const { control, handleSubmit, reset, setValue, formState: { errors } } = useForm<AppointmentFormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
       customerId: '',
       dateTime: '',
-      serviceId: '',
-      employeeId: '',
       roomId: '',
       note: '',
+      details: [{ serviceId: '', employeeId: '' }],
     },
+  });
+
+  const { fields: detailFields, append: appendDetail, remove: removeDetail } = useFieldArray({
+    control,
+    name: 'details',
   });
 
   const loadAppointments = async () => {
@@ -221,10 +263,34 @@ const AppointmentsPage: React.FC = () => {
     }
   };
 
+  const loadTreatmentSchedules = async () => {
+    try {
+      const today = new Date();
+      const from = new Date(today);
+      from.setMonth(from.getMonth() - 3);
+      const to = new Date(today);
+      to.setMonth(to.getMonth() + 12);
+      const toIso = (d: Date) => d.toISOString().slice(0, 10);
+      const data = await getTreatmentSchedules(toIso(from), toIso(to));
+      setTreatmentSchedules(data);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
   useEffect(() => {
     loadAppointments();
     loadFormCatalog();
+    loadTreatmentSchedules();
   }, []);
+
+  useEffect(() => {
+    const appointmentId = searchParams.get('appointmentId');
+    if (!appointmentId || !appointments.length) return;
+    if (appointments.some((appointment) => appointment.appointmentId === appointmentId)) {
+      setDetailTargetId(appointmentId);
+    }
+  }, [appointments, searchParams]);
 
   const summary = useMemo(() => {
     const today = new Date().toDateString();
@@ -252,39 +318,55 @@ const AppointmentsPage: React.FC = () => {
     });
   }, [appointments, search, statusFilter]);
 
-  const calendarEvents = filtered.map((appointment) => ({
+  const appointmentEvents = filtered.map((appointment) => ({
     id: appointment.appointmentId,
     title: appointment.customerName,
     start: appointment.dateTime,
     backgroundColor: statusColors[appointment.statusOfAppointment] ?? '#D97706',
     borderColor: statusColors[appointment.statusOfAppointment] ?? '#D97706',
     textColor: '#FFFFFF',
-    extendedProps: appointment,
+    extendedProps: { kind: 'appointment', data: appointment },
   }));
+
+  const treatmentEvents = treatmentSchedules.map((schedule) => ({
+    id: `ts-${schedule.scheduleId}`,
+    title: `Liệu trình ${schedule.customerName} · Buổi ${schedule.sessionNumber} (${schedule.packageName})`,
+    start: schedule.scheduledDate,
+    allDay: true,
+    backgroundColor: treatmentStatusColors[schedule.status] ?? '#0EA5E9',
+    borderColor: treatmentStatusColors[schedule.status] ?? '#0EA5E9',
+    textColor: '#FFFFFF',
+    extendedProps: { kind: 'treatment', data: schedule },
+  }));
+
+  const calendarEvents = [...appointmentEvents, ...treatmentEvents];
 
   const openCreate = () => {
     setEditing(null);
     reset({
       customerId: '',
       dateTime: '',
-      serviceId: '',
-      employeeId: '',
       roomId: '',
       note: '',
+      details: [{ serviceId: '', employeeId: '' }],
     });
     setDialogOpen(true);
   };
 
   const openEdit = (appointment: Appointment) => {
-    const firstDetail = appointment.details?.[0];
+    const details = appointment.details?.length
+      ? appointment.details.map((detail) => ({
+          serviceId: detail.serviceId ?? '',
+          employeeId: detail.employeeId ?? '',
+        }))
+      : [{ serviceId: '', employeeId: '' }];
     setEditing(appointment);
     reset({
       customerId: appointment.customerId,
       dateTime: appointment.dateTime.slice(0, 16),
-      serviceId: firstDetail?.serviceId ?? '',
-      employeeId: firstDetail?.employeeId ?? '',
       roomId: appointment.roomId ?? '',
       note: appointment.note,
+      details,
     });
     setDialogOpen(true);
   };
@@ -302,7 +384,7 @@ const AppointmentsPage: React.FC = () => {
   );
 
   const invalidTransitionMessage = (appointment: Appointment, target: StatusOfAppointment) => (
-    `Khong the chuyen tu ${statusLabels[appointment.statusOfAppointment] || appointment.statusOfAppointment} sang ${statusLabels[target] || target}`
+    `Không thể chuyển từ ${statusLabels[appointment.statusOfAppointment] || appointment.statusOfAppointment} sang ${statusLabels[target] || target}`
   );
 
   const replaceAppointment = (updated: Appointment) => {
@@ -328,6 +410,9 @@ const AppointmentsPage: React.FC = () => {
           break;
         case 'checkIn':
           updated = await checkInAppointment(appointment.appointmentId);
+          break;
+        case 'wait':
+          updated = await waitAppointment(appointment.appointmentId);
           break;
         case 'start':
           updated = await startAppointment(appointment.appointmentId);
@@ -363,7 +448,7 @@ const AppointmentsPage: React.FC = () => {
   const submitReschedule = async () => {
     if (!rescheduleTarget) return;
     if (!rescheduleDateTime) {
-      toast.warning('Vui long chon ngay gio moi');
+      toast.warning('Vui lòng chọn ngày giờ mới');
       return;
     }
 
@@ -390,7 +475,7 @@ const AppointmentsPage: React.FC = () => {
       dateTime,
       roomId: data.roomId || null,
       note: data.note,
-      details: [{ serviceId: data.serviceId, employeeId: data.employeeId }],
+      details: data.details.map((detail) => ({ serviceId: detail.serviceId, employeeId: detail.employeeId })),
     };
 
     setSaving(true);
@@ -409,6 +494,30 @@ const AppointmentsPage: React.FC = () => {
       toast.error(getErrorMessage(error, editing ? 'Cập nhật lịch hẹn không thành công' : 'Đặt lịch hẹn không thành công'));
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleCreateCustomer = async () => {
+    if (!newCustomer.name.trim()) {
+      toast.warning('Vui lòng nhập tên khách hàng');
+      return;
+    }
+    setSavingCustomer(true);
+    try {
+      const payload: Record<string, string> = { name: newCustomer.name.trim() };
+      if (newCustomer.phone.trim()) payload.phone = newCustomer.phone.trim();
+      if (newCustomer.gender) payload.gender = newCustomer.gender;
+      const created = await createCustomer(payload);
+      setCustomers((prev) => [created, ...prev]);
+      setValue('customerId', created.customerId, { shouldValidate: true });
+      toast.success('Đã thêm khách hàng mới');
+      setNewCustomerOpen(false);
+      setNewCustomer({ name: '', phone: '', gender: '' });
+    } catch (error) {
+      console.error(error);
+      toast.error(getErrorMessage(error, 'Thêm khách hàng không thành công'));
+    } finally {
+      setSavingCustomer(false);
     }
   };
 
@@ -437,6 +546,23 @@ const AppointmentsPage: React.FC = () => {
 
   const canCancel = (appointment: Appointment) => canTransition(appointment, StatusOfAppointment.CANCELLED);
 
+  const openMore = (event: React.MouseEvent<HTMLElement>, appointment: Appointment) => {
+    setMoreAnchor(event.currentTarget);
+    setMoreTarget(appointment);
+  };
+
+  const closeMore = () => {
+    setMoreAnchor(null);
+    setMoreTarget(null);
+  };
+
+  const openPaymentFromAppointment = (appointment: Appointment) => {
+    const params = new URLSearchParams({
+      appointmentId: appointment.appointmentId,
+    });
+    navigate(`/don-hang?${params.toString()}`);
+  };
+
   const renderLifecycleButton = (
     appointment: Appointment,
     action: LifecycleAction,
@@ -457,7 +583,10 @@ const AppointmentsPage: React.FC = () => {
             size="small"
             aria-label={label}
             disabled={disabled}
-            onClick={() => action === 'reschedule' ? openReschedule(appointment) : runLifecycleAction(appointment, action)}
+            onClick={(event) => {
+              event.stopPropagation();
+              action === 'reschedule' ? openReschedule(appointment) : runLifecycleAction(appointment, action);
+            }}
             className={`appointments-icon-button ${className}`}
             data-loading={activeAction === actionKey ? 'true' : undefined}
           >
@@ -478,7 +607,6 @@ const AppointmentsPage: React.FC = () => {
       renderCell: ({ row }) => (
         <div className="appointments-customer-cell">
           <strong>{row.customerName}</strong>
-          <span>{row.customerPhone || 'Chưa có số điện thoại'}</span>
         </div>
       ),
     },
@@ -499,23 +627,26 @@ const AppointmentsPage: React.FC = () => {
     {
       field: 'actions',
       headerName: 'Thao tác',
-      width: 330,
+      width: 230,
       sortable: false,
       align: 'center',
       headerAlign: 'center',
       renderCell: ({ row }) => (
         <div className="appointments-actions">
-          <IconButton size="small" aria-label="Cập nhật lịch hẹn" onClick={() => openEdit(row)} className="appointments-icon-button appointments-icon-button--edit">
-            <EditIcon fontSize="small" />
+          <IconButton size="small" aria-label="Cập nhật lịch hẹn" onClick={(event) => { event.stopPropagation(); setDetailTargetId(row.appointmentId); }} className="appointments-icon-button appointments-icon-button--edit">
+            <VisibilityIcon fontSize="small" />
           </IconButton>
-          {renderLifecycleButton(row, 'confirm', 'Xac nhan', <CheckCircleIcon fontSize="small" />, 'appointments-icon-button--confirm')}
-          {renderLifecycleButton(row, 'checkIn', 'Check-in', <LoginIcon fontSize="small" />, 'appointments-icon-button--checkin')}
-          {renderLifecycleButton(row, 'start', 'Bat dau', <PlayArrowIcon fontSize="small" />, 'appointments-icon-button--start')}
-          {renderLifecycleButton(row, 'complete', 'Hoan thanh', <DoneAllIcon fontSize="small" />, 'appointments-icon-button--complete')}
-          {renderLifecycleButton(row, 'reschedule', 'Doi lich', <EventRepeatIcon fontSize="small" />, 'appointments-icon-button--reschedule')}
-          {renderLifecycleButton(row, 'noShow', 'Khong den', <EventBusyIcon fontSize="small" />, 'appointments-icon-button--no-show')}
-          <IconButton size="small" aria-label="Hủy lịch hẹn" disabled={!canCancel(row) || activeAction !== null} onClick={() => setDeleteTarget(row)} className="appointments-icon-button appointments-icon-button--delete">
+          {row.statusOfAppointment === StatusOfAppointment.PENDING && renderLifecycleButton(row, 'confirm', 'Xác nhận', <CheckCircleIcon fontSize="small" />, 'appointments-icon-button--confirm')}
+          {row.statusOfAppointment === StatusOfAppointment.CONFIRMED && renderLifecycleButton(row, 'checkIn', 'Check-in', <LoginIcon fontSize="small" />, 'appointments-icon-button--checkin')}
+          {row.statusOfAppointment === StatusOfAppointment.CHECKED_IN && renderLifecycleButton(row, 'wait', 'Chuyển sang đang chờ', <PendingActionsIcon fontSize="small" />, 'appointments-icon-button--waiting')}
+          {row.statusOfAppointment === StatusOfAppointment.CHECKED_IN && renderLifecycleButton(row, 'start', 'Bắt đầu điều trị', <PlayArrowIcon fontSize="small" />, 'appointments-icon-button--start')}
+          {row.statusOfAppointment === StatusOfAppointment.WAITING && renderLifecycleButton(row, 'start', 'Bắt đầu thực hiện', <PlayArrowIcon fontSize="small" />, 'appointments-icon-button--start')}
+          {row.statusOfAppointment === StatusOfAppointment.IN_PROGRESS && renderLifecycleButton(row, 'complete', 'Hoàn thành', <TaskAltIcon fontSize="small" />, 'appointments-icon-button--complete')}
+          <IconButton size="small" aria-label="Hủy lịch hẹn" disabled={!canCancel(row) || activeAction !== null} onClick={(event) => { event.stopPropagation(); setDeleteTarget(row); }} className="appointments-icon-button appointments-icon-button--delete">
             <DeleteIcon fontSize="small" />
+          </IconButton>
+          <IconButton size="small" aria-label="Thêm thao tác" onClick={(event) => { event.stopPropagation(); openMore(event, row); }} className="appointments-icon-button">
+            <MoreVertIcon fontSize="small" />
           </IconButton>
         </div>
       ),
@@ -632,10 +763,12 @@ const AppointmentsPage: React.FC = () => {
               rowHeight={72}
               autoHeight
               disableRowSelectionOnClick
+              onRowClick={({ row }) => setDetailTargetId(row.appointmentId)}
               sx={{
                 border: 'none',
                 '& .MuiDataGrid-columnHeaders': { background: 'var(--bg-tertiary)' },
                 '& .MuiDataGrid-cell': { alignItems: 'center' },
+                '& .MuiDataGrid-row': { cursor: 'pointer' },
               }}
               localeText={{
                 MuiTablePagination: {
@@ -661,8 +794,12 @@ const AppointmentsPage: React.FC = () => {
             buttonText={{ today: 'Hôm nay', month: 'Tháng', week: 'Tuần', day: 'Ngày' }}
             events={calendarEvents}
             eventClick={(info: any) => {
+              if (info.event.extendedProps?.kind === 'treatment') {
+                setTreatmentDetail(info.event.extendedProps.data);
+                return;
+              }
               const appointment = appointments.find((item) => item.appointmentId === info.event.id);
-              if (appointment) openEdit(appointment);
+              if (appointment) setDetailTargetId(appointment.appointmentId);
             }}
             height="auto"
             dayMaxEvents={3}
@@ -672,13 +809,61 @@ const AppointmentsPage: React.FC = () => {
           <div className="appointments-legend" aria-label="Chú thích trạng thái lịch hẹn">
             {Object.entries(statusColors).map(([status, color]) => (
               <div key={status} className="appointments-legend-item">
-                <span style={{ background: color }} aria-hidden="true" />
+                <span className="appointments-legend-dot" style={{ background: color }} aria-hidden="true" />
                 <StatusChip status={status} type="appointment" />
+              </div>
+            ))}
+            {Object.entries(treatmentStatusColors).map(([status, color]) => (
+              <div key={`ts-${status}`} className="appointments-legend-item">
+                <span className="appointments-legend-dot" style={{ background: color }} aria-hidden="true" />
+                <span className="appointments-legend-text">Liệu trình · {treatmentStatusLabels[status]}</span>
               </div>
             ))}
           </div>
         </section>
       )}
+
+      <Menu
+        anchorEl={moreAnchor}
+        open={Boolean(moreAnchor)}
+        onClose={closeMore}
+        slotProps={{ paper: { sx: { borderRadius: 2, minWidth: 180 } } }}
+      >
+        <MenuItem onClick={() => { if (moreTarget) openPaymentFromAppointment(moreTarget); closeMore(); }}>
+          <PaymentIcon fontSize="small" sx={{ mr: 1 }} />
+          Thanh toán đơn hàng
+        </MenuItem>
+        <MenuItem onClick={() => { if (moreTarget) openEdit(moreTarget); closeMore(); }}>
+          <EditIcon fontSize="small" sx={{ mr: 1 }} />
+          Cập nhật
+        </MenuItem>
+        {moreTarget?.statusOfAppointment === StatusOfAppointment.CHECKED_IN && (
+          <MenuItem onClick={() => { if (moreTarget) runLifecycleAction(moreTarget, 'wait'); closeMore(); }}>
+            <PendingActionsIcon fontSize="small" sx={{ mr: 1 }} />
+            Chuyển sang đang chờ
+          </MenuItem>
+        )}
+        {(moreTarget?.statusOfAppointment === StatusOfAppointment.CHECKED_IN || moreTarget?.statusOfAppointment === StatusOfAppointment.WAITING) && (
+          <MenuItem onClick={() => { if (moreTarget) runLifecycleAction(moreTarget, 'start'); closeMore(); }}>
+            <PlayArrowIcon fontSize="small" sx={{ mr: 1 }} />
+            Bắt đầu điều trị
+          </MenuItem>
+        )}
+        {moreTarget?.statusOfAppointment === StatusOfAppointment.IN_PROGRESS && (
+          <MenuItem onClick={() => { if (moreTarget) runLifecycleAction(moreTarget, 'complete'); closeMore(); }}>
+            <TaskAltIcon fontSize="small" sx={{ mr: 1 }} />
+            Hoàn thành dịch vụ
+          </MenuItem>
+        )}
+        <MenuItem onClick={() => { if (moreTarget) openReschedule(moreTarget); closeMore(); }}>
+          <EventRepeatIcon fontSize="small" sx={{ mr: 1 }} />
+          Dời lịch
+        </MenuItem>
+        <MenuItem onClick={() => { if (moreTarget) runLifecycleAction(moreTarget, 'noShow'); closeMore(); }}>
+          <EventBusyIcon fontSize="small" sx={{ mr: 1 }} />
+          Không đến
+        </MenuItem>
+      </Menu>
 
       <Dialog
         open={dialogOpen}
@@ -690,45 +875,88 @@ const AppointmentsPage: React.FC = () => {
         </DialogTitle>
         <DialogContent sx={{ pt: '16px !important' }}>
           <form noValidate className="appointments-form">
-            <Controller name="customerId" control={control} render={({ field }) => (
-              <FormControl fullWidth size="small" sx={inputSx} error={!!errors.customerId}>
-                <InputLabel>Khách hàng *</InputLabel>
-                <Select {...field} label="Khách hàng *">
-                  {customers.map((customer) => (
-                    <MenuItem key={customer.customerId} value={customer.customerId}>
-                      {customer.name} - {customer.phone}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            )} />
+            <div className="appointments-customer-field">
+              <Controller name="customerId" control={control} render={({ field }) => (
+                <FormControl fullWidth size="small" sx={inputSx} error={!!errors.customerId}>
+                  <InputLabel>Khách hàng *</InputLabel>
+                  <Select {...field} label="Khách hàng *">
+                    {customers.map((customer) => (
+                      <MenuItem key={customer.customerId} value={customer.customerId}>
+                        {customer.name} - {customer.phone}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              )} />
+              <Button
+                variant="outlined"
+                startIcon={<PersonAddIcon fontSize="small" />}
+                onClick={() => setNewCustomerOpen(true)}
+                sx={{ borderRadius: '10px', textTransform: 'none', fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0 }}
+              >
+                Khách mới
+              </Button>
+            </div>
             <Controller name="dateTime" control={control} render={({ field }) => (
               <TextField {...field} label="Ngày giờ hẹn *" type="datetime-local" slotProps={{ inputLabel: { shrink: true } }} error={!!errors.dateTime} helperText={errors.dateTime?.message} fullWidth size="small" sx={inputSx} />
             )} />
-            <Controller name="serviceId" control={control} render={({ field }) => (
-              <FormControl fullWidth size="small" sx={inputSx} error={!!errors.serviceId}>
-                <InputLabel>Dịch vụ *</InputLabel>
-                <Select {...field} label="Dịch vụ *">
-                  {services.map((service) => (
-                    <MenuItem key={service.serviceId} value={service.serviceId}>
-                      {service.name}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            )} />
-            <Controller name="employeeId" control={control} render={({ field }) => (
-              <FormControl fullWidth size="small" sx={inputSx} error={!!errors.employeeId}>
-                <InputLabel>Nhân viên *</InputLabel>
-                <Select {...field} label="Nhân viên *">
-                  {employees.map((employee) => (
-                    <MenuItem key={employee.employeeId} value={employee.employeeId}>
-                      {employee.name}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            )} />
+            <div className="appointments-details-list">
+              <div className="appointments-details-header">
+                <span>Dịch vụ &amp; kỹ thuật viên *</span>
+                <Button
+                  size="small"
+                  startIcon={<AddCircleIcon fontSize="small" />}
+                  onClick={() => appendDetail({ serviceId: '', employeeId: '' })}
+                  sx={{ textTransform: 'none', fontWeight: 700 }}
+                >
+                  Thêm dịch vụ
+                </Button>
+              </div>
+              {typeof errors.details?.message === 'string' && (
+                <span className="appointments-details-error">{errors.details.message}</span>
+              )}
+              {detailFields.map((detailField, index) => (
+                <div key={detailField.id} className="appointments-detail-row">
+                  <Controller name={`details.${index}.serviceId`} control={control} render={({ field }) => (
+                    <FormControl fullWidth size="small" sx={inputSx} error={!!errors.details?.[index]?.serviceId}>
+                      <InputLabel>Dịch vụ *</InputLabel>
+                      <Select {...field} label="Dịch vụ *">
+                        {services.map((service) => (
+                          <MenuItem key={service.serviceId} value={service.serviceId}>
+                            {service.name}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  )} />
+                  <Controller name={`details.${index}.employeeId`} control={control} render={({ field }) => (
+                    <FormControl fullWidth size="small" sx={inputSx} error={!!errors.details?.[index]?.employeeId}>
+                      <InputLabel>Nhân viên *</InputLabel>
+                      <Select {...field} label="Nhân viên *">
+                        {employees.map((employee) => (
+                          <MenuItem key={employee.employeeId} value={employee.employeeId}>
+                            {employee.name}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  )} />
+                  <Tooltip title="Xóa dịch vụ" arrow>
+                    <span>
+                      <IconButton
+                        size="small"
+                        aria-label="Xóa dịch vụ"
+                        disabled={detailFields.length === 1}
+                        onClick={() => removeDetail(index)}
+                        sx={{ color: 'var(--error)' }}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </span>
+                  </Tooltip>
+                </div>
+              ))}
+            </div>
             <Controller name="roomId" control={control} render={({ field }) => (
               <FormControl fullWidth size="small" sx={inputSx}>
                 <InputLabel>Phòng</InputLabel>
@@ -748,6 +976,15 @@ const AppointmentsPage: React.FC = () => {
           </form>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 3, gap: 1 }}>
+          {editing && (
+            <Button
+              onClick={() => { const target = editing; setDialogOpen(false); openPaymentFromAppointment(target); }}
+              startIcon={<PaymentIcon fontSize="small" />}
+              sx={{ borderRadius: '10px', textTransform: 'none', fontFamily: 'inherit', fontWeight: 700, color: 'var(--primary)', mr: 'auto' }}
+            >
+              Đi đến đơn hàng
+            </Button>
+          )}
           <Button onClick={() => setDialogOpen(false)} sx={{ borderRadius: '10px', textTransform: 'none', fontFamily: 'inherit', border: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}>
             Hủy
           </Button>
@@ -758,16 +995,72 @@ const AppointmentsPage: React.FC = () => {
       </Dialog>
 
       <Dialog
+        open={newCustomerOpen}
+        onClose={() => !savingCustomer && setNewCustomerOpen(false)}
+        slotProps={{ paper: { sx: { borderRadius: '16px', width: 'min(420px, calc(100vw - 32px))', background: 'var(--bg-secondary)' } } }}
+      >
+        <DialogTitle sx={{ fontWeight: 800, fontSize: 17, pb: 0 }}>Thêm khách hàng mới</DialogTitle>
+        <DialogContent sx={{ pt: '16px !important', display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <TextField
+            label="Họ tên *"
+            value={newCustomer.name}
+            onChange={(event) => setNewCustomer((prev) => ({ ...prev, name: event.target.value }))}
+            fullWidth
+            size="small"
+            sx={inputSx}
+          />
+          <TextField
+            label="Số điện thoại"
+            value={newCustomer.phone}
+            onChange={(event) => setNewCustomer((prev) => ({ ...prev, phone: event.target.value }))}
+            fullWidth
+            size="small"
+            sx={inputSx}
+          />
+          <FormControl fullWidth size="small" sx={inputSx}>
+            <InputLabel>Giới tính</InputLabel>
+            <Select
+              value={newCustomer.gender}
+              label="Giới tính"
+              onChange={(event) => setNewCustomer((prev) => ({ ...prev, gender: event.target.value }))}
+            >
+              <MenuItem value="">Không xác định</MenuItem>
+              <MenuItem value="MALE">Nam</MenuItem>
+              <MenuItem value="FEMALE">Nữ</MenuItem>
+              <MenuItem value="OTHER">Khác</MenuItem>
+            </Select>
+          </FormControl>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 3, gap: 1 }}>
+          <Button
+            onClick={() => setNewCustomerOpen(false)}
+            disabled={savingCustomer}
+            sx={{ borderRadius: '10px', textTransform: 'none', fontFamily: 'inherit', border: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}
+          >
+            Hủy
+          </Button>
+          <Button
+            onClick={handleCreateCustomer}
+            disabled={savingCustomer}
+            variant="contained"
+            sx={{ borderRadius: '10px', textTransform: 'none', fontFamily: 'inherit', fontWeight: 700, background: 'linear-gradient(135deg, #D97706, #F59E0B)' }}
+          >
+            {savingCustomer ? 'Đang lưu...' : 'Thêm & chọn'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
         open={!!rescheduleTarget}
         onClose={() => activeAction === null && setRescheduleTarget(null)}
         slotProps={{ paper: { sx: { borderRadius: '16px', width: 'min(420px, calc(100vw - 32px))', background: 'var(--bg-secondary)' } } }}
       >
         <DialogTitle sx={{ fontWeight: 800, fontSize: 17, pb: 0 }}>
-          Doi lich hen
+          Dời lịch hẹn
         </DialogTitle>
         <DialogContent sx={{ pt: '16px !important' }}>
           <TextField
-            label="Ngay gio moi"
+            label="Ngày giờ mới"
             type="datetime-local"
             value={rescheduleDateTime}
             onChange={(event) => setRescheduleDateTime(event.target.value)}
@@ -783,7 +1076,7 @@ const AppointmentsPage: React.FC = () => {
             disabled={activeAction !== null}
             sx={{ borderRadius: '10px', textTransform: 'none', fontFamily: 'inherit', border: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}
           >
-            Huy
+            Hủy
           </Button>
           <Button
             onClick={submitReschedule}
@@ -791,10 +1084,144 @@ const AppointmentsPage: React.FC = () => {
             variant="contained"
             sx={{ borderRadius: '10px', textTransform: 'none', fontFamily: 'inherit', fontWeight: 700, background: 'linear-gradient(135deg, #2563EB, #0F766E)' }}
           >
-            {activeAction === `${rescheduleTarget?.appointmentId}:reschedule` ? 'Dang doi lich...' : 'Doi lich'}
+            {activeAction === `${rescheduleTarget?.appointmentId}:reschedule` ? 'Đang dời lịch...' : 'Dời lịch'}
           </Button>
         </DialogActions>
       </Dialog>
+
+      <Dialog
+        open={!!treatmentDetail}
+        onClose={() => setTreatmentDetail(null)}
+        slotProps={{ paper: { sx: { borderRadius: '16px', width: 'min(480px, calc(100vw - 32px))', background: 'var(--bg-secondary)' } } }}
+      >
+        <DialogTitle sx={{ fontWeight: 800, fontSize: 17, pb: 0 }}>
+          Chi tiết lịch liệu trình
+        </DialogTitle>
+        <DialogContent sx={{ pt: '16px !important' }}>
+          {treatmentDetail && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 14, color: 'var(--text-secondary)' }}>
+              <div><strong style={{ color: 'var(--text-primary)' }}>{treatmentDetail.customerName}</strong></div>
+              <div>Gói: {treatmentDetail.packageName}</div>
+              <div>Buổi: {treatmentDetail.sessionNumber}</div>
+              <div>Ngày hẹn: {formatDateTime(treatmentDetail.scheduledDate)}</div>
+              {treatmentDetail.therapistName && <div>Kỹ thuật viên: {treatmentDetail.therapistName}</div>}
+              {treatmentDetail.roomName && <div>Phòng: {treatmentDetail.roomName}</div>}
+              {treatmentDetail.status && <div>Trạng thái: {treatmentStatusLabels[treatmentDetail.status] || treatmentDetail.status}</div>}
+            </div>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 3, gap: 1 }}>
+          <Button
+            onClick={() => setTreatmentDetail(null)}
+            sx={{ borderRadius: '10px', textTransform: 'none', fontFamily: 'inherit', border: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}
+          >
+            Đóng
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {(() => {
+        const detail = detailTargetId
+          ? appointments.find((item) => item.appointmentId === detailTargetId) ?? null
+          : null;
+        if (!detail) return null;
+
+        const lifecycleButtons: { action: LifecycleAction; label: string; icon: React.ReactNode }[] = [
+          {action: 'confirm', label: 'Xác nhận', icon: <CheckCircleIcon fontSize="small" /> },
+          { action: 'checkIn', label: 'Check-in', icon: <LoginIcon fontSize="small" /> },
+          { action: 'wait', label: 'Đang chờ', icon: <PendingActionsIcon fontSize="small" /> },
+          {action: 'start', label: 'Bắt đầu điều trị', icon: <PlayArrowIcon fontSize="small" /> },
+          {action: 'complete', label: 'Hoàn thành', icon: <TaskAltIcon fontSize="small" /> },
+          {action: 'noShow', label: 'Không đến', icon: <EventBusyIcon fontSize="small" /> },
+          {action: 'reschedule', label: 'Dời lịch', icon: <EventRepeatIcon fontSize="small" /> },
+        ];
+        const availableActions = lifecycleButtons.filter(({ action }) => canTransition(detail, lifecycleTargets[action]));
+
+        return (
+          <Dialog
+            open
+            onClose={() => setDetailTargetId(null)}
+            slotProps={{ paper: { sx: { borderRadius: '16px', width: 'min(500px, calc(100vw - 32px))', background: 'var(--bg-secondary)' } } }}
+          >
+            <DialogTitle sx={{ fontWeight: 800, fontSize: 17, pb: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+              Chi tiết lịch hẹn
+              <StatusChip status={detail.statusOfAppointment} type="appointment" />
+            </DialogTitle>
+            <DialogContent sx={{ pt: '16px !important' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 14, color: 'var(--text-secondary)' }}>
+                <div><strong style={{ color: 'var(--text-primary)' }}>{detail.customerName}</strong>{detail.customerPhone ? ` - ${detail.customerPhone}` : ''}</div>
+                <div>Ngày giờ: {formatDateTime(detail.dateTime)}</div>
+                {!!detail.details?.length && (
+                  <div>
+                    Dịch vụ: {detail.details.map((d: any) => d.serviceName || d.serviceId).filter(Boolean).join(', ')}
+                  </div>
+                )}
+                {detail.roomName && <div>Phòng: {detail.roomName}</div>}
+                {detail.note && <div style={{ whiteSpace: 'pre-wrap' }}>Ghi chú: {detail.note}</div>}
+
+                <div style={{ marginTop: 8 }}>
+                  <p style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-primary)', marginBottom: 8 }}>Cập nhật trạng thái</p>
+                  {availableActions.length ? (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                      {availableActions.map(({ action, label, icon }) => (
+                        <Button
+                          key={action}
+                          size="small"
+                          variant="outlined"
+                          startIcon={icon}
+                          disabled={activeAction !== null}
+                          onClick={() => {
+                            if (action === 'reschedule') {
+                              openReschedule(detail);
+                            } else {
+                              runLifecycleAction(detail, action);
+                            }
+                          }}
+                          sx={{ borderRadius: '10px', textTransform: 'none', fontFamily: 'inherit', fontWeight: 700 }}
+                        >
+                          {label}
+                        </Button>
+                      ))}
+                      {canCancel(detail) && (
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          color="error"
+                          startIcon={<DeleteIcon fontSize="small" />}
+                          disabled={activeAction !== null}
+                          onClick={() => setDeleteTarget(detail)}
+                          sx={{ borderRadius: '10px', textTransform: 'none', fontFamily: 'inherit', fontWeight: 700 }}
+                        >
+                          Hủy lịch
+                        </Button>
+                      )}
+                    </div>
+                  ) : (
+                    <p style={{ fontSize: 13, color: 'var(--text-tertiary)' }}>
+                      Lịch hẹn đã kết thúc, không thể đổi trạng thái.
+                    </p>
+                  )}
+                </div>
+              </div>
+            </DialogContent>
+            <DialogActions sx={{ px: 3, pb: 3, gap: 1 }}>
+              <Button
+                onClick={() => { setDetailTargetId(null); openEdit(detail); }}
+                startIcon={<EditIcon fontSize="small" />}
+                sx={{ borderRadius: '10px', textTransform: 'none', fontFamily: 'inherit', fontWeight: 700, color: 'var(--primary)', mr: 'auto' }}
+              >
+                Chỉnh sửa
+              </Button>
+              <Button
+                onClick={() => setDetailTargetId(null)}
+                sx={{ borderRadius: '10px', textTransform: 'none', fontFamily: 'inherit', border: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}
+              >
+                Đóng
+              </Button>
+            </DialogActions>
+          </Dialog>
+        );
+      })()}
 
       <ConfirmDialog
         open={!!deleteTarget}
@@ -810,3 +1237,5 @@ const AppointmentsPage: React.FC = () => {
 };
 
 export default AppointmentsPage;
+
+

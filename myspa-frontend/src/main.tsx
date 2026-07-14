@@ -1,10 +1,10 @@
-import { StrictMode, useEffect } from 'react';
+import { StrictMode, useMemo } from 'react';
 import { createRoot } from 'react-dom/client';
-import { Provider } from 'react-redux';
+import { Provider, useSelector } from 'react-redux';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { Toaster } from 'sonner';
-import { store } from '@store/index';
+import { store, type RootState } from '@store/index';
 import './index.css';
 import App from './App.tsx';
 
@@ -14,13 +14,25 @@ if (storedDarkMode) {
   document.documentElement.setAttribute('data-theme', 'dark');
 }
 
-const muiTheme = createTheme({
+const buildTheme = (darkMode: boolean) => createTheme({
   palette: {
+    mode: darkMode ? 'dark' : 'light',
     primary: {
       main: '#D97706',
       light: '#F59E0B',
       dark: '#B45309',
     },
+    ...(darkMode
+      ? {
+          background: { default: '#0F172A', paper: '#1E293B' },
+          text: { primary: '#F8FAFC', secondary: '#CBD5E1' },
+          divider: '#334155',
+        }
+      : {
+          background: { default: '#F8FAFC', paper: '#FFFFFF' },
+          text: { primary: '#0F172A', secondary: '#475569' },
+          divider: '#E2E8F0',
+        }),
   },
   typography: {
     fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
@@ -42,24 +54,34 @@ const muiTheme = createTheme({
   },
 });
 
+const ThemedApp = () => {
+  const darkMode = useSelector((state: RootState) => state.ui.darkMode);
+  const theme = useMemo(() => buildTheme(darkMode), [darkMode]);
+
+  return (
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <App />
+      <Toaster
+        position="top-right"
+        richColors
+        theme={darkMode ? 'dark' : 'light'}
+        toastOptions={{
+          style: {
+            fontFamily: "'Inter', sans-serif",
+            fontSize: '13.5px',
+            borderRadius: '12px',
+          },
+        }}
+      />
+    </ThemeProvider>
+  );
+};
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <Provider store={store}>
-      <ThemeProvider theme={muiTheme}>
-        <CssBaseline />
-        <App />
-        <Toaster
-          position="top-right"
-          richColors
-          toastOptions={{
-            style: {
-              fontFamily: "'Inter', sans-serif",
-              fontSize: '13.5px',
-              borderRadius: '12px',
-            },
-          }}
-        />
-      </ThemeProvider>
+      <ThemedApp />
     </Provider>
   </StrictMode>
 );

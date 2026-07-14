@@ -60,6 +60,17 @@ server:
 app:
   upload-dir: uploads
 
+# Thanh toan chuyen khoan ngan hang (VietQR + webhook bao co tu SePay/Casso)
+payment:
+  bank:
+    # Ma BIN ngan hang theo chuan NAPAS (970422 = MB Bank)
+    bin: "970422"
+    account-number: "0328402460"
+    account-name: "TRAN PHUONG THAO"
+  webhook:
+    # API key ma dich vu bao co (SePay/Casso) gui kem header 'Authorization: Apikey <key>' hoac 'x-api-key'
+    api-key: "${PAYMENT_WEBHOOK_API_KEY:change-me-webhook-api-key}"
+
 jwt:
   signer-key: "wDhbSSpxZfV5HKciZOEUlvBExqAuzHmHhLDAuO6PALLAqTP163lNPxLYsUxs3UUI"
   access-token-expiration: 86400000    # 24 hours in ms

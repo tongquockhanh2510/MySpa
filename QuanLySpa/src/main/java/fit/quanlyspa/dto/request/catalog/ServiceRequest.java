@@ -17,6 +17,9 @@ public class ServiceRequest {
     @Positive(message = "Gia dich vu phai lon hon 0")
     double price;
 
+    @Min(value = 0, message = "Tien von khong duoc am")
+    double costPrice;
+
     @Positive(message = "Thoi luong dich vu phai lon hon 0")
     double duration;
 

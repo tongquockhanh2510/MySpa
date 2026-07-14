@@ -13,8 +13,11 @@ public class PackageConversionRequest {
     String packageId;
     @NotNull
     ConversionType conversionType;
+    // Gia tri quy doi do server tu tinh tu so buoi con lai; client khong can gui
     double conversionValue;
     String targetProductId;
     String targetPackageId;
+    // So luong san pham nhan (chi dung cho TO_PRODUCT, mac dinh 1)
+    Integer quantity;
     String note;
 }

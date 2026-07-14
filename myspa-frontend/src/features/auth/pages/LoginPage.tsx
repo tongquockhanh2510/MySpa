@@ -38,8 +38,17 @@ const darkInputSx = {
     '& fieldset': { borderColor: 'rgba(255,255,255,0.14)' },
     '&:hover fieldset': { borderColor: 'rgba(217,119,6,0.65)' },
     '&.Mui-focused fieldset': { borderColor: '#D97706' },
-    '& input': { color: '#fff' },
+    '& input': {
+      background: 'transparent',
+      color: '#fff',
+    },
     '& input::placeholder': { color: 'rgba(255,255,255,0.35)' },
+    '& input:-webkit-autofill': {
+      WebkitBoxShadow: '0 0 0 1000px rgba(255,255,255,0.07) inset',
+      WebkitTextFillColor: '#fff',
+      caretColor: '#fff',
+      transition: 'background-color 9999s ease-in-out 0s',
+    },
   },
   '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.58)' },
   '& .MuiInputLabel-root.Mui-focused': { color: '#F59E0B' },

@@ -1,6 +1,7 @@
 package fit.quanlyspa.entity;
 
 import fit.quanlyspa.enums.StatusOfPakage;
+import fit.quanlyspa.ultil.StatusOfPakageConverter;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
@@ -29,13 +30,13 @@ public class TreatmentPackage {
     String description;
 
     @Column(name = "status_of_package")
-    @Enumerated(EnumType.STRING)
+    @Convert(converter = StatusOfPakageConverter.class)
     StatusOfPakage statusOfPakage;
     @ManyToOne
     @JoinColumn(name = "employee_id")
     Employee employee;
-    @OneToOne(mappedBy = "treatmentPackage")
-    OrderItem orderItem;
+    @OneToMany(mappedBy = "treatmentPackage", fetch = FetchType.LAZY)
+    List<OrderItem> orderItems;
     @OneToMany(mappedBy = "treatmentPackage")
     List<CustomerTreatment> customerTreatments;
 }

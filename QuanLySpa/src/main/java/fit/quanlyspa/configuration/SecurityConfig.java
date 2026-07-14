@@ -53,6 +53,8 @@ public class SecurityConfig {
             "/swagger-ui.html",
             "/actuator/health",
             "/uploads/**",
+            "/payments/webhook/**", // webhook bao co ngan hang — bao ve bang API key rieng
+            "/subscriptions/webhook/**",
     };
 
     @Bean

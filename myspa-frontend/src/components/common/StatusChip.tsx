@@ -2,13 +2,13 @@ import React from 'react';
 import Chip from '@mui/material/Chip';
 import {
   getAppointmentStatusLabel,
-  getEmployeeStatusLabel,
-  getOrderStatusLabel,
-  getServiceStatusLabel,
-  getPackageStatusLabel,
-  getGenderLabel,
-  getOrderTypeLabel,
   getConversionTypeLabel,
+  getEmployeeStatusLabel,
+  getGenderLabel,
+  getOrderStatusLabel,
+  getOrderTypeLabel,
+  getPackageStatusLabel,
+  getServiceStatusLabel,
 } from '@utils/formatters';
 
 type StatusType =
@@ -33,24 +33,14 @@ const appointmentColors: Record<string, { bg: string; color: string }> = {
   RESCHEDULED: { bg: '#E0E7FF', color: '#4338CA' },
 };
 
-const appointmentLabels: Record<string, string> = {
-  PENDING: 'Chờ xác nhận',
-  CONFIRMED: 'Đã xác nhận',
-  CHECKED_IN: 'Đã check-in',
-  WAITING: 'Đang chờ',
-  IN_PROGRESS: 'Đang thực hiện',
-  COMPLETED: 'Hoàn thành',
-  CANCELLED: 'Đã hủy',
-  NO_SHOW: 'Không đến',
-  RESCHEDULED: 'Đã dời lịch',
-};
-
 const employeeColors: Record<string, { bg: string; color: string }> = {
   ACTIVE: { bg: '#D1FAE5', color: '#059669' },
   INACTIVE: { bg: '#FEE2E2', color: '#DC2626' },
 };
 
 const orderColors: Record<string, { bg: string; color: string }> = {
+  DRAFT: { bg: '#F3F4F6', color: '#6B7280' },
+  UNPAID: { bg: '#FEE2E2', color: '#DC2626' },
   PENDING_PAYMENT: { bg: '#FEE2E2', color: '#DC2626' },
   PARTIALLY_PAID: { bg: '#FEF3C7', color: '#D97706' },
   PAID: { bg: '#D1FAE5', color: '#059669' },
@@ -60,6 +50,11 @@ const orderColors: Record<string, { bg: string; color: string }> = {
 const serviceColors: Record<string, { bg: string; color: string }> = {
   ACTIVE: { bg: '#D1FAE5', color: '#059669' },
   INACTIVE: { bg: '#F3F4F6', color: '#6B7280' },
+  NOT_STARTED: { bg: '#F3F4F6', color: '#6B7280' },
+  IN_PROGRESS: { bg: '#EDE9FE', color: '#7C3AED' },
+  COMPLETED: { bg: '#D1FAE5', color: '#059669' },
+  EXPIRED: { bg: '#FEE2E2', color: '#DC2626' },
+  CANCELLED: { bg: '#FEE2E2', color: '#DC2626' },
 };
 
 interface StatusChipProps {
@@ -74,7 +69,7 @@ const StatusChip: React.FC<StatusChipProps> = ({ status, type, size = 'small' })
 
   switch (type) {
     case 'appointment':
-      label = appointmentLabels[status] ?? getAppointmentStatusLabel(status);
+      label = getAppointmentStatusLabel(status);
       style = appointmentColors[status] ?? style;
       break;
     case 'employee':

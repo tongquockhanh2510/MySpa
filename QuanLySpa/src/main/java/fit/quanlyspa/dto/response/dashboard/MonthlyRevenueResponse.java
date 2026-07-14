@@ -10,5 +10,7 @@ public class MonthlyRevenueResponse {
     int month;
     int year;
     BigDecimal revenue;
+    BigDecimal cost;
+    BigDecimal profit;
     long orderCount;
 }

@@ -204,9 +204,8 @@ const PromotionsPage: React.FC = () => {
       flex: 1,
       minWidth: 220,
       renderCell: ({ row }) => (
-        <div className="promotions-page__name-cell">
+        <div className="promotions-page__name-cell" title={row.applyScope === 'ITEM' ? 'Áp dụng theo mặt hàng' : 'Áp dụng toàn đơn hàng'}>
           <strong>{row.name}</strong>
-          <span>{row.applyScope === 'ITEM' ? 'Theo mặt hàng' : 'Toàn đơn hàng'}</span>
         </div>
       ),
     },

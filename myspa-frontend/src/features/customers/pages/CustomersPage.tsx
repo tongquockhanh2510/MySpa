@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { DataGrid } from '@mui/x-data-grid';
 import type { GridColDef } from '@mui/x-data-grid';
 import {
@@ -42,6 +43,7 @@ const inputSx = {
 };
 
 const CustomersPage: React.FC = () => {
+  const [searchParams] = useSearchParams();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -49,6 +51,7 @@ const CustomersPage: React.FC = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Customer | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Customer | null>(null);
+  const [noteView, setNoteView] = useState<Customer | null>(null);
 
   const { control, handleSubmit, reset, formState: { errors } } = useForm<CustomerFormData>({
     resolver: zodResolver(schema),
@@ -73,6 +76,13 @@ const CustomersPage: React.FC = () => {
   useEffect(() => {
     fetchCustomers(search);
   }, [search]);
+
+  useEffect(() => {
+    const customerId = searchParams.get('customerId');
+    if (!customerId || !customers.length) return;
+    const target = customers.find((customer) => customer.customerId === customerId);
+    if (target) openEdit(target);
+  }, [customers, searchParams]);
 
   const summary = useMemo(() => {
     const totalPoints = customers.reduce((sum, customer) => sum + Number(customer.loyaltyPoints || 0), 0);
@@ -153,11 +163,10 @@ const CustomersPage: React.FC = () => {
       renderCell: ({ row }) => (
         <div className="customers-name-cell">
           <strong>{row.name}</strong>
-          <span>{row.phone}</span>
         </div>
       ),
     },
-    { field: 'email', headerName: 'Email', flex: 1, minWidth: 190, renderCell: ({ value }) => <span className="customers-muted-cell">{value || 'Chưa có email'}</span> },
+    { field: 'phone', headerName: 'Điện thoại', width: 140, renderCell: ({ value }) => <span className="customers-muted-cell">{value || 'Chưa có SĐT'}</span> },
     { field: 'gender', headerName: 'Giới tính', width: 120, renderCell: ({ value }) => <StatusChip status={value} type="gender" /> },
     {
       field: 'loyaltyPoints',
@@ -167,7 +176,24 @@ const CustomersPage: React.FC = () => {
         <Chip label={`${value || 0} điểm`} size="small" className="customers-points-chip" />
       ),
     },
-    { field: 'note', headerName: 'Ghi chú', flex: 1, minWidth: 180, renderCell: ({ value }) => <span className="customers-muted-cell">{value || 'Không có ghi chú'}</span> },
+    {
+      field: 'note',
+      headerName: 'Ghi chú',
+      flex: 1,
+      minWidth: 180,
+      renderCell: ({ row, value }) => value ? (
+        <button
+          type="button"
+          className="customers-note-cell"
+          title="Nhấn để xem ghi chú đầy đủ"
+          onClick={(event) => { event.stopPropagation(); setNoteView(row); }}
+        >
+          {value}
+        </button>
+      ) : (
+        <span className="customers-muted-cell">Không có ghi chú</span>
+      ),
+    },
     {
       field: 'actions',
       headerName: 'Thao tác',
@@ -177,10 +203,10 @@ const CustomersPage: React.FC = () => {
       headerAlign: 'center',
       renderCell: ({ row }) => (
         <div className="customers-actions">
-          <IconButton size="small" aria-label="Cập nhật khách hàng" onClick={() => openEdit(row)} className="customers-icon-button customers-icon-button--edit">
+          <IconButton size="small" aria-label="Cập nhật khách hàng" onClick={(event) => { event.stopPropagation(); openEdit(row); }} className="customers-icon-button customers-icon-button--edit">
             <EditIcon fontSize="small" />
           </IconButton>
-          <IconButton size="small" aria-label="Xóa khách hàng" onClick={() => setDeleteTarget(row)} className="customers-icon-button customers-icon-button--delete">
+          <IconButton size="small" aria-label="Xóa khách hàng" onClick={(event) => { event.stopPropagation(); setDeleteTarget(row); }} className="customers-icon-button customers-icon-button--delete">
             <DeleteIcon fontSize="small" />
           </IconButton>
         </div>
@@ -240,10 +266,13 @@ const CustomersPage: React.FC = () => {
             pageSizeOptions={[10, 20, 50]}
             autoHeight
             disableRowSelectionOnClick
+            onRowClick={({ row }) => openEdit(row)}
             sx={{
               border: 'none',
               '& .MuiDataGrid-columnHeaders': { background: 'var(--bg-tertiary)', borderRadius: '0 !important' },
               '& .MuiDataGrid-footerContainer': { borderTop: '1px solid var(--divider)' },
+              '& .MuiDataGrid-cell': { alignItems: 'center' },
+              '& .MuiDataGrid-row': { cursor: 'pointer' },
             }}
             localeText={{
               MuiTablePagination: {
@@ -303,6 +332,24 @@ const CustomersPage: React.FC = () => {
         </DialogActions>
       </Dialog>
 
+      <Dialog
+        open={!!noteView}
+        onClose={() => setNoteView(null)}
+        slotProps={{ paper: { sx: { borderRadius: '16px', width: 'min(480px, calc(100vw - 32px))', background: 'var(--bg-secondary)' } } }}
+      >
+        <DialogTitle sx={{ fontWeight: 800, fontSize: 16, pb: 1 }}>
+          Ghi chú — {noteView?.name}
+        </DialogTitle>
+        <DialogContent>
+          <p style={{ whiteSpace: 'pre-wrap', color: 'var(--text-secondary)', fontSize: 14, lineHeight: 1.7, margin: 0 }}>
+            {noteView?.note}
+          </p>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setNoteView(null)} sx={{ borderRadius: '10px', textTransform: 'none', fontFamily: 'inherit', color: 'var(--text-secondary)' }}>Đóng</Button>
+        </DialogActions>
+      </Dialog>
+
       <ConfirmDialog
         open={!!deleteTarget}
         title="Xóa khách hàng"
@@ -317,3 +364,4 @@ const CustomersPage: React.FC = () => {
 };
 
 export default CustomersPage;
+

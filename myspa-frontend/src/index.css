@@ -103,13 +103,22 @@
 
   --text-primary: #F8FAFC;
   --text-secondary: #CBD5E1;
-  --text-tertiary: #64748B;
+  --text-tertiary: #94A3B8;
 
   --border-color: #334155;
-  --divider: #1E293B;
+  --divider: #293548;
 
   --shadow-card: 0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2);
   --shadow-hover: 0 8px 25px rgba(217,119,6,0.25);
+
+  /* Cac tone "nhat" cua light mode qua sang trong dark mode → chuyen sang ban trong suot */
+  --primary-50: rgba(217, 119, 6, 0.12);
+  --primary-100: rgba(217, 119, 6, 0.2);
+  --primary-200: rgba(217, 119, 6, 0.3);
+  --success-light: rgba(16, 185, 129, 0.18);
+  --warning-light: rgba(245, 158, 11, 0.18);
+  --error-light: rgba(239, 68, 68, 0.18);
+  --info-light: rgba(59, 130, 246, 0.18);
 }
 
 /* === CSS Reset === */
@@ -312,6 +321,30 @@ input, select, textarea {
 /* === Fullcalendar Overrides === */
 .fc {
   font-family: var(--font-family) !important;
+  color: var(--text-primary);
+}
+
+.fc .fc-daygrid-day-number,
+.fc .fc-col-header-cell-cushion,
+.fc .fc-timegrid-slot-label,
+.fc .fc-timegrid-axis-cushion,
+.fc .fc-list-day-text,
+.fc .fc-list-day-side-text {
+  color: var(--text-primary);
+}
+
+.fc-theme-standard td,
+.fc-theme-standard th,
+.fc-theme-standard .fc-scrollgrid {
+  border-color: var(--divider) !important;
+}
+
+.fc .fc-day-today {
+  background: var(--primary-50) !important;
+}
+
+.fc .fc-daygrid-more-link {
+  color: var(--primary);
 }
 
 .fc-toolbar-title {

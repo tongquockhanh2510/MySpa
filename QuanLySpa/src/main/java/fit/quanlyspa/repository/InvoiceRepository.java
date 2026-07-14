@@ -20,6 +20,7 @@ public interface InvoiceRepository extends JpaRepository<Invoice, String> {
     Optional<Invoice> findByInvoiceNumber(String invoiceNumber);
     boolean existsByInvoiceNumber(String invoiceNumber);
     List<Invoice> findByCustomer_CustomerId(String customerId);
+    Optional<Invoice> findFirstByAppointment_AppointmentIdAndStatus(String appointmentId, InvoiceStatus status);
 
     @Query("SELECT i FROM Invoice i WHERE " +
            "(:search IS NULL OR i.invoiceNumber LIKE CONCAT('%', :search, '%') " +
@@ -47,4 +48,26 @@ public interface InvoiceRepository extends JpaRepository<Invoice, String> {
            "AND YEAR(id.invoice.createdAt) = :year AND id.invoice.status = 'PAID' " +
            "GROUP BY id.itemName ORDER BY SUM(id.amount) DESC")
     List<Object[]> getRevenueByService(@Param("month") int month, @Param("year") int year);
+
+    // Tien von uoc tinh theo thang (cost_price cua san pham/dich vu da ban qua hoa don PAID)
+    @Query("SELECT MONTH(d.invoice.createdAt), COALESCE(SUM(CASE " +
+           "WHEN d.product IS NOT NULL THEN d.product.costPrice * d.quantity " +
+           "WHEN d.service IS NOT NULL THEN d.service.costPrice * d.quantity " +
+           "ELSE 0.0 END), 0.0) " +
+           "FROM InvoiceDetail d WHERE YEAR(d.invoice.createdAt) = :year AND d.invoice.status = 'PAID' " +
+           "GROUP BY MONTH(d.invoice.createdAt)")
+    List<Object[]> getMonthlyCostBreakdown(@Param("year") int year);
+
+    // Doanh thu theo ngay trong khoang thoi gian
+    @Query("SELECT DATE(i.createdAt), COALESCE(SUM(i.totalAmount), 0), COUNT(i) FROM Invoice i " +
+           "WHERE i.status = 'PAID' AND i.createdAt >= :from AND i.createdAt < :to " +
+           "GROUP BY DATE(i.createdAt) ORDER BY DATE(i.createdAt)")
+    List<Object[]> getDailyRevenue(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
+
+    // San pham ban chay trong khoang thoi gian
+    @Query("SELECT d.itemName, COALESCE(SUM(d.quantity), 0), COALESCE(SUM(d.amount), 0) FROM InvoiceDetail d " +
+           "WHERE d.itemType = 'PRODUCT' AND d.invoice.status = 'PAID' " +
+           "AND d.invoice.createdAt >= :from AND d.invoice.createdAt < :to " +
+           "GROUP BY d.itemName ORDER BY SUM(d.quantity) DESC")
+    List<Object[]> getTopProducts(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
 }

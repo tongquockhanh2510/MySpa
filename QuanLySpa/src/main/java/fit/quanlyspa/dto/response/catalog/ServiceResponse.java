@@ -12,6 +12,7 @@ public class ServiceResponse {
     String serviceId;
     String name;
     double price;
+    double costPrice;
     double duration;
     String description;
     String image;

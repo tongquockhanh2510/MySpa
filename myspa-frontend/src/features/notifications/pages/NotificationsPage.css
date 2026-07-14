@@ -1,0 +1,134 @@
+.notifications-page__actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.notifications-page__filter .MuiToggleButton-root {
+  border-color: var(--border-color);
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  padding: 4px 14px;
+  text-transform: none;
+}
+
+.notifications-page__filter .Mui-selected {
+  background: var(--primary-50) !important;
+  color: var(--primary) !important;
+}
+
+.notifications-page__list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.notifications-page__item {
+  align-items: flex-start;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+  cursor: pointer;
+  display: flex;
+  font-family: inherit;
+  gap: 14px;
+  padding: 14px 16px;
+  position: relative;
+  text-align: left;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
+  width: 100%;
+}
+
+.notifications-page__item:hover {
+  border-color: var(--primary);
+  box-shadow: var(--shadow-hover);
+  transform: translateY(-1px);
+}
+
+.notifications-page__item--unread {
+  border-left: 3px solid var(--primary);
+}
+
+.notifications-page__icon {
+  align-items: center;
+  border-radius: 10px;
+  display: flex;
+  flex-shrink: 0;
+  height: 38px;
+  justify-content: center;
+  width: 38px;
+}
+
+.notifications-page__content {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.notifications-page__title-row {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.notifications-page__title-row strong {
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.notifications-page__message {
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.notifications-page__time {
+  color: var(--text-tertiary);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.notifications-page__dot {
+  background: var(--primary);
+  border-radius: 999px;
+  flex-shrink: 0;
+  height: 9px;
+  margin-top: 6px;
+  width: 9px;
+}
+
+.notifications-page__empty {
+  align-items: center;
+  background: var(--bg-card);
+  border: 1px dashed var(--border-color);
+  border-radius: var(--radius-lg);
+  color: var(--text-tertiary);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 48px 24px;
+  text-align: center;
+}
+
+.notifications-page__empty svg {
+  font-size: 40px;
+  opacity: 0.4;
+}
+
+.notifications-page__empty strong {
+  color: var(--text-secondary);
+  font-size: 15px;
+}
+
+.notifications-page__empty p {
+  font-size: 13px;
+  margin: 0;
+}

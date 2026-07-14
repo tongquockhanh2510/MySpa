@@ -89,4 +89,5 @@ public class Appointment {
 
     @OneToOne(mappedBy = "appointment", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     Invoice invoice;
+
 }

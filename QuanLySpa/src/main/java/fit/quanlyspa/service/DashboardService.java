@@ -29,6 +29,7 @@ public class DashboardService {
     EmployeeRepository employeeRepository;
     ProductRepository productRepository;
     CustomerTreatmentRepository customerTreatmentRepository;
+    CommissionRepository commissionRepository;
 
     @Transactional(readOnly = true)
     public DashboardStatsResponse getStats(Integer reportYear) {
@@ -55,7 +56,8 @@ public class DashboardService {
                 .add(invoiceRepository.getMonthlyRevenue(11, currentYear))
                 .add(invoiceRepository.getMonthlyRevenue(12, currentYear));
 
-        double revenueGrowth = 0;
+        // null = thang truoc chua co doanh thu, khong the so sanh (tranh hien thi +0%/-100% gay hieu nham)
+        Double revenueGrowth = null;
         if (prevMonthRevenue.compareTo(BigDecimal.ZERO) > 0) {
             revenueGrowth = monthRevenue.subtract(prevMonthRevenue)
                     .divide(prevMonthRevenue, 4, java.math.RoundingMode.HALF_UP)
@@ -75,7 +77,7 @@ public class DashboardService {
         long totalCustomers = customerRepository.count();
         long newCustomers = customerRepository.countNewCustomersByMonth(currentMonth, currentYear);
         long prevNewCustomers = customerRepository.countNewCustomersByMonth(prevMonth, prevYear);
-        double customerGrowth = prevNewCustomers > 0 ? (double)(newCustomers - prevNewCustomers) / prevNewCustomers * 100 : 0;
+        Double customerGrowth = prevNewCustomers > 0 ? (double)(newCustomers - prevNewCustomers) / prevNewCustomers * 100 : null;
 
         // Employee KPIs
         long activeEmployees = employeeRepository.countByStatusOfEmployee(StatusOfEmployee.ACTIVE);
@@ -98,15 +100,26 @@ public class DashboardService {
         long activePackages = customerTreatmentRepository.findActiveByCustomer(LocalDate.now()).size();
         long soldPackagesThisMonth = customerTreatmentRepository.countSoldByMonth(currentMonth, currentYear);
 
-        // Monthly Revenue Chart
+        // Monthly Revenue & Profit Chart
+        java.util.Map<Integer, BigDecimal> monthlyCost = new java.util.HashMap<>();
+        for (Object[] r : invoiceRepository.getMonthlyCostBreakdown(currentYear)) {
+            monthlyCost.put(((Number) r[0]).intValue(), BigDecimal.valueOf(((Number) r[1]).doubleValue()));
+        }
         List<Object[]> monthlyRaw = invoiceRepository.getMonthlyRevenueBreakdown(currentYear);
         List<MonthlyRevenueResponse> monthlyRevenue = monthlyRaw.stream()
-                .map(r -> MonthlyRevenueResponse.builder()
-                        .month(((Number) r[0]).intValue())
-                        .year(currentYear)
-                        .revenue((BigDecimal) r[1])
-                        .orderCount(((Number) r[2]).longValue())
-                        .build())
+                .map(r -> {
+                    int month = ((Number) r[0]).intValue();
+                    BigDecimal revenue = (BigDecimal) r[1];
+                    BigDecimal cost = monthlyCost.getOrDefault(month, BigDecimal.ZERO);
+                    return MonthlyRevenueResponse.builder()
+                            .month(month)
+                            .year(currentYear)
+                            .revenue(revenue)
+                            .cost(cost)
+                            .profit(revenue.subtract(cost))
+                            .orderCount(((Number) r[2]).longValue())
+                            .build();
+                })
                 .toList();
 
         // Popular Services
@@ -117,6 +130,19 @@ public class DashboardService {
                         .serviceName((String) r[0])
                         .totalRevenue((BigDecimal) r[1])
                         .bookingCount(((Number) r[2]).longValue())
+                        .build())
+                .toList();
+
+        // Top Employees (theo doanh thu dich vu/goi da tao hoa hong trong nam)
+        List<TopEmployeeResponse> topEmployees = commissionRepository.getTopEmployeesByYear(currentYear).stream()
+                .limit(10)
+                .map(r -> TopEmployeeResponse.builder()
+                        .employeeId((String) r[0])
+                        .employeeName((String) r[1])
+                        .position(r[2] != null ? String.valueOf(r[2]) : null)
+                        .appointmentCount(((Number) r[3]).longValue())
+                        .totalRevenue(BigDecimal.valueOf(((Number) r[4]).doubleValue()))
+                        .totalCommission(((Number) r[5]).doubleValue())
                         .build())
                 .toList();
 
@@ -138,7 +164,59 @@ public class DashboardService {
                 .lowStockProducts(lowStockCount)
                 .monthlyRevenue(monthlyRevenue)
                 .popularServices(popularServices)
+                .topEmployees(topEmployees)
                 .lowStockItems(lowStockItems)
                 .build();
+    }
+
+    // Doanh thu theo ngay trong 1 thang
+    @Transactional(readOnly = true)
+    public List<java.util.Map<String, Object>> getDailyRevenue(int month, int year) {
+        LocalDate start = LocalDate.of(year, month, 1);
+        LocalDateTime from = start.atStartOfDay();
+        LocalDateTime to = start.plusMonths(1).atStartOfDay();
+
+        java.util.Map<LocalDate, Object[]> byDate = new java.util.HashMap<>();
+        for (Object[] r : invoiceRepository.getDailyRevenue(from, to)) {
+            LocalDate date = r[0] instanceof LocalDate d ? d : ((java.sql.Date) r[0]).toLocalDate();
+            byDate.put(date, r);
+        }
+
+        List<java.util.Map<String, Object>> result = new ArrayList<>();
+        for (LocalDate date = start; date.isBefore(start.plusMonths(1)); date = date.plusDays(1)) {
+            Object[] r = byDate.get(date);
+            java.util.Map<String, Object> row = new java.util.LinkedHashMap<>();
+            row.put("date", date.toString());
+            row.put("revenue", r != null ? r[1] : BigDecimal.ZERO);
+            row.put("orderCount", r != null ? ((Number) r[2]).longValue() : 0L);
+            result.add(row);
+        }
+        return result;
+    }
+
+    // San pham ban chay (theo thang hoac ca nam)
+    @Transactional(readOnly = true)
+    public List<java.util.Map<String, Object>> getTopProducts(Integer month, int year) {
+        LocalDateTime from;
+        LocalDateTime to;
+        if (month != null) {
+            LocalDate start = LocalDate.of(year, month, 1);
+            from = start.atStartOfDay();
+            to = start.plusMonths(1).atStartOfDay();
+        } else {
+            from = LocalDate.of(year, 1, 1).atStartOfDay();
+            to = LocalDate.of(year + 1, 1, 1).atStartOfDay();
+        }
+
+        return invoiceRepository.getTopProducts(from, to).stream()
+                .limit(10)
+                .map(r -> {
+                    java.util.Map<String, Object> row = new java.util.LinkedHashMap<>();
+                    row.put("productName", r[0]);
+                    row.put("quantitySold", ((Number) r[1]).longValue());
+                    row.put("totalRevenue", r[2]);
+                    return row;
+                })
+                .toList();
     }
 }

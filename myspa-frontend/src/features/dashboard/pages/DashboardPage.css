@@ -332,6 +332,20 @@
   border-bottom: 0;
 }
 
+.dashboard-list-row--clickable {
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  padding-left: 8px;
+  padding-right: 8px;
+  transition: background var(--transition-fast);
+}
+
+.dashboard-list-row--clickable:hover,
+.dashboard-list-row--clickable:focus-visible {
+  background: var(--bg-tertiary);
+  outline: none;
+}
+
 .dashboard-stock {
   align-items: center;
   background: var(--warning-light);

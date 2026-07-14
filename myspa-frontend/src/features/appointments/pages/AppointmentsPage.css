@@ -124,6 +124,8 @@
 
 .appointments-customer-cell,
 .appointments-note-cell {
+  align-items: center;
+  display: flex;
   min-width: 0;
 }
 
@@ -199,11 +201,13 @@
 }
 
 .appointments-icon-button--start,
+.appointments-icon-button--waiting,
 .appointments-icon-button--reschedule {
   color: var(--primary) !important;
 }
 
 .appointments-icon-button--start:hover,
+.appointments-icon-button--waiting:hover,
 .appointments-icon-button--reschedule:hover {
   background: var(--primary-100) !important;
 }
@@ -276,16 +280,68 @@
   gap: 6px;
 }
 
-.appointments-legend-item > span {
+.appointments-legend-dot {
   border-radius: 999px;
+  flex: 0 0 auto;
   height: 9px;
   width: 9px;
+}
+
+.appointments-legend-text {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
 }
 
 .appointments-form {
   display: flex;
   flex-direction: column;
   gap: 14px;
+}
+
+.appointments-customer-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.appointments-customer-field > .MuiFormControl-root {
+  flex: 1;
+}
+
+.appointments-details-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--bg-tertiary);
+}
+
+.appointments-details-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.appointments-details-error {
+  font-size: 12px;
+  color: var(--error);
+}
+
+.appointments-detail-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.appointments-detail-row > .MuiFormControl-root {
+  flex: 1;
 }
 
 @media (max-width: 1080px) {

@@ -74,11 +74,25 @@ public class DataInitializer implements CommandLineRunner {
             log.warn("Could not execute duplicate user cleanup: {}", e.getMessage(), e);
         }
 
-        // 1. Create default roles
-        Role adminRole = getOrCreateRole("ADMIN", "System Administrator");
-        Role managerRole = getOrCreateRole("MANAGER", "Spa Manager");
-        Role staffRole = getOrCreateRole("STAFF", "Spa Staff");
+        // 1. Create default roles — phai khop voi cac role dung trong @PreAuthorize va frontend
+        Role adminRole = getOrCreateRole("ADMIN", "Chủ spa / Quản trị hệ thống");
+        Role managerRole = getOrCreateRole("MANAGER", "Quản lý spa");
+        Role receptionistRole = getOrCreateRole("RECEPTIONIST", "Lễ tân");
+        Role therapistRole = getOrCreateRole("THERAPIST", "Kỹ thuật viên");
+        Role staffRole = getOrCreateRole("STAFF", "Nhân viên (cũ - đã thay bằng THERAPIST)");
         getOrCreateRole("USER", "Regular Customer / User");
+
+        // Migrate: user cu chi co role STAFF khong khop phan quyen nao → gan them THERAPIST
+        for (User existing : userRepository.findAll()) {
+            boolean hasStaff = existing.getRoles().stream().anyMatch(r -> "STAFF".equals(r.getName()));
+            boolean hasUsableRole = existing.getRoles().stream()
+                    .anyMatch(r -> Set.of("ADMIN", "MANAGER", "RECEPTIONIST", "THERAPIST").contains(r.getName()));
+            if (hasStaff && !hasUsableRole) {
+                existing.getRoles().add(therapistRole);
+                userRepository.save(existing);
+                log.info("Migrated user {} from STAFF to THERAPIST role", existing.getUserName());
+            }
+        }
 
         // 2. Create default users and employees
         User adminUser = null;
@@ -111,6 +125,58 @@ public class DataInitializer implements CommandLineRunner {
             adminUser = userRepository.findByUserName("admin").orElse(null);
         }
 
+        // Tai khoan quan ly spa
+        if (!userRepository.existsByUserName("quanly")) {
+            User managerUser = User.builder()
+                    .userName("quanly")
+                    .password(passwordEncoder.encode("quanly123"))
+                    .isActive(true)
+                    .roles(Set.of(managerRole))
+                    .build();
+            managerUser = userRepository.save(managerUser);
+
+            if (!employeeRepository.existsByEmail("quanly@myspa.com")) {
+                employeeRepository.save(Employee.builder()
+                        .name("Trần Phương Thảo")
+                        .email("quanly@myspa.com")
+                        .phone("0328402460")
+                        .gender(Gender.FEMALE)
+                        .position("Quản lý spa")
+                        .statusOfEmployee(StatusOfEmployee.ACTIVE)
+                        .user(managerUser)
+                        .hireDate(LocalDate.now())
+                        .baseSalary(12000000.0)
+                        .build());
+            }
+            log.info("Created manager user: quanly / quanly123");
+        }
+
+        // Tai khoan le tan
+        if (!userRepository.existsByUserName("letan")) {
+            User receptionistUser = User.builder()
+                    .userName("letan")
+                    .password(passwordEncoder.encode("letan123"))
+                    .isActive(true)
+                    .roles(Set.of(receptionistRole))
+                    .build();
+            receptionistUser = userRepository.save(receptionistUser);
+
+            if (!employeeRepository.existsByEmail("letan@myspa.com")) {
+                employeeRepository.save(Employee.builder()
+                        .name("Lê Thu Trang")
+                        .email("letan@myspa.com")
+                        .phone("0912345603")
+                        .gender(Gender.FEMALE)
+                        .position("Lễ tân")
+                        .statusOfEmployee(StatusOfEmployee.ACTIVE)
+                        .user(receptionistUser)
+                        .hireDate(LocalDate.now())
+                        .baseSalary(7000000.0)
+                        .build());
+            }
+            log.info("Created receptionist user: letan / letan123");
+        }
+
         // Create staff users for testing
         Employee staff1 = null;
         if (!userRepository.existsByUserName("staff_lan")) {
@@ -118,7 +184,7 @@ public class DataInitializer implements CommandLineRunner {
                     .userName("staff_lan")
                     .password(passwordEncoder.encode("staff123"))
                     .isActive(true)
-                    .roles(Set.of(staffRole))
+                    .roles(Set.of(therapistRole))
                     .build();
             staffUser1 = userRepository.save(staffUser1);
 
@@ -146,7 +212,7 @@ public class DataInitializer implements CommandLineRunner {
                     .userName("staff_huong")
                     .password(passwordEncoder.encode("staff123"))
                     .isActive(true)
-                    .roles(Set.of(staffRole))
+                    .roles(Set.of(therapistRole))
                     .build();
             staffUser2 = userRepository.save(staffUser2);
 

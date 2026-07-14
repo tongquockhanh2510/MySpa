@@ -38,6 +38,13 @@ public class TreatmentScheduleService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
+    public List<TreatmentScheduleResponse> getSchedulesByDateRange(LocalDate from, LocalDate to) {
+        return treatmentScheduleRepository.findByScheduledDateBetween(from, to).stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+    }
+
     @Transactional
     public TreatmentScheduleResponse reschedule(String scheduleId, LocalDate newDate, String therapistId, String roomId) {
         TreatmentSchedule schedule = treatmentScheduleRepository.findById(scheduleId)

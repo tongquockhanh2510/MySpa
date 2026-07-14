@@ -17,7 +17,7 @@ public class DashboardStatsResponse {
     BigDecimal todayRevenue;
     BigDecimal monthRevenue;
     BigDecimal yearRevenue;
-    double revenueGrowthPercent;
+    Double revenueGrowthPercent; // null = khong co du lieu thang truoc de so sanh
 
     // Appointment KPIs
     long todayAppointments;
@@ -28,7 +28,7 @@ public class DashboardStatsResponse {
     // Customer KPIs
     long totalCustomers;
     long newCustomersThisMonth;
-    double customerGrowthPercent;
+    Double customerGrowthPercent; // null = khong co du lieu thang truoc de so sanh
 
     // Employee KPIs
     long activeEmployees;

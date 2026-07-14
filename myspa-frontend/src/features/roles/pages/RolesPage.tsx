@@ -1,35 +1,60 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { DataGrid } from '@mui/x-data-grid';
 import type { GridColDef } from '@mui/x-data-grid';
-import { Chip, InputAdornment, TextField } from '@mui/material';
+import { Alert, Chip, InputAdornment, TextField } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import GroupIcon from '@mui/icons-material/Group';
 import SecurityIcon from '@mui/icons-material/Security';
 import PageHeader from '@components/common/PageHeader';
-import { mockRoles, mockUsers } from '@utils/mockData';
-import type { Role } from '@/types';
+import { getRoles, getUsers } from '@/api/accessControl';
+import type { Role, User } from '@/types';
+import { toast } from 'sonner';
 import './RolesPage.css';
 
 const RolesPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const loadAccessControl = async () => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const [roleData, userData] = await Promise.all([getRoles(), getUsers()]);
+      setRoles(roleData);
+      setUsers(userData);
+    } catch (error) {
+      console.error(error);
+      setLoadError('Khong the tai danh sach vai tro. Vui long thu lai.');
+      toast.error('Loi khi tai danh sach vai tro');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      void loadAccessControl();
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
+  }, []);
 
   const roleRows = useMemo(
     () =>
-      mockRoles.map((role) => ({
+      roles.map((role) => ({
         ...role,
         permissionCount: role.permissions.length,
-        userCount: mockUsers.filter((user) => user.roles.some((userRole) => userRole.name === role.name)).length,
+        userCount: users.filter((user) => user.roles.some((userRole) => userRole.name === role.name)).length,
       })),
-    []
+    [roles, users]
   );
 
   const filteredRows = useMemo(() => {
     const normalizedTerm = searchTerm.trim().toLowerCase();
-
-    if (!normalizedTerm) {
-      return roleRows;
-    }
+    if (!normalizedTerm) return roleRows;
 
     return roleRows.filter((role) =>
       [role.name, role.description, ...role.permissions.map((permission) => permission.name)]
@@ -40,41 +65,41 @@ const RolesPage: React.FC = () => {
   }, [roleRows, searchTerm]);
 
   const totalPermissions = useMemo(
-    () => new Set(mockRoles.flatMap((role) => role.permissions.map((permission) => permission.name))).size,
-    []
+    () => new Set(roles.flatMap((role) => role.permissions.map((permission) => permission.name))).size,
+    [roles]
   );
 
   const columns: GridColDef[] = [
     {
       field: 'name',
-      headerName: 'Tên vai trò',
+      headerName: 'Ten vai tro',
       minWidth: 170,
       renderCell: ({ value }) => <strong className="roles-page__role-name">{value}</strong>,
     },
     {
       field: 'description',
-      headerName: 'Mô tả',
+      headerName: 'Mo ta',
       flex: 1,
       minWidth: 220,
       renderCell: ({ value }) => <span className="roles-page__description">{value}</span>,
     },
     {
       field: 'userCount',
-      headerName: 'Người dùng',
+      headerName: 'Nguoi dung',
       width: 120,
       align: 'center',
       headerAlign: 'center',
     },
     {
       field: 'permissionCount',
-      headerName: 'Số quyền',
+      headerName: 'So quyen',
       width: 110,
       align: 'center',
       headerAlign: 'center',
     },
     {
       field: 'permissions',
-      headerName: 'Quyền hạn',
+      headerName: 'Quyen han',
       flex: 1.5,
       minWidth: 320,
       renderCell: ({ value }) => {
@@ -94,37 +119,39 @@ const RolesPage: React.FC = () => {
 
   return (
     <main className="roles-page animate-fadeIn">
-      <PageHeader title="Quản lý vai trò" subtitle={`${mockRoles.length} vai trò đang cấu hình`} />
+      <PageHeader title="Quan ly vai tro" subtitle={`${roles.length} vai tro dang cau hinh`} />
 
-      <section className="roles-page__summary" aria-label="Tổng quan vai trò">
+      {loadError && <Alert severity="warning">{loadError}</Alert>}
+
+      <section className="roles-page__summary" aria-label="Tong quan vai tro">
         <article className="roles-page__summary-card">
           <AdminPanelSettingsIcon />
           <div>
-            <span>Tổng vai trò</span>
-            <strong>{mockRoles.length}</strong>
+            <span>Tong vai tro</span>
+            <strong>{loading ? '...' : roles.length}</strong>
           </div>
         </article>
         <article className="roles-page__summary-card">
           <GroupIcon />
           <div>
-            <span>Người dùng có vai trò</span>
-            <strong>{mockUsers.length}</strong>
+            <span>Nguoi dung co vai tro</span>
+            <strong>{loading ? '...' : users.length}</strong>
           </div>
         </article>
         <article className="roles-page__summary-card">
           <SecurityIcon />
           <div>
-            <span>Quyền duy nhất</span>
-            <strong>{totalPermissions}</strong>
+            <span>Quyen duy nhat</span>
+            <strong>{loading ? '...' : totalPermissions}</strong>
           </div>
         </article>
       </section>
 
-      <section className="roles-page__toolbar" aria-label="Bộ lọc vai trò">
+      <section className="roles-page__toolbar" aria-label="Bo loc vai tro">
         <TextField
           value={searchTerm}
           onChange={(event) => setSearchTerm(event.target.value)}
-          placeholder="Tìm vai trò, mô tả hoặc mã quyền"
+          placeholder="Tim vai tro, mo ta hoac ma quyen"
           size="small"
           className="roles-page__search"
           slotProps={{
@@ -137,7 +164,7 @@ const RolesPage: React.FC = () => {
             },
           }}
         />
-        <span>{filteredRows.length} vai trò phù hợp</span>
+        <span>{filteredRows.length} vai tro phu hop</span>
       </section>
 
       <div className="roles-page__panel">
@@ -147,6 +174,7 @@ const RolesPage: React.FC = () => {
           getRowId={(row) => row.name}
           autoHeight
           disableRowSelectionOnClick
+          loading={loading}
           pageSizeOptions={[10, 20]}
           initialState={{ pagination: { paginationModel: { pageSize: 10 } } }}
           sx={{
@@ -155,13 +183,7 @@ const RolesPage: React.FC = () => {
               background: 'var(--bg-tertiary)',
             },
           }}
-          localeText={{
-            MuiTablePagination: {
-              labelRowsPerPage: 'Hàng mỗi trang:',
-              labelDisplayedRows: ({ from, to, count }: any) => `${from}-${to} / ${count}`,
-            },
-            noRowsLabel: 'Không có vai trò phù hợp',
-          } as any}
+          localeText={{ noRowsLabel: 'Khong co vai tro phu hop' }}
         />
       </div>
     </main>

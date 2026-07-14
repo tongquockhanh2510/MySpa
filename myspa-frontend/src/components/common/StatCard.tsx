@@ -11,6 +11,7 @@ interface StatCardProps {
   trend?: number;
   format?: 'currency' | 'number' | 'text';
   subtitle?: string;
+  onClick?: () => void;
 }
 
 const StatCard: React.FC<StatCardProps> = ({
@@ -21,6 +22,7 @@ const StatCard: React.FC<StatCardProps> = ({
   trend,
   format = 'number',
   subtitle,
+  onClick,
 }) => {
   const displayValue = () => {
     if (typeof value === 'string') return value;
@@ -34,6 +36,10 @@ const StatCard: React.FC<StatCardProps> = ({
   return (
     <div
       className="animate-fadeInUp"
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onClick={onClick}
+      onKeyDown={onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } } : undefined}
       style={{
         background: 'var(--bg-card)',
         borderRadius: 'var(--radius-lg)',
@@ -44,7 +50,7 @@ const StatCard: React.FC<StatCardProps> = ({
         flexDirection: 'column',
         gap: 12,
         transition: 'box-shadow var(--transition-base), transform var(--transition-base)',
-        cursor: 'default',
+        cursor: onClick ? 'pointer' : 'default',
       }}
       onMouseEnter={(e) => {
         (e.currentTarget as HTMLDivElement).style.boxShadow = 'var(--shadow-hover)';

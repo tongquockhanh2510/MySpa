@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { DataGrid } from '@mui/x-data-grid';
 import type { GridColDef } from '@mui/x-data-grid';
 import {
@@ -11,8 +12,10 @@ import PageHeader from '@components/common/PageHeader';
 import StatusChip from '@components/common/StatusChip';
 import { formatCurrency, formatDateTime } from '@utils/formatters';
 import { getCustomers } from '@/api/customers';
-import { getOrders, createOrder, payOrder, getOrderById } from '@/api/orders';
+import { getAppointmentById } from '@/api/appointments';
+import { getOrders, createOrder, payOrder, getOrderById, getBankQr, type BankQrInfo } from '@/api/orders';
 import { getServices, getProducts, getTreatmentPackages, getEmployees, getRooms } from '@/api/catalog';
+import { getPromotions } from '@/api/promotions';
 import ReceiptIcon from '@mui/icons-material/Receipt';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddShoppingCartIcon from '@mui/icons-material/AddShoppingCart';
@@ -28,6 +31,7 @@ const DEFAULT_PRODUCT_IMAGE = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3
 const inputSx = { '& .MuiOutlinedInput-root': { borderRadius: '10px' } };
 
 const OrdersPage: React.FC = () => {
+  const [searchParams] = useSearchParams();
   const [view, setView] = useState<'list' | 'create'>('list');
   const [orders, setOrders] = useState<any[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
@@ -42,6 +46,8 @@ const OrdersPage: React.FC = () => {
   const [payAmount, setPayAmount] = useState('');
   const [payMethod, setPayMethod] = useState('CASH');
   const [txnRef, setTxnRef] = useState('');
+  const [bankQr, setBankQr] = useState<BankQrInfo | null>(null);
+  const [bankQrLoading, setBankQrLoading] = useState(false);
 
   const [customerMode, setCustomerMode] = useState<'existing' | 'new'>('existing');
   const [customersList, setCustomersList] = useState<any[]>([]);
@@ -66,6 +72,10 @@ const OrdersPage: React.FC = () => {
   const [cart, setCart] = useState<any[]>([]);
   const [voucherCode, setVoucherCode] = useState('');
   const [promoId, setPromoId] = useState('');
+  const [promotions, setPromotions] = useState<any[]>([]);
+  const [pointsToUse, setPointsToUse] = useState('');
+  const [prefilledAppointmentId, setPrefilledAppointmentId] = useState<string | null>(null);
+  const [sourceAppointment, setSourceAppointment] = useState<any | null>(null);
 
   const loadOrders = async () => {
     setOrdersLoading(true);
@@ -85,18 +95,26 @@ const OrdersPage: React.FC = () => {
   const loadCatalog = async () => {
     setCatalogLoading(true);
     try {
-      const [serviceData, productData, packageData, employeeData, roomData] = await Promise.all([
+      const [serviceData, productData, packageData, employeeData, roomData, promotionData] = await Promise.all([
         getServices(),
         getProducts(),
         getTreatmentPackages(),
         getEmployees(),
         getRooms(),
+        getPromotions().catch(() => []),
       ]);
       setServices(serviceData);
       setProducts(productData);
       setPackages(packageData);
       setEmployees(employeeData);
       setRooms(roomData);
+      const now = Date.now();
+      setPromotions((Array.isArray(promotionData) ? promotionData : []).filter((promo: any) => (
+        promo.isActive !== false
+        && (!promo.effective || new Date(promo.effective).getTime() <= now)
+        && (!promo.expiration || new Date(promo.expiration).getTime() >= now)
+        && (promo.quantity == null || promo.quantity > 0)
+      )));
     } catch (err) {
       console.error(err);
       toast.error('Lỗi khi tải danh mục sản phẩm/dịch vụ');
@@ -109,6 +127,102 @@ const OrdersPage: React.FC = () => {
     loadOrders();
     loadCatalog();
   }, []);
+
+  // Chuyen khoan: tai ma VietQR cho don dang thanh toan
+  useEffect(() => {
+    if (!paymentOpen || payMethod !== 'BANK_TRANSFER' || !selectedOrder?.orderId) {
+      setBankQr(null);
+      return;
+    }
+    let cancelled = false;
+    setBankQrLoading(true);
+    getBankQr(selectedOrder.orderId)
+      .then((info) => { if (!cancelled) setBankQr(info); })
+      .catch((err) => {
+        console.error(err);
+        if (!cancelled) toast.error(err.response?.data?.message || 'Không tạo được mã QR chuyển khoản');
+      })
+      .finally(() => { if (!cancelled) setBankQrLoading(false); });
+    return () => { cancelled = true; };
+  }, [paymentOpen, payMethod, selectedOrder?.orderId]);
+
+  // Poll trang thai don moi 4s khi dang cho khach quet QR — webhook bao co se tu ghi nhan
+  useEffect(() => {
+    if (!paymentOpen || payMethod !== 'BANK_TRANSFER' || !selectedOrder?.orderId) return;
+    const orderId = selectedOrder.orderId;
+    const interval = setInterval(async () => {
+      try {
+        const fresh = await getOrderById(orderId);
+        if (fresh.orderStatus === 'PAID' || Number(fresh.remainingAmount || 0) <= 0) {
+          clearInterval(interval);
+          toast.success(sourceAppointment ? 'Đã thanh toán cho lịch hẹn' : '🎉 Đã nhận được tiền chuyển khoản, đơn hàng thanh toán thành công!');
+          setPaymentOpen(false);
+          setDetailOpen(false);
+          setPayAmount('');
+          setTxnRef('');
+          loadOrders();
+        } else if (Number(fresh.paidAmount || 0) > Number(selectedOrder.paidAmount || 0)) {
+          setSelectedOrder(fresh);
+          setPayAmount(String(fresh.remainingAmount));
+          toast.info('Đã nhận một phần tiền chuyển khoản');
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }, 4000);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paymentOpen, payMethod, selectedOrder?.orderId, sourceAppointment]);
+
+  useEffect(() => {
+    const appointmentId = searchParams.get('appointmentId');
+    if (!appointmentId || prefilledAppointmentId === appointmentId || catalogLoading) return;
+
+    const applyAppointment = async () => {
+      setView('create');
+      setCustomerMode('existing');
+      setPrefilledAppointmentId(appointmentId);
+      setSourceAppointment(null);
+
+      const appointment = await getAppointmentById(appointmentId);
+      setSourceAppointment(appointment);
+
+      const customer = {
+        customerId: appointment.customerId,
+        name: appointment.customerName,
+        phone: appointment.customerPhone,
+        loyaltyPoints: 0,
+      };
+      setCustomersList((prev) => {
+        const exists = prev.some((item: any) => item.customerId === appointment.customerId);
+        return exists ? prev : [customer, ...prev];
+      });
+      setSelectedCustomer(customer);
+
+      const scheduledDateTime = appointment.dateTime ? appointment.dateTime.slice(0, 16) : getCurrentDateTimeLocal();
+      const appointmentItems = (appointment.details || []).map((detail: any) => {
+        const service = services.find((item) => item.serviceId === detail.serviceId);
+        return {
+          itemType: 'SERVICE',
+          itemId: detail.serviceId,
+          name: detail.serviceName || service?.name || 'Dich vu',
+          price: detail.price ?? service?.price ?? 0,
+          quantity: 1,
+          therapistId: detail.employeeId || '',
+          roomId: appointment.roomId || '',
+          scheduledDateTime,
+          sourceAppointmentId: appointment.appointmentId,
+        };
+      });
+      setCart(appointmentItems);
+      toast.success('Da tai lich hen vao don hang');
+    };
+
+    applyAppointment().catch((error) => {
+      console.error(error);
+      toast.error('Khong the lay du lieu lich hen de tao don hang');
+    });
+  }, [catalogLoading, prefilledAppointmentId, searchParams, services]);
 
   const searchCustomers = async (query: string) => {
     if (query.length < 2) return;
@@ -177,6 +291,7 @@ const OrdersPage: React.FC = () => {
     }
 
     const payload: any = {
+      appointmentId: sourceAppointment?.appointmentId || undefined,
       items: cart.map((item) => ({
         itemType: item.itemType,
         productId: item.itemType === 'PRODUCT' ? item.itemId : null,
@@ -200,11 +315,19 @@ const OrdersPage: React.FC = () => {
         toast.error('Tên và số điện thoại khách hàng mới không được để trống');
         return;
       }
-      payload.newCustomer = newCustomerForm;
+      payload.newCustomer = {
+        name: newCustomerForm.name.trim(),
+        phone: newCustomerForm.phone.trim(),
+        email: newCustomerForm.email.trim() || undefined,
+        gender: newCustomerForm.gender,
+        dateOfBirth: newCustomerForm.dateOfBirth || undefined,
+        address: newCustomerForm.address.trim() || undefined,
+      };
     }
 
     if (voucherCode) payload.voucherCode = voucherCode;
     if (promoId) payload.promotionId = promoId;
+    if (customerMode === 'existing' && Number(pointsToUse) > 0) payload.loyaltyPointsToUse = Number(pointsToUse);
 
     try {
       const created = await createOrder(payload);
@@ -213,6 +336,7 @@ const OrdersPage: React.FC = () => {
       setCart([]);
       setVoucherCode('');
       setPromoId('');
+      setPointsToUse('');
       setSelectedCustomer(null);
       setNewCustomerForm({ name: '', phone: '', email: '', gender: 'FEMALE', dateOfBirth: '', address: '' });
       loadOrders();
@@ -233,7 +357,7 @@ const OrdersPage: React.FC = () => {
         transactionReference: txnRef,
         notes: 'Thanh toán hóa đơn POS',
       });
-      toast.success('Xử lý thanh toán thành công');
+      toast.success(sourceAppointment ? 'Đã thanh toán cho lịch hẹn' : 'Xử lý thanh toán thành công');
       setPaymentOpen(false);
       setDetailOpen(false);
       setPayAmount('');
@@ -256,6 +380,33 @@ const OrdersPage: React.FC = () => {
   };
 
   const cartSubtotal = cart.reduce((sum, item) => sum + (Number(item.price || 0) * Number(item.quantity || 0)), 0);
+
+  // Uoc tinh giam gia phia client (server tinh lai chinh xac khi tao don)
+  const selectedPromo = promotions.find((promo) => promo.promotionId === promoId);
+  const promoDiscountEstimate = useMemo(() => {
+    if (!selectedPromo || cartSubtotal <= 0) return 0;
+    let base = cartSubtotal;
+    if ((selectedPromo.applyScope || 'ORDER').toUpperCase() === 'ITEM') {
+      base = cart
+        .filter((item) => item.itemType === (selectedPromo.targetType || '').toUpperCase() && item.itemId === selectedPromo.targetId)
+        .reduce((sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 0), 0);
+    }
+    if (selectedPromo.minOrderValue && cartSubtotal < Number(selectedPromo.minOrderValue)) return 0;
+    if ((selectedPromo.type || '').toUpperCase() === 'PERCENT') {
+      const raw = base * Number(selectedPromo.percent || 0) / 100;
+      const cap = Number(selectedPromo.maxDiscount || 0);
+      return cap > 0 ? Math.min(raw, cap) : raw;
+    }
+    return Math.min(Number(selectedPromo.discount || 0), base);
+  }, [selectedPromo, cart, cartSubtotal]);
+
+  const availablePoints = customerMode === 'existing' ? Number(selectedCustomer?.loyaltyPoints || 0) : 0;
+  const amountAfterPromo = Math.max(0, cartSubtotal - promoDiscountEstimate);
+  const maxUsablePoints = Math.min(availablePoints, Math.floor(amountAfterPromo / 1000));
+  const loyaltyDiscountEstimate = Math.min(Number(pointsToUse || 0) * 1000, amountAfterPromo);
+  const taxableEstimate = Math.max(0, cartSubtotal - promoDiscountEstimate - loyaltyDiscountEstimate);
+  const taxEstimate = taxableEstimate * 0.1;
+  const totalEstimate = taxableEstimate + taxEstimate;
 
   const filteredOrders = useMemo(() => {
     const query = ordersSearch.trim().toLowerCase();
@@ -302,12 +453,12 @@ const OrdersPage: React.FC = () => {
       sortable: false,
       renderCell: ({ row }) => (
         <div className="orders-actions">
-          <Button size="small" onClick={() => viewDetail(row)} startIcon={<ReceiptIcon />} variant="outlined"
+          <Button size="small" onClick={(event) => { event.stopPropagation(); viewDetail(row); }} startIcon={<ReceiptIcon />} variant="outlined"
             sx={{ borderRadius: 2, textTransform: 'none', fontSize: 12, fontWeight: 700 }}>
             Chi tiết
           </Button>
           {row.remainingAmount > 0 && row.orderStatus !== 'CANCELLED' && (
-            <Button size="small" onClick={() => { setSelectedOrder(row); setPayAmount(row.remainingAmount.toString()); setPaymentOpen(true); }} startIcon={<PaymentIcon />} variant="contained"
+            <Button size="small" onClick={(event) => { event.stopPropagation(); setSelectedOrder(row); setPayAmount(row.remainingAmount.toString()); setPaymentOpen(true); }} startIcon={<PaymentIcon />} variant="contained"
               sx={{ borderRadius: 2, textTransform: 'none', fontSize: 12, fontWeight: 700, background: 'linear-gradient(135deg, #D97706, #F59E0B)', color: '#fff' }}>
               Thanh toán
             </Button>
@@ -395,7 +546,12 @@ const OrdersPage: React.FC = () => {
                 pageSizeOptions={[10, 20]}
                 autoHeight
                 disableRowSelectionOnClick
-                sx={{ border: 'none', '& .MuiDataGrid-columnHeaders': { background: 'var(--bg-tertiary)' } }}
+                onRowClick={({ row }) => viewDetail(row)}
+                sx={{
+                  border: 'none',
+                  '& .MuiDataGrid-columnHeaders': { background: 'var(--bg-tertiary)' },
+                  '& .MuiDataGrid-row': { cursor: 'pointer' },
+                }}
                 localeText={{ noRowsLabel: ordersSearch || orderStatusFilter !== 'ALL' ? 'Không tìm thấy đơn hàng phù hợp' : 'Chưa có đơn hàng' }}
               />
             )}
@@ -417,16 +573,18 @@ const OrdersPage: React.FC = () => {
                 <CardContent>
                   <Typography variant="h6" sx={{ fontWeight: 800, mb: 2 }}>Bước 1: Chọn khách hàng</Typography>
                   <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
-                    <Button variant={customerMode === 'existing' ? 'contained' : 'outlined'} onClick={() => setCustomerMode('existing')} sx={{ textTransform: 'none', borderRadius: 2, fontWeight: 700 }}>Khách hàng cũ</Button>
-                    <Button variant={customerMode === 'new' ? 'contained' : 'outlined'} onClick={() => setCustomerMode('new')} sx={{ textTransform: 'none', borderRadius: 2, fontWeight: 700 }}>Tạo khách hàng mới</Button>
+                    <Button disabled={!!sourceAppointment} variant={customerMode === 'existing' ? 'contained' : 'outlined'} onClick={() => setCustomerMode('existing')} sx={{ textTransform: 'none', borderRadius: 2, fontWeight: 700 }}>Khách hàng cũ</Button>
+                    <Button disabled={!!sourceAppointment} variant={customerMode === 'new' ? 'contained' : 'outlined'} onClick={() => setCustomerMode('new')} sx={{ textTransform: 'none', borderRadius: 2, fontWeight: 700 }}>Tạo khách hàng mới</Button>
                   </Box>
 
                   {customerMode === 'existing' ? (
                     <Autocomplete
                       options={customersList}
+                      value={selectedCustomer}
                       getOptionLabel={(option) => `${option.name} - ${option.phone}`}
                       onInputChange={(_, value) => searchCustomers(value)}
-                      onChange={(_, value) => setSelectedCustomer(value)}
+                      onChange={(_, value) => !sourceAppointment && setSelectedCustomer(value)}
+                      disabled={!!sourceAppointment}
                       renderInput={(params) => (
                         <TextField {...params} label="Tìm khách hàng (nhập SĐT hoặc tên)" size="small" fullWidth sx={inputSx} />
                       )}
@@ -546,11 +704,60 @@ const OrdersPage: React.FC = () => {
 
                   <Divider sx={{ my: 2 }} />
 
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                    <TextField label="Mã Voucher" size="small" fullWidth value={voucherCode} onChange={e => setVoucherCode(e.target.value)} sx={{ mb: 1, ...inputSx }} />
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                    <FormControl fullWidth size="small" sx={inputSx}>
+                      <InputLabel>Khuyến mãi</InputLabel>
+                      <Select value={promoId} label="Khuyến mãi" onChange={e => setPromoId(e.target.value)}>
+                        <MenuItem value="">Không áp dụng</MenuItem>
+                        {promotions.map((promo) => (
+                          <MenuItem key={promo.promotionId} value={promo.promotionId}>{promo.name}</MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                    <TextField label="Mã Voucher (nếu có)" size="small" fullWidth value={voucherCode} onChange={e => setVoucherCode(e.target.value)} sx={inputSx} />
+
+                    {customerMode === 'existing' && selectedCustomer && (
+                      <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                        <TextField
+                          label={`Quy đổi điểm (còn ${availablePoints.toLocaleString('vi-VN')} điểm)`}
+                          type="number"
+                          size="small"
+                          fullWidth
+                          value={pointsToUse}
+                          onChange={e => {
+                            const value = Math.max(0, Math.min(Number(e.target.value || 0), maxUsablePoints));
+                            setPointsToUse(e.target.value === '' ? '' : String(value));
+                          }}
+                          helperText="1 điểm = 1.000đ"
+                          disabled={availablePoints <= 0}
+                          sx={inputSx}
+                        />
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          disabled={maxUsablePoints <= 0}
+                          onClick={() => setPointsToUse(String(maxUsablePoints))}
+                          sx={{ borderRadius: 2, textTransform: 'none', whiteSpace: 'nowrap', height: 40, mb: 2.5 }}
+                        >
+                          Dùng tối đa
+                        </Button>
+                      </Box>
+                    )}
+
                     <Box sx={{ display: 'flex', justifyContent: 'space-between' }}><Typography variant="body2">Tạm tính:</Typography><Typography variant="body2" sx={{ fontWeight: 700 }}>{formatCurrency(cartSubtotal)}</Typography></Box>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}><Typography variant="body2">Thuế (10% VAT):</Typography><Typography variant="body2" sx={{ fontWeight: 700 }}>{formatCurrency(cartSubtotal * 0.1)}</Typography></Box>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}><Typography variant="subtitle1" sx={{ fontWeight: 800 }}>Tổng tiền thanh toán:</Typography><Typography variant="subtitle1" color="primary" sx={{ fontWeight: 900 }}>{formatCurrency(cartSubtotal * 1.1)}</Typography></Box>
+                    {promoDiscountEstimate > 0 && (
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}><Typography variant="body2">Khuyến mãi ({selectedPromo?.name}):</Typography><Typography variant="body2" sx={{ fontWeight: 700, color: '#059669' }}>-{formatCurrency(promoDiscountEstimate)}</Typography></Box>
+                    )}
+                    {loyaltyDiscountEstimate > 0 && (
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}><Typography variant="body2">Quy đổi {Number(pointsToUse)} điểm:</Typography><Typography variant="body2" sx={{ fontWeight: 700, color: '#059669' }}>-{formatCurrency(loyaltyDiscountEstimate)}</Typography></Box>
+                    )}
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}><Typography variant="body2">Thuế (10% VAT):</Typography><Typography variant="body2" sx={{ fontWeight: 700 }}>{formatCurrency(taxEstimate)}</Typography></Box>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}><Typography variant="subtitle1" sx={{ fontWeight: 800 }}>Tổng tiền thanh toán:</Typography><Typography variant="subtitle1" color="primary" sx={{ fontWeight: 900 }}>{formatCurrency(totalEstimate)}</Typography></Box>
+                    {(voucherCode || customerMode === 'existing') && (
+                      <Typography variant="caption" color="text.secondary">
+                        Tổng tiền chính xác (gồm voucher, ưu đãi hạng thành viên) sẽ được hệ thống tính khi tạo đơn.
+                      </Typography>
+                    )}
                   </Box>
                 </CardContent>
 
@@ -590,7 +797,10 @@ const OrdersPage: React.FC = () => {
               <Divider />
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between' }}><Typography variant="body2">Tạm tính:</Typography><Typography variant="body2">{formatCurrency(selectedOrder.subtotal)}</Typography></Box>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}><Typography variant="body2">Giảm giá:</Typography><Typography variant="body2">{formatCurrency((selectedOrder.promoDiscount || 0) + (selectedOrder.voucherDiscount || 0) + (selectedOrder.membershipDiscount || 0))}</Typography></Box>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}><Typography variant="body2">Giảm giá:</Typography><Typography variant="body2">{formatCurrency((selectedOrder.promoDiscount || 0) + (selectedOrder.voucherDiscount || 0) + (selectedOrder.membershipDiscount || 0) + (selectedOrder.loyaltyDiscount || 0))}</Typography></Box>
+                {Number(selectedOrder.loyaltyPointsUsed || 0) > 0 && (
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}><Typography variant="body2">Điểm đã quy đổi:</Typography><Typography variant="body2">{selectedOrder.loyaltyPointsUsed} điểm (-{formatCurrency(selectedOrder.loyaltyDiscount || 0)})</Typography></Box>
+                )}
                 <Box sx={{ display: 'flex', justifyContent: 'space-between' }}><Typography variant="body2">VAT (10%):</Typography><Typography variant="body2">{formatCurrency(selectedOrder.taxAmount || 0)}</Typography></Box>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between' }}><Typography variant="subtitle2" sx={{ fontWeight: 800 }}>Tổng tiền:</Typography><Typography variant="subtitle2" color="primary" sx={{ fontWeight: 900 }}>{formatCurrency(selectedOrder.totalAmount)}</Typography></Box>
               </Box>
@@ -625,18 +835,49 @@ const OrdersPage: React.FC = () => {
             <InputLabel>Phương thức thanh toán</InputLabel>
             <Select value={payMethod} label="Phương thức thanh toán" onChange={e => setPayMethod(e.target.value)}>
               <MenuItem value="CASH">Tiền mặt</MenuItem>
-              <MenuItem value="BANK_TRANSFER">Chuyển khoản</MenuItem>
+              <MenuItem value="BANK_TRANSFER">Chuyển khoản (quét QR)</MenuItem>
               <MenuItem value="MOMO">Ví MoMo</MenuItem>
               <MenuItem value="VNPAY">VNPay</MenuItem>
             </Select>
           </FormControl>
+
+          {payMethod === 'BANK_TRANSFER' && (
+            <Box sx={{
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1,
+              background: 'var(--bg-tertiary)', borderRadius: '12px', p: 2,
+            }}>
+              {bankQrLoading && <Typography variant="body2">Đang tạo mã QR...</Typography>}
+              {bankQr && (
+                <>
+                  <img
+                    src={bankQr.qrUrl}
+                    alt="Mã VietQR thanh toán"
+                    style={{ width: 240, maxWidth: '100%', borderRadius: 12, background: '#fff' }}
+                  />
+                  <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                    {bankQr.accountName} — {bankQr.accountNumber}
+                  </Typography>
+                  <Typography variant="body2">
+                    Số tiền: <strong style={{ color: 'var(--primary)' }}>{formatCurrency(Number(bankQr.amount || 0))}</strong>
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center' }}>
+                    Nội dung chuyển khoản: <strong>{bankQr.memo}</strong>
+                    <br />Khách quét QR bằng app ngân hàng — hệ thống sẽ tự xác nhận khi nhận được tiền.
+                  </Typography>
+                </>
+              )}
+            </Box>
+          )}
+
           <TextField label="Mã giao dịch / tham chiếu" value={txnRef} onChange={e => setTxnRef(e.target.value)} fullWidth size="small" sx={inputSx} />
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 3, gap: 1 }}>
-          <Button onClick={() => setPaymentOpen(false)} sx={{ borderRadius: 2, textTransform: 'none' }}>Hủy</Button>
+          <Button onClick={() => setPaymentOpen(false)} sx={{ borderRadius: 2, textTransform: 'none' }}>
+            {payMethod === 'BANK_TRANSFER' ? 'Đóng (chờ chuyển khoản)' : 'Hủy'}
+          </Button>
           <Button onClick={submitPayment} disabled={!payAmount || Number(payAmount) <= 0} variant="contained"
             sx={{ borderRadius: 2, textTransform: 'none', background: 'linear-gradient(135deg, #D97706, #F59E0B)', color: '#fff' }}>
-            Xác nhận thanh toán
+            {payMethod === 'BANK_TRANSFER' ? 'Xác nhận thủ công' : 'Xác nhận thanh toán'}
           </Button>
         </DialogActions>
       </Dialog>

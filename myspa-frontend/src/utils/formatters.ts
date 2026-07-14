@@ -1,6 +1,5 @@
 import { CURRENCY } from '@constants/config';
 
-// ===== Currency Formatter =====
 export const formatCurrency = (value: number): string => {
   return new Intl.NumberFormat(CURRENCY.locale, {
     style: 'currency',
@@ -14,11 +13,10 @@ export const formatNumber = (value: number): string => {
   return new Intl.NumberFormat('vi-VN').format(value);
 };
 
-// ===== Date Formatters =====
 export const formatDate = (dateStr: string | null | undefined): string => {
   if (!dateStr) return '—';
   const date = new Date(dateStr);
-  if (isNaN(date.getTime())) return '—';
+  if (Number.isNaN(date.getTime())) return '—';
   return date.toLocaleDateString('vi-VN', {
     day: '2-digit',
     month: '2-digit',
@@ -29,7 +27,7 @@ export const formatDate = (dateStr: string | null | undefined): string => {
 export const formatDateTime = (dateStr: string | null | undefined): string => {
   if (!dateStr) return '—';
   const date = new Date(dateStr);
-  if (isNaN(date.getTime())) return '—';
+  if (Number.isNaN(date.getTime())) return '—';
   return date.toLocaleString('vi-VN', {
     day: '2-digit',
     month: '2-digit',
@@ -50,14 +48,17 @@ export const formatDuration = (minutes: number): string => {
   return m > 0 ? `${h} giờ ${m} phút` : `${h} giờ`;
 };
 
-// ===== Status Labels =====
 export const getAppointmentStatusLabel = (status: string): string => {
   const map: Record<string, string> = {
     PENDING: 'Chờ xác nhận',
     CONFIRMED: 'Đã xác nhận',
+    CHECKED_IN: 'Đã check-in',
+    WAITING: 'Đang chờ',
     IN_PROGRESS: 'Đang thực hiện',
     COMPLETED: 'Hoàn thành',
     CANCELLED: 'Đã hủy',
+    NO_SHOW: 'Không đến',
+    RESCHEDULED: 'Đã dời lịch',
   };
   return map[status] ?? status;
 };
@@ -72,7 +73,9 @@ export const getEmployeeStatusLabel = (status: string): string => {
 
 export const getOrderStatusLabel = (status: string): string => {
   const map: Record<string, string> = {
-    PENDING_PAYMENT: 'Chưa thanh toán',
+    DRAFT: 'Nháp',
+    UNPAID: 'Chưa thanh toán',
+    PENDING_PAYMENT: 'Chờ thanh toán',
     PARTIALLY_PAID: 'Thanh toán một phần',
     PAID: 'Đã thanh toán',
     CANCELLED: 'Đã hủy',
@@ -101,6 +104,11 @@ export const getPackageStatusLabel = (status: string): string => {
   const map: Record<string, string> = {
     ACTIVE: 'Đang áp dụng',
     INACTIVE: 'Ngừng áp dụng',
+    NOT_STARTED: 'Chưa bắt đầu',
+    IN_PROGRESS: 'Đang thực hiện',
+    COMPLETED: 'Hoàn thành',
+    EXPIRED: 'Hết hạn',
+    CANCELLED: 'Đã hủy',
   };
   return map[status] ?? status;
 };
@@ -124,7 +132,6 @@ export const getConversionTypeLabel = (type: string): string => {
   return map[type] ?? type;
 };
 
-// ===== Misc =====
 export const truncate = (str: string, maxLength: number): string => {
   if (str.length <= maxLength) return str;
   return str.slice(0, maxLength) + '...';
@@ -140,5 +147,5 @@ export const getInitials = (name: string): string => {
 };
 
 export const generateId = (): string => {
-  return Date.now().toString(36) + Math.random().toString(36).substr(2);
+  return Date.now().toString(36) + Math.random().toString(36).slice(2);
 };

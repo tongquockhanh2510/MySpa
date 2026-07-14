@@ -15,6 +15,8 @@ import java.util.List;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class OrderRequest {
 
+    String appointmentId; // Nullable: present when paying an existing appointment
+
     String customerId; // For Option A: Existing Customer
 
     @Valid
@@ -26,4 +28,7 @@ public class OrderRequest {
 
     String voucherCode;
     String promotionId;
+
+    // So diem tich luy khach muon dung (1 diem = 1.000d)
+    Double loyaltyPointsToUse;
 }

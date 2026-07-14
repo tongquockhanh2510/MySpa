@@ -31,7 +31,7 @@ const ExportButtons: React.FC<ExportButtonsProps> = ({
             borderColor: '#10B981',
             color: '#10B981',
             px: 2,
-            '&:hover': { borderColor: '#059669', background: '#D1FAE5', color: '#059669' },
+            '&:hover': { borderColor: '#059669', background: 'var(--success-light)', color: '#059669' },
           }}
         >
           Excel
@@ -52,7 +52,7 @@ const ExportButtons: React.FC<ExportButtonsProps> = ({
             borderColor: '#EF4444',
             color: '#EF4444',
             px: 2,
-            '&:hover': { borderColor: '#DC2626', background: '#FEE2E2', color: '#DC2626' },
+            '&:hover': { borderColor: '#DC2626', background: 'var(--error-light)', color: '#DC2626' },
           }}
         >
           PDF

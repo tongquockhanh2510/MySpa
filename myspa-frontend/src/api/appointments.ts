@@ -32,6 +32,11 @@ export const getAppointments = async (params?: { search?: string; status?: strin
   return Array.isArray(result) ? result : result?.content || [];
 };
 
+export const getAppointmentById = async (id: string) => {
+  const response = await axiosInstance.get(`/appointments/${id}`);
+  return response.data.result as Appointment;
+};
+
 export const createAppointment = async (data: AppointmentPayload) => {
   const response = await axiosInstance.post('/appointments', data);
   return response.data.result as Appointment;
@@ -56,6 +61,11 @@ export const confirmAppointment = async (id: string) => {
 
 export const checkInAppointment = async (id: string) => {
   const response = await axiosInstance.patch(`/appointments/${id}/checkin`);
+  return response.data.result as Appointment;
+};
+
+export const waitAppointment = async (id: string) => {
+  const response = await axiosInstance.patch(`/appointments/${id}/waiting`);
   return response.data.result as Appointment;
 };
 

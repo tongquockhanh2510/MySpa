@@ -80,6 +80,8 @@
 
 .customers-name-cell,
 .customers-muted-cell {
+  align-items: center;
+  display: flex;
   min-width: 0;
 }
 
@@ -103,6 +105,31 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.customers-note-cell {
+  align-items: center;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  height: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  padding: 0;
+  text-align: left;
+  text-decoration: underline dotted;
+  text-overflow: ellipsis;
+  text-underline-offset: 3px;
+  white-space: nowrap;
+}
+
+.customers-note-cell:hover {
+  color: var(--primary);
 }
 
 .customers-points-chip {

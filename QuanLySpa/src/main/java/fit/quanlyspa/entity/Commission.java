@@ -63,4 +63,5 @@ public class Commission {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "employee_id", nullable = false)
     Employee employee;
+
 }

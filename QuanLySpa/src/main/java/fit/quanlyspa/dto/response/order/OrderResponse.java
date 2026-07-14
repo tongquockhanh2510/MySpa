@@ -22,10 +22,14 @@ public class OrderResponse {
     BigDecimal promoDiscount;
     BigDecimal voucherDiscount;
     BigDecimal membershipDiscount;
+    BigDecimal loyaltyDiscount;
+    double loyaltyPointsUsed;
     BigDecimal taxAmount;
     BigDecimal totalAmount;
     BigDecimal paidAmount;
     BigDecimal remainingAmount;
+
+    String appointmentId;
 
     String customerId;
     String customerName;

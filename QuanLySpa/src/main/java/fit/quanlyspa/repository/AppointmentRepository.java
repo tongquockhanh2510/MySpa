@@ -17,6 +17,8 @@ public interface AppointmentRepository extends JpaRepository<Appointment, String
 
     List<Appointment> findByCustomer_CustomerId(String customerId);
 
+    List<Appointment> findByStatusOfAppointment(StatusOfAppointment status);
+
     // Business Rule: Overlapping appointment for same customer
     @Query("SELECT a FROM Appointment a WHERE a.customer.customerId = :customerId " +
            "AND a.statusOfAppointment NOT IN ('CANCELLED', 'NO_SHOW') " +

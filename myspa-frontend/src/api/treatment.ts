@@ -5,6 +5,11 @@ export const getCustomerSchedules = async (customerId: string) => {
   return response.data.result || [];
 };
 
+export const getTreatmentSchedules = async (from: string, to: string) => {
+  const response = await axiosInstance.get('/treatment-schedules', { params: { from, to } });
+  return response.data.result || [];
+};
+
 export const rescheduleTreatment = async (scheduleId: string, data: {
   date: string;
   therapistId?: string;

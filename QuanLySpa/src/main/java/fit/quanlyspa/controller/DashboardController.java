@@ -24,4 +24,20 @@ public class DashboardController {
     public ResponseEntity<ApiResponse<DashboardStatsResponse>> getStats(@RequestParam(required = false) Integer year) {
         return ResponseEntity.ok(ApiResponse.success(dashboardService.getStats(year)));
     }
+
+    @GetMapping("/daily-revenue")
+    @Operation(summary = "Doanh thu theo ngày", description = "Doanh thu từng ngày trong tháng (hóa đơn PAID)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    public ResponseEntity<ApiResponse<java.util.List<java.util.Map<String, Object>>>> getDailyRevenue(
+            @RequestParam int month, @RequestParam int year) {
+        return ResponseEntity.ok(ApiResponse.success(dashboardService.getDailyRevenue(month, year)));
+    }
+
+    @GetMapping("/top-products")
+    @Operation(summary = "Sản phẩm bán chạy", description = "Top sản phẩm theo số lượng bán ra")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    public ResponseEntity<ApiResponse<java.util.List<java.util.Map<String, Object>>>> getTopProducts(
+            @RequestParam(required = false) Integer month, @RequestParam int year) {
+        return ResponseEntity.ok(ApiResponse.success(dashboardService.getTopProducts(month, year)));
+    }
 }

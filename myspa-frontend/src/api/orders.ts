@@ -12,6 +12,7 @@ export interface OrderItemRequest {
 }
 
 export interface OrderRequest {
+  appointmentId?: string;
   customerId?: string;
   newCustomer?: any;
   items: OrderItemRequest[];
@@ -42,4 +43,19 @@ export const getOrderById = async (orderId: string) => {
 export const getOrders = async () => {
   const response = await axiosInstance.get('/orders');
   return response.data.result || [];
+};
+
+export interface BankQrInfo {
+  orderId: string;
+  amount: number;
+  memo: string;
+  qrUrl: string;
+  bankBin: string;
+  accountNumber: string;
+  accountName: string;
+}
+
+export const getBankQr = async (orderId: string): Promise<BankQrInfo> => {
+  const response = await axiosInstance.get(`/payments/bank-qr/${orderId}`);
+  return response.data.result;
 };

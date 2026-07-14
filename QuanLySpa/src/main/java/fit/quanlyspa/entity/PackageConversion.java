@@ -38,7 +38,19 @@ public class PackageConversion {
     String voucherCode;
 
     @Column(name = "converted_sessions")
-    int convertedSessions;
+    Integer convertedSessions;
+
+    // Don hang chuyen doi duoc sinh ra (mua san pham/goi moi bang gia tri quy doi)
+    @Column(name = "order_id")
+    String orderId;
+
+    // So tien khach can bu them (tong don hang sau khi tru gia tri quy doi)
+    @Column(name = "top_up_amount")
+    Double topUpAmount;
+
+    // Voucher hoan lai phan gia tri du (neu gia tri quy doi > gia tri don moi)
+    @Column(name = "leftover_voucher_code")
+    String leftoverVoucherCode;
 
     @OneToOne(mappedBy = "packageConversion")
     CustomerTreatment  customerTreatment;

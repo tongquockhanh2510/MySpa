@@ -85,6 +85,7 @@ public class ServiceController {
     private void applyRequest(Service service, ServiceRequest request) {
         service.setName(request.getName().trim());
         service.setPrice(request.getPrice());
+        service.setCostPrice(request.getCostPrice());
         service.setDuration(request.getDuration());
         service.setDescription(request.getDescription());
         service.setImageUrl(request.getImage());
@@ -107,6 +108,7 @@ public class ServiceController {
                 .serviceId(service.getServiceId())
                 .name(service.getName())
                 .price(service.getPrice())
+                .costPrice(service.getCostPrice() == null ? 0 : service.getCostPrice())
                 .duration(service.getDuration())
                 .description(service.getDescription())
                 .image(service.getImageUrl())

@@ -88,6 +88,8 @@ class OrderServiceTest {
     @Mock InvoiceRepository invoiceRepository;
     @Mock InvoiceDetailRepository invoiceDetailRepository;
     @Mock PackageConversionRepository packageConversionRepository;
+    @Mock CommissionService commissionService;
+    @Mock NotificationService notificationService;
 
     @InjectMocks OrderService orderService;
 

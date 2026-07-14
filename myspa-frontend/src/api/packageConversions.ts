@@ -8,6 +8,7 @@ export interface PackageConversionFormData {
   conversionValue: number;
   targetProductId?: string;
   targetPackageId?: string;
+  quantity?: number;
   note?: string;
 }
 

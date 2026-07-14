@@ -34,6 +34,8 @@ public class AppointmentService {
     ServiceRepository serviceRepository;
     AppoinmentDetailRepository appointmentDetailRepository;
     RoomRepository roomRepository;
+    CommissionService commissionService;
+    NotificationService notificationService;
 
     // ===== STATE TRANSITION MAP =====
     private static final Map<StatusOfAppointment, Set<StatusOfAppointment>> VALID_TRANSITIONS = Map.of(
@@ -51,11 +53,6 @@ public class AppointmentService {
     // ===== CREATE APPOINTMENT =====
     @Transactional
     public AppointmentResponse create(AppointmentRequest request, String createdBy) {
-
-        // Business Rule: Appointment must be at least 30 minutes in the future
-        if (request.getDateTime().isBefore(LocalDateTime.now().plusMinutes(30))) {
-            throw new AppException(ErrorCode.APPOINTMENT_TOO_SOON);
-        }
 
         Customer customer = customerRepository.findById(request.getCustomerId())
                 .orElseThrow(() -> new AppException(ErrorCode.CUSTOMER_NOT_FOUND));
@@ -88,10 +85,16 @@ public class AppointmentService {
 
         // Create appointment details (service + therapist assignments)
         List<AppoinmentDetail> details = buildDetails(appointment, request.getDetails(), null);
-        appointmentDetailRepository.saveAll(details);
         appointment.setDetails(details);
+        appointmentRepository.save(appointment);
 
         log.info("Appointment created: {} for customer {}", appointment.getAppointmentId(), customer.getName());
+        notificationService.notify(
+                fit.quanlyspa.enums.NotificationType.APPOINTMENT_REMINDER,
+                "Lịch hẹn mới",
+                "Khách " + customer.getName() + " đặt lịch lúc "
+                        + request.getDateTime().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm dd/MM/yyyy")),
+                appointment.getAppointmentId(), "APPOINTMENT", customer);
         return toResponse(appointment);
     }
 
@@ -105,10 +108,6 @@ public class AppointmentService {
             appointment.getStatusOfAppointment() == StatusOfAppointment.NO_SHOW) {
             throw new AppException(ErrorCode.OPERATION_NOT_ALLOWED,
                     "KhĂ´ng thá»ƒ cáº­p nháº­t lá»‹ch háº¹n á»Ÿ tráº¡ng thĂ¡i nĂ y");
-        }
-
-        if (request.getDateTime().isBefore(LocalDateTime.now().plusMinutes(30))) {
-            throw new AppException(ErrorCode.APPOINTMENT_TOO_SOON);
         }
 
         Customer customer = customerRepository.findById(request.getCustomerId())
@@ -138,8 +137,8 @@ public class AppointmentService {
 
         Appointment saved = appointmentRepository.save(appointment);
         List<AppoinmentDetail> details = buildDetails(saved, request.getDetails(), appointmentId);
-        appointmentDetailRepository.saveAll(details);
         saved.setDetails(details);
+        appointmentRepository.save(saved);
 
         log.info("Appointment updated: {} for customer {}", appointmentId, customer.getName());
         return toResponse(saved);
@@ -160,6 +159,11 @@ public class AppointmentService {
     }
 
     @Transactional
+    public AppointmentResponse markWaiting(String appointmentId) {
+        return transition(appointmentId, StatusOfAppointment.WAITING);
+    }
+
+    @Transactional
     public AppointmentResponse startTreatment(String appointmentId) {
         return transition(appointmentId, StatusOfAppointment.IN_PROGRESS);
     }
@@ -168,7 +172,10 @@ public class AppointmentService {
     public AppointmentResponse complete(String appointmentId) {
         Appointment appointment = transitionEntity(appointmentId, StatusOfAppointment.COMPLETED);
         appointment.setCompletedAt(LocalDateTime.now());
-        return toResponse(appointmentRepository.save(appointment));
+        Appointment saved = appointmentRepository.save(appointment);
+        // Sinh hoa hồng cho kỹ thuật viên khi lịch hẹn dịch vụ hoàn thành
+        commissionService.generateForCompletedAppointment(saved);
+        return toResponse(saved);
     }
 
     @Transactional
@@ -186,6 +193,12 @@ public class AppointmentService {
         appointment.setCancelReason(reason);
         appointment.setCancelledAt(LocalDateTime.now());
         log.info("Appointment {} cancelled: {}", appointmentId, reason);
+        notificationService.notify(
+                fit.quanlyspa.enums.NotificationType.APPOINTMENT_CANCELLED,
+                "Lịch hẹn bị hủy",
+                "Lịch hẹn của khách " + appointment.getCustomer().getName() + " đã bị hủy"
+                        + (reason != null && !reason.isBlank() ? " (" + reason + ")" : ""),
+                appointment.getAppointmentId(), "APPOINTMENT", appointment.getCustomer());
         return toResponse(appointmentRepository.save(appointment));
     }
 
@@ -198,11 +211,6 @@ public class AppointmentService {
     public AppointmentResponse reschedule(String appointmentId, LocalDateTime newDateTime) {
         Appointment appointment = findById(appointmentId);
         validateTransition(appointment.getStatusOfAppointment(), StatusOfAppointment.RESCHEDULED);
-
-        // Business Rule: New time must also be in future
-        if (newDateTime.isBefore(LocalDateTime.now().plusMinutes(30))) {
-            throw new AppException(ErrorCode.APPOINTMENT_TOO_SOON);
-        }
 
         // Check for conflicts with new time
         double totalDuration = appointment.getDetails().stream()

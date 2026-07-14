@@ -17,4 +17,21 @@ public interface TreatmentScheduleRepository extends JpaRepository<TreatmentSche
 
     @Query("SELECT ts FROM TreatmentSchedule ts WHERE ts.scheduledDate = :date AND ts.status = 'SCHEDULED'")
     List<TreatmentSchedule> findScheduledForDate(@Param("date") LocalDate date);
+
+    @Query("SELECT ts FROM TreatmentSchedule ts " +
+           "WHERE ts.customerTreatment.id.customerId = :customerId " +
+           "AND ts.customerTreatment.id.packageId = :packageId " +
+           "AND ts.status = 'SCHEDULED'")
+    List<TreatmentSchedule> findScheduledByTreatment(@Param("customerId") String customerId,
+                                                     @Param("packageId") String packageId);
+
+    @Query("SELECT ts FROM TreatmentSchedule ts " +
+           "JOIN FETCH ts.customerTreatment ct " +
+           "JOIN FETCH ct.customer " +
+           "JOIN FETCH ct.treatmentPackage " +
+           "LEFT JOIN FETCH ts.therapist " +
+           "LEFT JOIN FETCH ts.room " +
+           "WHERE ts.scheduledDate BETWEEN :from AND :to " +
+           "ORDER BY ts.scheduledDate ASC, ts.sessionNumber ASC")
+    List<TreatmentSchedule> findByScheduledDateBetween(@Param("from") LocalDate from, @Param("to") LocalDate to);
 }

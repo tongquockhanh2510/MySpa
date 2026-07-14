@@ -30,7 +30,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   severity = 'warning',
 }) => {
   const color = severity === 'error' ? '#EF4444' : '#D97706';
-  const bgColor = severity === 'error' ? '#FEE2E2' : '#FEF3C7';
+  const bgColor = severity === 'error' ? 'var(--error-light)' : 'var(--warning-light)';
 
   return (
     <Dialog

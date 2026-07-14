@@ -14,7 +14,7 @@ import {
 import { Box, FormControl, InputLabel, MenuItem, Select, Tab, Tabs } from '@mui/material';
 import PageHeader from '@components/common/PageHeader';
 import ExportButtons from '@components/common/ExportButtons';
-import { getDashboardStats } from '@/api/dashboard';
+import { getDashboardStats, getDailyRevenue, getTopProducts } from '@/api/dashboard';
 import { formatCurrency } from '@utils/formatters';
 import { exportToExcel } from '@utils/exportExcel';
 import { toast } from 'sonner';
@@ -39,7 +39,10 @@ const inputSx = {
 const ReportsPage: React.FC = () => {
   const [tab, setTab] = useState(0);
   const [year, setYear] = useState(new Date().getFullYear());
+  const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [stats, setStats] = useState<any>(emptyStats);
+  const [dailyRevenue, setDailyRevenue] = useState<any[]>([]);
+  const [topProducts, setTopProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -58,6 +61,30 @@ const ReportsPage: React.FC = () => {
 
     loadReport();
   }, [year]);
+
+  useEffect(() => {
+    getDailyRevenue(month, year)
+      .then((rows) => setDailyRevenue(Array.isArray(rows) ? rows : []))
+      .catch((err) => { console.error(err); setDailyRevenue([]); });
+  }, [month, year]);
+
+  useEffect(() => {
+    getTopProducts(year)
+      .then((rows) => setTopProducts(Array.isArray(rows) ? rows : []))
+      .catch((err) => { console.error(err); setTopProducts([]); });
+  }, [year]);
+
+  const dailySeries = useMemo(() => dailyRevenue.map((row: any) => ({
+    day: String(row.date || '').slice(8, 10),
+    revenue: Number(row.revenue || 0),
+    orderCount: Number(row.orderCount || 0),
+  })), [dailyRevenue]);
+
+  const productSeries = useMemo(() => topProducts.map((row: any) => ({
+    name: row.productName,
+    quantity: Number(row.quantitySold || 0),
+    revenue: Number(row.totalRevenue || 0),
+  })), [topProducts]);
 
   const monthlyRevenue = useMemo(() => {
     const byMonth = new Map((stats.monthlyRevenue || []).map((item: any) => [item.month, item]));
@@ -191,7 +218,9 @@ const ReportsPage: React.FC = () => {
           }}
         >
           <Tab label="Doanh thu theo tháng" />
+          <Tab label="Doanh thu theo ngày" />
           <Tab label="Top dịch vụ" />
+          <Tab label="Sản phẩm bán chạy" />
           <Tab label="Top nhân viên" />
         </Tabs>
         <Box className="reports-page__chart-body">
@@ -222,7 +251,40 @@ const ReportsPage: React.FC = () => {
               </AreaChart>
             </ResponsiveContainer>
           )}
-          {tab === 1 &&
+          {tab === 1 && (
+            <div>
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1.5 }}>
+                <FormControl size="small" sx={inputSx}>
+                  <InputLabel>Tháng</InputLabel>
+                  <Select value={month} onChange={(event) => setMonth(Number(event.target.value))} label="Tháng">
+                    {Array.from({ length: 12 }, (_, index) => index + 1).map((value) => (
+                      <MenuItem key={value} value={value}>Tháng {value}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Box>
+              <ResponsiveContainer width="100%" height={300}>
+                <AreaChart data={dailySeries}>
+                  <defs>
+                    <linearGradient id="dailyRevGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#2563EB" stopOpacity={0.24} />
+                      <stop offset="100%" stopColor="#2563EB" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--divider)" />
+                  <XAxis dataKey="day" tick={{ fontSize: 11, fill: 'var(--text-tertiary)' }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 12, fill: 'var(--text-tertiary)' }} axisLine={false} tickLine={false} tickFormatter={(value) => `${(value / 1000000).toFixed(1)}M`} />
+                  <Tooltip
+                    formatter={(value: any, name: any) => name === 'revenue' ? [formatCurrency(value), 'Doanh thu'] : [value, 'Số hóa đơn']}
+                    labelFormatter={(label) => `Ngày ${label}/${month}/${year}`}
+                    contentStyle={{ borderRadius: 10, border: '1px solid var(--border-color)' }}
+                  />
+                  <Area type="monotone" dataKey="revenue" name="revenue" stroke="#2563EB" strokeWidth={2.5} fill="url(#dailyRevGrad)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+          {tab === 2 &&
             (serviceRevenue.length > 0 ? (
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={serviceRevenue} layout="vertical">
@@ -242,7 +304,25 @@ const ReportsPage: React.FC = () => {
             ) : (
               <p className="reports-page__empty">Chưa có dữ liệu dịch vụ trong năm này</p>
             ))}
-          {tab === 2 &&
+          {tab === 3 &&
+            (productSeries.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={productSeries} layout="vertical">
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--divider)" horizontal={false} />
+                  <XAxis type="number" tick={{ fontSize: 12, fill: 'var(--text-tertiary)' }} axisLine={false} tickLine={false} />
+                  <YAxis type="category" dataKey="name" tick={{ fontSize: 12, fill: 'var(--text-tertiary)' }} axisLine={false} tickLine={false} width={150} />
+                  <Tooltip
+                    formatter={(value: any, name: any) => name === 'quantity' ? [`${value} sản phẩm`, 'Đã bán'] : [formatCurrency(value), 'Doanh thu']}
+                    contentStyle={{ borderRadius: 10, border: '1px solid var(--border-color)' }}
+                  />
+                  <Legend formatter={(value) => (value === 'quantity' ? 'Số lượng bán' : 'Doanh thu')} />
+                  <Bar dataKey="quantity" name="quantity" fill="#10B981" radius={[0, 6, 6, 0]} maxBarSize={28} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <p className="reports-page__empty">Chưa có sản phẩm nào được bán trong năm này</p>
+            ))}
+          {tab === 4 &&
             (topEmployees.length > 0 ? (
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={topEmployees}>

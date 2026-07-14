@@ -129,17 +129,17 @@
 
 .products-page__stock-chip--danger {
   color: #dc2626 !important;
-  background: #fee2e2 !important;
+  background: var(--error-light) !important;
 }
 
 .products-page__stock-chip--warning {
   color: #d97706 !important;
-  background: #fef3c7 !important;
+  background: var(--warning-light) !important;
 }
 
 .products-page__stock-chip--ok {
   color: #059669 !important;
-  background: #d1fae5 !important;
+  background: var(--success-light) !important;
 }
 
 .products-page__form {

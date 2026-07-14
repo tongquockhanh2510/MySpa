@@ -1,8 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
-  AreaChart, Area, PieChart, Pie, Cell,
+  AreaChart, Area, PieChart, Pie, Cell, Legend,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
+import { ROUTES } from '@constants/routes';
 import Button from '@mui/material/Button';
 import Alert from '@mui/material/Alert';
 import Skeleton from '@mui/material/Skeleton';
@@ -30,12 +32,12 @@ const emptyStats = {
   todayRevenue: 0,
   monthRevenue: 0,
   yearRevenue: 0,
-  revenueGrowthPercent: 0,
+  revenueGrowthPercent: null as number | null,
   todayAppointments: 0,
   monthAppointments: 0,
   totalCustomers: 0,
   newCustomersThisMonth: 0,
-  customerGrowthPercent: 0,
+  customerGrowthPercent: null as number | null,
   activeEmployees: 0,
   totalEmployees: 0,
   soldPackagesThisMonth: 0,
@@ -62,7 +64,7 @@ const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?:
       {label && <p className="dashboard-tooltip__label">{label}</p>}
       {payload.map((entry, index) => (
         <p key={`${entry.name}-${index}`} className="dashboard-tooltip__value">
-          {entry.name === 'revenue' || entry.name === 'Doanh thu' ? formatCurrency(entry.value) : entry.value}
+          {entry.name}: {formatCurrency(entry.value)}
         </p>
       ))}
     </div>
@@ -100,6 +102,7 @@ const EmptyState: React.FC<{ icon: React.ReactNode; title: string; description: 
 );
 
 const DashboardPage: React.FC = () => {
+  const navigate = useNavigate();
   const [stats, setStats] = useState<DashboardStats>(emptyStats);
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -138,6 +141,7 @@ const DashboardPage: React.FC = () => {
       return {
         month: `T${month}`,
         revenue: Number(item?.revenue || 0),
+        profit: Number(item?.profit ?? item?.revenue ?? 0),
         orderCount: Number(item?.orderCount || 0),
       };
     });
@@ -236,17 +240,26 @@ const DashboardPage: React.FC = () => {
           ))
         ) : (
           <>
-            <StatCard title="Doanh thu hôm nay" value={Number(stats.todayRevenue || 0)} format="currency" icon={<AttachMoneyIcon />} color="#D97706" trend={Number(stats.revenueGrowthPercent || 0)} />
-            <StatCard title="Lịch hẹn hôm nay" value={Number(stats.todayAppointments || 0)} icon={<CalendarMonthIcon />} color="#2563EB" subtitle="buổi cần phục vụ" />
-            <StatCard title="Khách hàng mới" value={Number(stats.newCustomersThisMonth || 0)} icon={<PeopleIcon />} color="#10B981" trend={Number(stats.customerGrowthPercent || 0)} subtitle="trong tháng này" />
-            <StatCard title="Nhân viên đang làm" value={Number(stats.activeEmployees || 0)} icon={<BadgeIcon />} color="#7C3AED" subtitle={`/${Number(stats.totalEmployees || 0)} người`} />
-            <StatCard title="Gói liệu trình đã bán" value={Number(stats.soldPackagesThisMonth || 0)} icon={<FolderSpecialIcon />} color="#DC2626" subtitle="trong tháng này" />
+            <StatCard title="Doanh thu hôm nay" value={Number(stats.todayRevenue || 0)} format="currency" icon={<AttachMoneyIcon />} color="#D97706" trend={stats.revenueGrowthPercent == null ? undefined : Math.round(Number(stats.revenueGrowthPercent))} onClick={() => navigate(ROUTES.ORDERS)} />
+            <StatCard title="Lịch hẹn hôm nay" value={Number(stats.todayAppointments || 0)} icon={<CalendarMonthIcon />} color="#2563EB" subtitle="buổi cần phục vụ" onClick={() => navigate(ROUTES.APPOINTMENTS)} />
+            <StatCard title="Khách hàng mới" value={Number(stats.newCustomersThisMonth || 0)} icon={<PeopleIcon />} color="#10B981" trend={stats.customerGrowthPercent == null ? undefined : Math.round(Number(stats.customerGrowthPercent))} subtitle="trong tháng này" onClick={() => navigate(ROUTES.CUSTOMERS)} />
+            <StatCard title="Nhân viên đang làm" value={Number(stats.activeEmployees || 0)} icon={<BadgeIcon />} color="#7C3AED" subtitle={`/${Number(stats.totalEmployees || 0)} người`} onClick={() => navigate(ROUTES.EMPLOYEES)} />
+            <StatCard title="Gói liệu trình đã bán" value={Number(stats.soldPackagesThisMonth || 0)} icon={<FolderSpecialIcon />} color="#DC2626" subtitle="trong tháng này" onClick={() => navigate(ROUTES.CUSTOMER_TREATMENTS)} />
           </>
         )}
       </section>
 
       <div className="dashboard-grid dashboard-grid--charts">
-        <SectionPanel title="Doanh thu 12 tháng" subtitle="Theo hóa đơn đã thanh toán" icon={<AttachMoneyIcon />}>
+        <SectionPanel
+          title="Doanh thu và lợi nhuận"
+          subtitle="12 tháng, theo hóa đơn đã thanh toán"
+          icon={<AttachMoneyIcon />}
+          action={
+            <Button size="small" onClick={() => navigate(ROUTES.REPORTS)} sx={{ textTransform: 'none', fontFamily: 'inherit', fontWeight: 600, color: 'var(--primary)' }}>
+              Xem báo cáo
+            </Button>
+          }
+        >
           <div className="dashboard-chart-summary">
             <div>
               <span>Năm nay</span>
@@ -265,18 +278,33 @@ const DashboardPage: React.FC = () => {
                     <stop offset="0%" stopColor="#D97706" stopOpacity={0.22} />
                     <stop offset="100%" stopColor="#D97706" stopOpacity={0.02} />
                   </linearGradient>
+                  <linearGradient id="dashboardProfitGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#10B981" stopOpacity={0.2} />
+                    <stop offset="100%" stopColor="#10B981" stopOpacity={0.02} />
+                  </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--divider)" vertical={false} />
                 <XAxis dataKey="month" tick={{ fontSize: 12, fill: 'var(--text-tertiary)' }} axisLine={false} tickLine={false} />
                 <YAxis width={44} tick={{ fontSize: 12, fill: 'var(--text-tertiary)' }} axisLine={false} tickLine={false} tickFormatter={(value) => formatShortCurrency(Number(value))} />
                 <Tooltip content={<CustomTooltip />} />
-                <Area type="monotone" dataKey="revenue" name="revenue" stroke="#D97706" strokeWidth={3} fill="url(#dashboardRevenueGradient)" dot={{ r: 3, strokeWidth: 2 }} activeDot={{ r: 5 }} />
+                <Legend wrapperStyle={{ fontSize: 12 }} />
+                <Area type="monotone" dataKey="revenue" name="Doanh thu" stroke="#D97706" strokeWidth={3} fill="url(#dashboardRevenueGradient)" dot={{ r: 3, strokeWidth: 2 }} activeDot={{ r: 5 }} />
+                <Area type="monotone" dataKey="profit" name="Lợi nhuận" stroke="#10B981" strokeWidth={2.5} fill="url(#dashboardProfitGradient)" dot={{ r: 3, strokeWidth: 2 }} activeDot={{ r: 5 }} />
               </AreaChart>
             </ResponsiveContainer>
           </div>
         </SectionPanel>
 
-        <SectionPanel title="Dịch vụ phổ biến" subtitle="Theo lượt đặt trong kỳ" icon={<SpaIcon />}>
+        <SectionPanel
+          title="Dịch vụ phổ biến"
+          subtitle="Theo lượt đặt trong kỳ"
+          icon={<SpaIcon />}
+          action={
+            <Button size="small" onClick={() => navigate(ROUTES.SERVICES)} sx={{ textTransform: 'none', fontFamily: 'inherit', fontWeight: 600, color: 'var(--primary)' }}>
+              Xem tất cả
+            </Button>
+          }
+        >
           {popularServices.length ? (
             <div className="dashboard-service-layout">
               <div className="dashboard-donut">
@@ -312,10 +340,26 @@ const DashboardPage: React.FC = () => {
       </div>
 
       <div className="dashboard-grid dashboard-grid--lists">
-        <SectionPanel title="Đơn hàng gần đây" subtitle={`${recentOrders.length} đơn hàng mới nhất`} icon={<ReceiptLongIcon />}>
+        <SectionPanel
+          title="Đơn hàng gần đây"
+          subtitle={`${recentOrders.length} đơn hàng mới nhất`}
+          icon={<ReceiptLongIcon />}
+          action={
+            <Button size="small" onClick={() => navigate(ROUTES.ORDERS)} sx={{ textTransform: 'none', fontFamily: 'inherit', fontWeight: 600, color: 'var(--primary)' }}>
+              Xem tất cả
+            </Button>
+          }
+        >
           <div className="dashboard-list">
             {recentOrders.map((order) => (
-              <div key={order.orderId} className="dashboard-list-row">
+              <div
+                key={order.orderId}
+                className="dashboard-list-row dashboard-list-row--clickable"
+                role="button"
+                tabIndex={0}
+                onClick={() => navigate(ROUTES.ORDERS)}
+                onKeyDown={(e) => { if (e.key === 'Enter') navigate(ROUTES.ORDERS); }}
+              >
                 <div className="dashboard-list-row__main">
                   <strong>{order.customerName || 'Khách lẻ'}</strong>
                   <span>{formatCurrency(Number(order.totalAmount || 0))}</span>
@@ -329,12 +373,28 @@ const DashboardPage: React.FC = () => {
           </div>
         </SectionPanel>
 
-        <SectionPanel title="Sản phẩm sắp hết hàng" subtitle={`${Number(stats.lowStockProducts || 0)} sản phẩm cần chú ý`} icon={<Inventory2Icon />}>
+        <SectionPanel
+          title="Sản phẩm sắp hết hàng"
+          subtitle={`${Number(stats.lowStockProducts || 0)} sản phẩm cần chú ý`}
+          icon={<Inventory2Icon />}
+          action={
+            <Button size="small" onClick={() => navigate(ROUTES.PRODUCTS)} sx={{ textTransform: 'none', fontFamily: 'inherit', fontWeight: 600, color: 'var(--primary)' }}>
+              Xem tất cả
+            </Button>
+          }
+        >
           <div className="dashboard-list">
             {lowStockProducts.map((product: any) => {
               const critical = Number(product.currentStock || 0) <= 3;
               return (
-                <div key={product.productId || product.productName} className="dashboard-list-row">
+                <div
+                  key={product.productId || product.productName}
+                  className="dashboard-list-row dashboard-list-row--clickable"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => navigate(ROUTES.PRODUCTS)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') navigate(ROUTES.PRODUCTS); }}
+                >
                   <div className="dashboard-list-row__main">
                     <strong>{product.productName}</strong>
                     <span>{product.brand || 'Chưa có thương hiệu'}</span>

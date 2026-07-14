@@ -51,6 +51,15 @@ public class Order {
     @Builder.Default
     BigDecimal membershipDiscount = BigDecimal.ZERO;
 
+    // Dung wrapper type vi cac don hang cu (truoc khi them cot) mang gia tri NULL trong DB
+    @Column(name = "loyalty_discount", precision = 15, scale = 2)
+    @Builder.Default
+    BigDecimal loyaltyDiscount = BigDecimal.ZERO;
+
+    @Column(name = "loyalty_points_used")
+    @Builder.Default
+    Double loyaltyPointsUsed = 0.0;
+
     @Column(name = "tax_amount", nullable = false, precision = 15, scale = 2)
     @Builder.Default
     BigDecimal taxAmount = BigDecimal.ZERO;
@@ -70,6 +79,10 @@ public class Order {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "customer_id", nullable = false)
     Customer customer;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "appointment_id")
+    Appointment appointment;
 
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default

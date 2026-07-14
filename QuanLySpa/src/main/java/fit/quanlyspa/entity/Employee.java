@@ -93,6 +93,23 @@ public class Employee {
     @JoinColumn(name = "user_id")
     User user;
 
+    // Thong tin tai khoan dang nhap (chi doc) de frontend hien thi
+    @com.fasterxml.jackson.annotation.JsonProperty("accountUserName")
+    public String getAccountUserName() {
+        return user == null ? null : user.getUserName();
+    }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("accountActive")
+    public Boolean getAccountActive() {
+        return user == null ? null : user.isActive();
+    }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("accountRoles")
+    public List<String> getAccountRoles() {
+        if (user == null || user.getRoles() == null) return List.of();
+        return user.getRoles().stream().map(Role::getName).sorted().toList();
+    }
+
     @JsonIgnore
     @OneToMany(mappedBy = "employee", fetch = FetchType.LAZY)
     @Builder.Default

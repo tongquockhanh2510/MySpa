@@ -90,6 +90,14 @@ export const deleteEmployee = async (id: string) => {
   return response.data.result;
 };
 
+export const createEmployeeAccount = async (
+  employeeId: string,
+  data: { userName: string; password: string; role: string },
+) => {
+  const response = await axiosInstance.post(`/employees/${employeeId}/account`, data);
+  return response.data.result;
+};
+
 export const getRooms = async () => {
   const response = await axiosInstance.get('/rooms');
   return response.data.result || [];

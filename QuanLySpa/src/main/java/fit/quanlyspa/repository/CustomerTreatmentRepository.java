@@ -17,6 +17,19 @@ public interface CustomerTreatmentRepository extends JpaRepository<CustomerTreat
 
     List<CustomerTreatment> findByCustomer_CustomerId(String customerId);
 
+    @Query("SELECT ct FROM CustomerTreatment ct " +
+           "LEFT JOIN FETCH ct.customer " +
+           "LEFT JOIN FETCH ct.treatmentPackage " +
+           "ORDER BY ct.purchaseDate DESC")
+    List<CustomerTreatment> findAllWithDetails();
+
+    @Query("SELECT ct FROM CustomerTreatment ct " +
+           "LEFT JOIN FETCH ct.customer " +
+           "LEFT JOIN FETCH ct.treatmentPackage " +
+           "WHERE ct.customer.customerId = :customerId " +
+           "ORDER BY ct.purchaseDate DESC")
+    List<CustomerTreatment> findByCustomerIdWithDetails(@Param("customerId") String customerId);
+
     @Query("SELECT ct FROM CustomerTreatment ct WHERE ct.remainingSessions > 0 AND ct.expiryDate >= :today")
     List<CustomerTreatment> findActiveByCustomer(@Param("today") LocalDate today);
 

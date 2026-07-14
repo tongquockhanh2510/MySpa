@@ -22,6 +22,17 @@ public class TreatmentScheduleController {
 
     private final TreatmentScheduleService treatmentScheduleService;
 
+    @GetMapping
+    @Operation(summary = "Danh sách buổi liệu trình theo khoảng ngày (hiển thị trên lịch)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'RECEPTIONIST', 'THERAPIST')")
+    public ResponseEntity<ApiResponse<List<TreatmentScheduleResponse>>> getByDateRange(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to
+    ) {
+        List<TreatmentScheduleResponse> response = treatmentScheduleService.getSchedulesByDateRange(from, to);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
     @GetMapping("/customer/{customerId}")
     @Operation(summary = "Xem lịch trình trị liệu của khách hàng")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'RECEPTIONIST', 'THERAPIST')")

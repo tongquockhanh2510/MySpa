@@ -21,6 +21,46 @@ public class SchemaMaintenanceRunner implements CommandLineRunner {
     @Override
     public void run(String... args) {
         removeWrongUniqueIndexesOnOrderItems();
+        ensureOrderAppointmentColumn();
+    }
+
+    private void ensureOrderAppointmentColumn() {
+        try {
+            Integer columnCount = jdbcTemplate.queryForObject("""
+                    SELECT COUNT(*)
+                    FROM information_schema.columns
+                    WHERE table_schema = DATABASE()
+                      AND table_name = 'orders'
+                      AND column_name = 'appointment_id'
+                    """, Integer.class);
+
+            if (columnCount == null || columnCount == 0) {
+                jdbcTemplate.execute("ALTER TABLE orders ADD COLUMN appointment_id VARCHAR(255) NULL");
+                log.info("Added nullable orders.appointment_id column");
+            }
+
+            ensureIndex("orders", "idx_orders_appointment_id", "appointment_id");
+
+            Integer fkCount = jdbcTemplate.queryForObject("""
+                    SELECT COUNT(*)
+                    FROM information_schema.key_column_usage
+                    WHERE table_schema = DATABASE()
+                      AND table_name = 'orders'
+                      AND column_name = 'appointment_id'
+                      AND referenced_table_name = 'appointments'
+                    """, Integer.class);
+
+            if (fkCount == null || fkCount == 0) {
+                jdbcTemplate.execute("""
+                        ALTER TABLE orders
+                        ADD CONSTRAINT fk_orders_appointment
+                        FOREIGN KEY (appointment_id) REFERENCES appointments(appointment_id)
+                        """);
+                log.info("Added orders.appointment_id foreign key");
+            }
+        } catch (Exception e) {
+            log.warn("Could not maintain orders.appointment_id schema: {}", e.getMessage(), e);
+        }
     }
 
     private void removeWrongUniqueIndexesOnOrderItems() {
@@ -60,19 +100,24 @@ public class SchemaMaintenanceRunner implements CommandLineRunner {
 
     private void ensureNonUniqueIndex(String columnName) {
         String indexName = "idx_order_items_" + columnName;
+        ensureIndex("order_items", indexName, columnName);
+    }
+
+    private void ensureIndex(String tableName, String indexName, String columnName) {
         Integer existingCount = jdbcTemplate.queryForObject("""
                 SELECT COUNT(*)
                 FROM information_schema.statistics
                 WHERE table_schema = DATABASE()
-                  AND table_name = 'order_items'
+                  AND table_name = ?
                   AND index_name = ?
-                """, Integer.class, indexName);
+                """, Integer.class, tableName, indexName);
 
         if (existingCount != null && existingCount > 0) {
             return;
         }
 
-        jdbcTemplate.execute("CREATE INDEX `" + indexName + "` ON order_items (`" + columnName + "`)");
+        jdbcTemplate.execute("CREATE INDEX `" + indexName.replace("`", "``") + "` ON `"
+                + tableName.replace("`", "``") + "` (`" + columnName.replace("`", "``") + "`)");
     }
 
     private record IndexInfo(String indexName, String columnName) {

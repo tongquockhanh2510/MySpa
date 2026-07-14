@@ -53,10 +53,14 @@ export const ROUTES = {
   // Reports
   REPORTS: '/bao-cao',
 
+  // Notifications
+  NOTIFICATIONS: '/thong-bao',
+
   // User Management
   USERS: '/nguoi-dung',
   ROLES: '/vai-tro',
   PERMISSIONS: '/phan-quyen',
+  SUBSCRIPTIONS: '/goi-dich-vu',
 
   // Profile
   PROFILE: '/ho-so',

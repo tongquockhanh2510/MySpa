@@ -44,6 +44,14 @@ export enum OrderStatus {
   CANCELLED = 'CANCELLED',
 }
 
+export enum InvoiceStatus {
+  DRAFT = 'DRAFT',
+  UNPAID = 'UNPAID',
+  PARTIALLY_PAID = 'PARTIALLY_PAID',
+  PAID = 'PAID',
+  CANCELLED = 'CANCELLED',
+}
+
 export enum TypeOfOrder {
   PRODUCT_ORDER = 'PRODUCT_ORDER',
   SERVICE_ORDER = 'SERVICE_ORDER',
@@ -148,6 +156,15 @@ export interface Employee {
   position: string;
   baseSalary: number;
   userId?: string;
+  accountUserName?: string | null;
+  accountActive?: boolean | null;
+  accountRoles?: string[];
+}
+
+export interface EmployeeAccount {
+  accountUserName?: string | null;
+  accountActive?: boolean | null;
+  accountRoles?: string[];
 }
 
 export interface EmployeeFormData {
@@ -166,6 +183,7 @@ export interface Service {
   serviceId: string;
   name: string;
   price: number;
+  costPrice?: number;
   duration: number;
   description: string;
   statusOfService: StatusOfService;
@@ -179,6 +197,7 @@ export interface ServiceFormData {
   serviceId?: string;
   name: string;
   price: number;
+  costPrice?: number;
   duration: number;
   description: string;
   statusOfService: StatusOfService;
@@ -474,6 +493,7 @@ export interface Role {
 export interface User {
   userId: string;
   userName: string;
+  isActive?: boolean;
   roles: Role[];
   employeeId?: string;
   employeeName?: string;
