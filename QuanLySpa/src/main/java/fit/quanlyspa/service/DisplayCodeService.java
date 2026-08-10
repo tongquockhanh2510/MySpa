@@ -40,14 +40,16 @@ public class DisplayCodeService {
         return "LH-" + day + "-" + padded(next("APPOINTMENT:" + day), 3);
     }
 
+    // `last_value` la tu khoa danh rieng cho window function tu MariaDB 10.2+,
+    // phai escape bang backtick khi dung lam ten cot, neu khong parser bao loi cu phap.
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public long next(String key) {
         jdbcTemplate.update("""
-                INSERT INTO display_code_sequences (code_key, last_value) VALUES (?, 1)
-                ON DUPLICATE KEY UPDATE last_value = last_value + 1
+                INSERT INTO display_code_sequences (code_key, `last_value`) VALUES (?, 1)
+                ON DUPLICATE KEY UPDATE `last_value` = `last_value` + 1
                 """, key);
         Long value = jdbcTemplate.queryForObject(
-                "SELECT last_value FROM display_code_sequences WHERE code_key = ?", Long.class, key);
+                "SELECT `last_value` FROM display_code_sequences WHERE code_key = ?", Long.class, key);
         return value == null ? 1 : value;
     }
 

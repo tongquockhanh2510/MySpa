@@ -155,10 +155,6 @@ const LoginPage: React.FC = () => {
           {isLoading ? <CircularProgress size={20} sx={{ color: '#fff' }} /> : 'Đăng nhập'}
         </Button>
       </form>
-
-      <div className="auth-demo-note">
-        Demo: <strong>admin</strong> / <strong>admin123</strong>
-      </div>
     </section>
   );
 };

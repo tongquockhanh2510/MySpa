@@ -41,6 +41,80 @@ public class SchemaMaintenanceRunner implements CommandLineRunner {
         ensureCustomerTreatmentSourceOrderColumn();
         deactivateObviousTestData();
         backfillDisplayCodes();
+        cleanupDemoSeedData();
+    }
+
+    /**
+     * Xoa du lieu demo tung duoc DataInitializer seed (khach hang, tai khoan
+     * quanly/letan/staff_*, phong, dich vu, san pham, goi lieu trinh mau) —
+     * chi giu lai tai khoan admin/admin123. Chay dung MOT LAN.
+     */
+    private void cleanupDemoSeedData() {
+        runOnce("cleanup_demo_seed_data_v1", () -> {
+            List<String> demoEmployeeEmails = List.of(
+                    "quanly@myspa.com", "letan@myspa.com", "lannguyen@myspa.com", "huongtran@myspa.com");
+            List<String> demoUserNames = List.of("quanly", "letan", "staff_lan", "staff_huong");
+            List<String> demoCustomerEmails = List.of("minhan@gmail.com", "namle@gmail.com");
+            List<String> demoTreatmentPackageIds = List.of("pkg-acne-10", "pkg-whitening-5");
+            List<String> demoProductSkus = List.of("SKU-CET-500", "SKU-KLA-180");
+            List<String> demoServiceNames = List.of(
+                    "Chăm sóc da mặt cơ bản", "Massage body đá nóng Thụy Điển", "Điều trị mụn y khoa chuyên sâu");
+            List<String> demoRoomNumbers = List.of("101", "102", "201", "301");
+            List<String> demoCategoryIds = List.of("cat-skincare", "cat-massage", "cat-acne", "cat-cosmetic");
+
+            String employeeIdsByEmail = "SELECT employee_id FROM employees WHERE email IN ("
+                    + inPlaceholders(demoEmployeeEmails.size()) + ")";
+            String userIdsByUserName = "SELECT user_id FROM user WHERE user_name IN ("
+                    + inPlaceholders(demoUserNames.size()) + ")";
+
+            safeDelete("customers", "email", demoCustomerEmails);
+            safeDelete("treatment_packages", "treatment_package_id", demoTreatmentPackageIds);
+            safeDeleteBySubquery("employee_work_days", "employee_id", employeeIdsByEmail, demoEmployeeEmails);
+            safeDeleteBySubquery("employee_service_skills", "employee_id", employeeIdsByEmail, demoEmployeeEmails);
+            safeDelete("employees", "email", demoEmployeeEmails);
+            safeDeleteBySubquery("user_roles", "user_id", userIdsByUserName, demoUserNames);
+            safeDelete("user", "user_name", demoUserNames);
+            safeDelete("services", "name", demoServiceNames);
+            safeDelete("products", "sku", demoProductSkus);
+            safeDelete("rooms", "room_number", demoRoomNumbers);
+            safeDelete("categories", "category_id", demoCategoryIds);
+
+            log.info("Cleaned up demo seed data — only the admin account remains");
+        });
+    }
+
+    private void safeDelete(String table, String column, List<String> values) {
+        if (values.isEmpty()) {
+            return;
+        }
+        try {
+            String sql = "DELETE FROM " + table + " WHERE " + column + " IN (" + inPlaceholders(values.size()) + ")";
+            int count = jdbcTemplate.update(sql, values.toArray());
+            if (count > 0) {
+                log.info("Deleted {} demo row(s) from {}", count, table);
+            }
+        } catch (Exception e) {
+            log.warn("Could not clean up demo data in {}: {}", table, e.getMessage());
+        }
+    }
+
+    private void safeDeleteBySubquery(String table, String column, String subquery, List<String> subqueryArgs) {
+        if (subqueryArgs.isEmpty()) {
+            return;
+        }
+        try {
+            String sql = "DELETE FROM " + table + " WHERE " + column + " IN (" + subquery + ")";
+            int count = jdbcTemplate.update(sql, subqueryArgs.toArray());
+            if (count > 0) {
+                log.info("Deleted {} demo row(s) from {}", count, table);
+            }
+        } catch (Exception e) {
+            log.warn("Could not clean up demo data in {}: {}", table, e.getMessage());
+        }
+    }
+
+    private String inPlaceholders(int count) {
+        return String.join(",", java.util.Collections.nCopies(count, "?"));
     }
 
     /**
@@ -185,7 +259,7 @@ public class SchemaMaintenanceRunner implements CommandLineRunner {
             jdbcTemplate.execute("""
                     CREATE TABLE IF NOT EXISTS display_code_sequences (
                         code_key VARCHAR(80) PRIMARY KEY,
-                        last_value BIGINT NOT NULL
+                        `last_value` BIGINT NOT NULL
                     )
                     """);
         } catch (Exception e) {
