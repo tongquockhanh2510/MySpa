@@ -84,27 +84,20 @@ public class SchemaMaintenanceRunner implements CommandLineRunner {
     }
 
     private void safeDelete(String table, String column, List<String> values) {
-        if (values.isEmpty()) {
-            return;
-        }
-        try {
-            String sql = "DELETE FROM " + table + " WHERE " + column + " IN (" + inPlaceholders(values.size()) + ")";
-            int count = jdbcTemplate.update(sql, values.toArray());
-            if (count > 0) {
-                log.info("Deleted {} demo row(s) from {}", count, table);
-            }
-        } catch (Exception e) {
-            log.warn("Could not clean up demo data in {}: {}", table, e.getMessage());
-        }
+        deleteWhereIn(table, column, inPlaceholders(values.size()), values);
     }
 
     private void safeDeleteBySubquery(String table, String column, String subquery, List<String> subqueryArgs) {
-        if (subqueryArgs.isEmpty()) {
+        deleteWhereIn(table, column, subquery, subqueryArgs);
+    }
+
+    private void deleteWhereIn(String table, String column, String inClauseSource, List<String> args) {
+        if (args.isEmpty()) {
             return;
         }
         try {
-            String sql = "DELETE FROM " + table + " WHERE " + column + " IN (" + subquery + ")";
-            int count = jdbcTemplate.update(sql, subqueryArgs.toArray());
+            String sql = "DELETE FROM " + table + " WHERE " + column + " IN (" + inClauseSource + ")";
+            int count = jdbcTemplate.update(sql, args.toArray());
             if (count > 0) {
                 log.info("Deleted {} demo row(s) from {}", count, table);
             }
