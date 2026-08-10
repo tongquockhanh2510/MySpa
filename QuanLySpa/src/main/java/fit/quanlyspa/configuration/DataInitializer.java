@@ -248,17 +248,16 @@ public class DataInitializer implements CommandLineRunner {
 
         // 4. Create Rooms
         if (roomRepository.count() == 0) {
-            roomRepository.save(Room.builder().roomId("room-vip1").roomName("Phòng VIP 1").roomNumber("101").capacity(2).description("Phòng massage cao cấp dành cho cặp đôi").status(RoomStatus.AVAILABLE).build());
-            roomRepository.save(Room.builder().roomId("room-vip2").roomName("Phòng VIP 2").roomNumber("102").capacity(2).description("Phòng massage cao cấp đơn").status(RoomStatus.AVAILABLE).build());
-            roomRepository.save(Room.builder().roomId("room-skincare1").roomName("Phòng Chăm Sóc Da 1").roomNumber("201").capacity(5).description("Phòng chăm sóc da cơ bản").status(RoomStatus.AVAILABLE).build());
-            roomRepository.save(Room.builder().roomId("room-sauna").roomName("Phòng Xông Hơi").roomNumber("301").capacity(6).description("Phòng xông hơi đá muối Himalaya").status(RoomStatus.AVAILABLE).build());
+            roomRepository.save(Room.builder().roomName("Phòng VIP 1").roomNumber("101").capacity(2).description("Phòng massage cao cấp dành cho cặp đôi").status(RoomStatus.AVAILABLE).build());
+            roomRepository.save(Room.builder().roomName("Phòng VIP 2").roomNumber("102").capacity(2).description("Phòng massage cao cấp đơn").status(RoomStatus.AVAILABLE).build());
+            roomRepository.save(Room.builder().roomName("Phòng Chăm Sóc Da 1").roomNumber("201").capacity(5).description("Phòng chăm sóc da cơ bản").status(RoomStatus.AVAILABLE).build());
+            roomRepository.save(Room.builder().roomName("Phòng Xông Hơi").roomNumber("301").capacity(6).description("Phòng xông hơi đá muối Himalaya").status(RoomStatus.AVAILABLE).build());
             log.info("Initialized default rooms");
         }
 
         // 5. Create Customers
         if (customerRepository.count() == 0) {
             customerRepository.save(Customer.builder()
-                    .customerId("cust-001")
                     .name("Nguyễn Thị Minh An")
                     .phone("0901234567")
                     .email("minhan@gmail.com")
@@ -272,7 +271,6 @@ public class DataInitializer implements CommandLineRunner {
                     .isActive(true)
                     .build());
             customerRepository.save(Customer.builder()
-                    .customerId("cust-002")
                     .name("Lê Hoài Nam")
                     .phone("0902345678")
                     .email("namle@gmail.com")
@@ -290,7 +288,6 @@ public class DataInitializer implements CommandLineRunner {
         // 6. Create Services
         if (serviceRepository.count() == 0) {
             serviceRepository.save(Service.builder()
-                    .serviceId("srv-skincare-basic")
                     .name("Chăm sóc da mặt cơ bản")
                     .price(250000.0)
                     .duration(60.0)
@@ -300,7 +297,6 @@ public class DataInitializer implements CommandLineRunner {
                     .category(catSkincare)
                     .build());
             serviceRepository.save(Service.builder()
-                    .serviceId("srv-massage-hotstone")
                     .name("Massage body đá nóng Thụy Điển")
                     .price(500000.0)
                     .duration(90.0)
@@ -310,7 +306,6 @@ public class DataInitializer implements CommandLineRunner {
                     .category(catMassage)
                     .build());
             serviceRepository.save(Service.builder()
-                    .serviceId("srv-acne-treatment")
                     .name("Điều trị mụn y khoa chuyên sâu")
                     .price(400000.0)
                     .duration(80.0)
@@ -325,7 +320,6 @@ public class DataInitializer implements CommandLineRunner {
         // 7. Create Products
         if (productRepository.count() == 0) {
             productRepository.save(Product.builder()
-                    .productId("prod-cleanser")
                     .name("Sữa Rửa Mặt Dịu Nhẹ Cetaphil 500ml")
                     .sku("SKU-CET-500")
                     .price(320000.0)
@@ -340,7 +334,6 @@ public class DataInitializer implements CommandLineRunner {
                     .category(catCosmetic)
                     .build());
             productRepository.save(Product.builder()
-                    .productId("prod-toner")
                     .name("Toner Cấp Ẩm Klairs Supple Preparation 180ml")
                     .sku("SKU-KLA-180")
                     .price(270000.0)

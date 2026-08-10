@@ -1,14 +1,20 @@
-# 1. Image Java
-FROM eclipse-temurin:21-jdk
-
-# 2. Thư mục làm việc
+# --- Stage 1: build jar bang Gradle ---
+FROM eclipse-temurin:21-jdk AS build
 WORKDIR /app
 
-# 3. Copy jar build từ Gradle
-COPY build/libs/*.jar app.jar
+COPY gradlew settings.gradle build.gradle ./
+COPY gradle ./gradle
+RUN chmod +x gradlew && ./gradlew dependencies --no-daemon || true
 
-# 4. Expose port
+COPY src ./src
+RUN ./gradlew bootJar --no-daemon -x test
+
+# --- Stage 2: chay app tu jar da build ---
+FROM eclipse-temurin:21-jre
+WORKDIR /app
+
+COPY --from=build /app/build/libs/*.jar app.jar
+
 EXPOSE 8080
 
-# 5. Run app
 ENTRYPOINT ["java","-jar","app.jar"]
