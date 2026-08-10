@@ -33,6 +33,12 @@ public interface CustomerTreatmentRepository extends JpaRepository<CustomerTreat
     @Query("SELECT ct FROM CustomerTreatment ct WHERE ct.remainingSessions > 0 AND ct.expiryDate >= :today")
     List<CustomerTreatment> findActiveByCustomer(@Param("today") LocalDate today);
 
+    // ISS-012: Doanh thu chưa thực hiện = Σ(buổi còn lại × đơn giá 1 buổi) của các gói còn hiệu lực
+    @Query("SELECT COALESCE(SUM(ct.remainingSessions * (tp.packagePrice / tp.totalSessions)), 0) " +
+           "FROM CustomerTreatment ct JOIN ct.treatmentPackage tp " +
+           "WHERE ct.remainingSessions > 0 AND tp.totalSessions > 0")
+    double sumUnearnedRevenue();
+
     @Query("SELECT ct FROM CustomerTreatment ct WHERE ct.expiryDate BETWEEN :today AND :threshold")
     List<CustomerTreatment> findExpiringPackages(@Param("today") LocalDate today, @Param("threshold") LocalDate threshold);
 

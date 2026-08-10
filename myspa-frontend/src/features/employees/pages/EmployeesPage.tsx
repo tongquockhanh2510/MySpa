@@ -31,6 +31,8 @@ import GroupsIcon from '@mui/icons-material/Groups';
 import PaidIcon from '@mui/icons-material/Paid';
 import WorkOffIcon from '@mui/icons-material/WorkOff';
 import RefreshIcon from '@mui/icons-material/Refresh';
+import { useIsMobile } from '@hooks/useIsMobile';
+import EmployeesListMobile from './EmployeesListMobile';
 import './EmployeesPage.css';
 
 const schema = z.object({
@@ -63,6 +65,7 @@ const ROLE_LABELS: Record<string, string> = {
 };
 
 const EmployeesPage: React.FC = () => {
+  const isMobile = useIsMobile();
   const [searchParams] = useSearchParams();
   const user = useAppSelector((state) => state.auth.user);
   const canManageEmployees = hasAnyRole(user, ['ADMIN', 'MANAGER']);
@@ -356,7 +359,18 @@ const EmployeesPage: React.FC = () => {
       </section>
 
       <section className="employees-panel">
-        {loading ? (
+        {isMobile ? (
+          <EmployeesListMobile
+            rows={filtered}
+            loading={loading}
+            emptyMessage={search || statusFilter !== 'ALL' ? 'Không tìm thấy nhân viên phù hợp' : 'Không có dữ liệu'}
+            canManage={canManageEmployees}
+            isAdmin={isAdmin}
+            onOpenEdit={openEdit}
+            onDelete={(employee) => setDeleteTarget(employee)}
+            onCreateAccount={openCreateAccount}
+          />
+        ) : loading ? (
           <div className="employees-skeleton" aria-busy="true" aria-label="Đang tải nhân viên">
             {Array.from({ length: 7 }).map((_, index) => <Skeleton key={index} variant="rounded" height={48} />)}
           </div>

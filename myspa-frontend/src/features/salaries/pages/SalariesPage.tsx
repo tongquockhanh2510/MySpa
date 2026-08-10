@@ -32,6 +32,8 @@ import {
   type EmployeeSalary,
   type CommissionDetail,
 } from '@/api/salaries';
+import { useIsMobile } from '@hooks/useIsMobile';
+import SalariesListMobile from './SalariesListMobile';
 
 const inputSx = { '& .MuiOutlinedInput-root': { borderRadius: '10px' } };
 
@@ -49,9 +51,23 @@ const commissionTypeColors: Record<string, 'primary' | 'secondary' | 'success' |
   REFERRAL: 'success',
 };
 
+// Ban ghi hoa hong cu (truoc khi co cot customerName/serviceName rieng) chi co
+// thong tin gop trong description dang "... 'Ten dich vu' - KH Ten khach hang".
+// Fallback tach tu description de van hien thi duoc cho du lieu cu.
+const fallbackCustomerFromDescription = (description: string) => {
+  const match = description?.match(/-\s*KH\s+(.+)$/i);
+  return match ? match[1].trim() : '—';
+};
+
+const fallbackServiceFromDescription = (description: string) => {
+  const match = description?.match(/'([^']+)'/);
+  return match ? match[1] : (description || '—');
+};
+
 const now = new Date();
 
 const SalariesPage: React.FC = () => {
+  const isMobile = useIsMobile();
   const user = useAppSelector((state) => state.auth.user);
   const canViewCompanyPayroll = hasAnyRole(user, ['ADMIN', 'MANAGER']);
   const [salaries, setSalaries] = useState<EmployeeSalary[]>([]);
@@ -250,23 +266,34 @@ const SalariesPage: React.FC = () => {
         ))}
       </div>
 
-      <div style={{ background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-card)', overflow: 'hidden' }}>
-        {loading ? (
-          <div style={{ padding: 16, display: 'grid', gap: 8 }}>
-            {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} variant="rounded" height={44} />)}
-          </div>
-        ) : (
-          <DataGrid
-            rows={salaries}
-            columns={columns}
-            getRowId={r => r.employeeId}
-            autoHeight
-            disableRowSelectionOnClick
-            sx={{ border: 'none', '& .MuiDataGrid-columnHeaders': { background: 'var(--bg-tertiary)' } }}
-            localeText={{ MuiTablePagination: { labelRowsPerPage: 'Hàng mỗi trang:', labelDisplayedRows: ({ from, to, count }: any) => `${from}-${to} / ${count}` }, noRowsLabel: 'Chưa có dữ liệu lương trong kỳ này' } as any}
-          />
-        )}
-      </div>
+      {isMobile ? (
+        <SalariesListMobile
+          rows={salaries}
+          loading={loading}
+          emptyMessage="Chưa có dữ liệu lương trong kỳ này"
+          canViewCompanyPayroll={canViewCompanyPayroll}
+          onOpenCommission={openCommissionDetail}
+          onOpenPayroll={(row) => { setPayrollTarget(row); setPayrollForm({ bonus: row.bonus || 0, penalty: row.penalty || 0, salaryAdvance: row.salaryAdvance || 0, status: row.payrollStatus || 'DRAFT' }); }}
+        />
+      ) : (
+        <div style={{ background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-card)', overflow: 'hidden' }}>
+          {loading ? (
+            <div style={{ padding: 16, display: 'grid', gap: 8 }}>
+              {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} variant="rounded" height={44} />)}
+            </div>
+          ) : (
+            <DataGrid
+              rows={salaries}
+              columns={columns}
+              getRowId={r => r.employeeId}
+              autoHeight
+              disableRowSelectionOnClick
+              sx={{ border: 'none', '& .MuiDataGrid-columnHeaders': { background: 'var(--bg-tertiary)' } }}
+              localeText={{ MuiTablePagination: { labelRowsPerPage: 'Hàng mỗi trang:', labelDisplayedRows: ({ from, to, count }: any) => `${from}-${to} / ${count}` }, noRowsLabel: 'Chưa có dữ liệu lương trong kỳ này' } as any}
+            />
+          )}
+        </div>
+      )}
 
       <Dialog open={!!payrollTarget} onClose={() => !payrollSaving && setPayrollTarget(null)} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ fontWeight: 800 }}>Điều chỉnh kỳ lương · {payrollTarget?.employeeName}</DialogTitle>
@@ -279,30 +306,44 @@ const SalariesPage: React.FC = () => {
         <DialogActions><Button onClick={() => setPayrollTarget(null)}>Hủy</Button><Button variant="contained" disabled={payrollSaving} onClick={savePayroll}>{payrollSaving ? 'Đang lưu...' : 'Lưu kỳ lương'}</Button></DialogActions>
       </Dialog>
 
-      <Dialog open={!!commissionTarget} onClose={() => setCommissionTarget(null)} maxWidth="md" fullWidth>
+      <Dialog open={!!commissionTarget} onClose={() => setCommissionTarget(null)} maxWidth="lg" fullWidth>
         <DialogTitle sx={{ fontWeight: 800 }}>
           Chi tiết hoa hồng · {commissionTarget?.employeeName} · {formatMonth(filterMonth, filterYear)}
         </DialogTitle>
         <DialogContent>
-          <div style={{ display: 'grid', gap: 10 }}>
+          <div style={{ display: 'grid', gap: 6, overflowX: 'auto' }}>
+            {!commissionLoading && commissionRows.length > 0 && (
+              <div style={{ display: 'grid', gridTemplateColumns: '160px 1fr 120px 90px 150px', gap: 12, padding: '0 0 8px', fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', minWidth: 720 }}>
+                <span>Khách hàng</span>
+                <span>Dịch vụ</span>
+                <span>Tiền</span>
+                <span>% hoa hồng</span>
+                <span>Số tiền hoa hồng</span>
+              </div>
+            )}
             {commissionLoading ? (
               Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} variant="rounded" height={56} />)
-            ) : commissionRows.map((item) => (
-              <div key={item.commissionId} style={{ display: 'grid', gridTemplateColumns: '1fr 120px 70px 140px', gap: 12, alignItems: 'center', borderBottom: '1px solid var(--border-color)', padding: '10px 0' }}>
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <Chip label={commissionTypeLabels[item.commissionType] || item.commissionType} size="small" color={commissionTypeColors[item.commissionType] || 'primary'} sx={{ fontWeight: 700, fontSize: 11, height: 20 }} />
-                    <strong>{item.description}</strong>
+            ) : commissionRows.map((item) => {
+              const customerLabel = item.customerName || fallbackCustomerFromDescription(item.description);
+              const serviceLabel = item.serviceName || fallbackServiceFromDescription(item.description);
+              return (
+                <div key={item.commissionId} style={{ display: 'grid', gridTemplateColumns: '160px 1fr 120px 90px 150px', gap: 12, alignItems: 'center', borderBottom: '1px solid var(--border-color)', padding: '10px 0', minWidth: 720 }}>
+                  <span style={{ fontWeight: 700 }}>{customerLabel}</span>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <Chip label={commissionTypeLabels[item.commissionType] || item.commissionType} size="small" color={commissionTypeColors[item.commissionType] || 'primary'} sx={{ fontWeight: 700, fontSize: 11, height: 20 }} />
+                      <strong>{serviceLabel}</strong>
+                    </div>
+                    <p style={{ margin: '4px 0 0', color: 'var(--text-secondary)', fontSize: 12.5 }}>
+                      Mã tham chiếu: {item.referenceId} · {new Date(item.createdAt).toLocaleDateString('vi-VN')}
+                    </p>
                   </div>
-                  <p style={{ margin: '4px 0 0', color: 'var(--text-secondary)', fontSize: 12.5 }}>
-                    Mã tham chiếu: {item.referenceId} · {new Date(item.createdAt).toLocaleDateString('vi-VN')}
-                  </p>
+                  <span>{formatCurrency(item.baseAmount)}</span>
+                  <span>{item.commissionRate}%</span>
+                  <strong style={{ color: '#059669' }}>{formatCurrency(item.commissionAmount)}</strong>
                 </div>
-                <span>{formatCurrency(item.baseAmount)}</span>
-                <span>{item.commissionRate}%</span>
-                <strong style={{ color: '#059669' }}>{formatCurrency(item.commissionAmount)}</strong>
-              </div>
-            ))}
+              );
+            })}
             {!commissionLoading && commissionRows.length === 0 && (
               <p style={{ color: 'var(--text-secondary)' }}>Chưa có hoa hồng nào trong kỳ này cho nhân viên.</p>
             )}

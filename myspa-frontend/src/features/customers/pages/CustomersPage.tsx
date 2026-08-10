@@ -27,6 +27,8 @@ import PeopleIcon from '@mui/icons-material/People';
 import LoyaltyIcon from '@mui/icons-material/Loyalty';
 import WcIcon from '@mui/icons-material/Wc';
 import RefreshIcon from '@mui/icons-material/Refresh';
+import { useIsMobile } from '@hooks/useIsMobile';
+import CustomersListMobile from './CustomersListMobile';
 import './CustomersPage.css';
 
 const schema = z.object({
@@ -43,6 +45,7 @@ const inputSx = {
 };
 
 const CustomersPage: React.FC = () => {
+  const isMobile = useIsMobile();
   const [searchParams] = useSearchParams();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(false);
@@ -160,6 +163,8 @@ const CustomersPage: React.FC = () => {
       headerName: 'Khách hàng',
       flex: 1,
       minWidth: 190,
+      align: 'center',
+      headerAlign: 'center',
       renderCell: ({ row }) => (
         <div className="customers-name-cell">
           <strong>{row.name}</strong>
@@ -253,7 +258,16 @@ const CustomersPage: React.FC = () => {
       </section>
 
       <section className="customers-panel">
-        {loading ? (
+        {isMobile ? (
+          <CustomersListMobile
+            rows={customers}
+            loading={loading}
+            emptyMessage={search ? 'Không tìm thấy khách hàng phù hợp' : 'Không có dữ liệu'}
+            onOpenEdit={openEdit}
+            onDelete={(customer) => setDeleteTarget(customer)}
+            onViewNote={(customer) => setNoteView(customer)}
+          />
+        ) : loading ? (
           <div className="customers-skeleton" aria-busy="true" aria-label="Đang tải khách hàng">
             {Array.from({ length: 7 }).map((_, index) => <Skeleton key={index} variant="rounded" height={48} />)}
           </div>

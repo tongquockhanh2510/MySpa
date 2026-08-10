@@ -14,6 +14,8 @@ public interface CommissionRepository extends JpaRepository<Commission, String> 
 
     boolean existsByReferenceIdAndCommissionType(String referenceId, CommissionType commissionType);
 
+    List<Commission> findByReferenceIdStartingWith(String prefix);
+
     @Query("SELECT c FROM Commission c " +
            "JOIN FETCH c.employee " +
            "WHERE c.employee.employeeId = :employeeId AND c.month = :month AND c.year = :year " +

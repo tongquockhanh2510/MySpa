@@ -63,6 +63,7 @@ public class PackageConversionService {
     private final TreatmentScheduleRepository treatmentScheduleRepository;
     private final VoucherRepository voucherRepository;
     private final OrderService orderService;
+    private final CommissionService commissionService;
 
     @Transactional(readOnly = true)
     public List<PackageConversionResponse> getAll() {
@@ -112,6 +113,13 @@ public class PackageConversionService {
         }
 
         conversion = packageConversionRepository.save(conversion);
+
+        // ISS-006: hồi tố hoa hồng bán gói tương ứng phần buổi chưa dùng
+        commissionService.reversePackageSaleUnused(
+                sourceTreatment.getSourceOrderId(),
+                sourcePackage.getTreatmentPackageId(),
+                sourceTreatment.getRemainingSessions(),
+                sourcePackage.getTotalSessions());
 
         // Dong goi cu: het buoi + huy cac buoi chua thuc hien
         sourceTreatment.setRemainingSessions(0);

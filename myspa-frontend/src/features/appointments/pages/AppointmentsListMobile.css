@@ -1,0 +1,84 @@
+.appointments-m-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.appointments-m-empty {
+  color: var(--text-tertiary);
+  font-size: 13px;
+  padding: 24px 0;
+  text-align: center;
+}
+
+.appointments-m-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  cursor: pointer;
+  padding: 12px;
+}
+
+.appointments-m-card--past {
+  background: var(--bg-tertiary);
+  opacity: 0.72;
+}
+
+.appointments-m-card__top {
+  align-items: flex-start;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.appointments-m-card__customer {
+  min-width: 0;
+}
+
+.appointments-m-card__customer strong {
+  color: var(--text-primary);
+  display: block;
+  font-size: 14px;
+  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.appointments-m-card__customer span {
+  color: var(--text-tertiary);
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  margin-top: 1px;
+}
+
+.appointments-m-card__meta {
+  color: var(--text-secondary);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 12.5px;
+  gap: 4px 10px;
+  margin-top: 8px;
+}
+
+.appointments-m-card__meta span:first-child {
+  font-weight: 700;
+}
+
+.appointments-m-card__meta span:last-child {
+  color: var(--text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.appointments-m-card__actions {
+  align-items: center;
+  border-top: 1px solid var(--divider);
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+  margin-top: 10px;
+  padding-top: 8px;
+}

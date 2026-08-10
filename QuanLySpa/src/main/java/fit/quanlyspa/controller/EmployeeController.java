@@ -50,7 +50,7 @@ public class EmployeeController {
     @Operation(summary = "Danh sách tất cả nhân viên")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'RECEPTIONIST', 'THERAPIST')")
     public ResponseEntity<ApiResponse<List<Employee>>> getAll() {
-        return ResponseEntity.ok(ApiResponse.success(employeeRepository.findAll()));
+        return ResponseEntity.ok(ApiResponse.success(employeeRepository.findRealEmployees()));
     }
 
     @PostMapping
@@ -146,7 +146,7 @@ public class EmployeeController {
     }
 
     private void applyRequest(Employee employee, EmployeeRequest request) {
-        employee.setName(request.getName().trim());
+        employee.setName(fit.quanlyspa.ultil.NameNormalizer.normalize(request.getName()));
         employee.setPhone(request.getPhone());
         employee.setEmail(request.getEmail());
         employee.setPosition(request.getPosition());

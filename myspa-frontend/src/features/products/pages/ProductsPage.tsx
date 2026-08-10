@@ -35,6 +35,8 @@ import ImageIcon from '@mui/icons-material/Image';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
 import CategoryIcon from '@mui/icons-material/Category';
 import PaidIcon from '@mui/icons-material/Paid';
+import { useIsMobile } from '@hooks/useIsMobile';
+import ProductsListMobile from './ProductsListMobile';
 import './ProductsPage.css';
 
 const DEFAULT_PRODUCT_IMAGE =
@@ -63,6 +65,7 @@ const inputSx = {
 type StockFilter = 'all' | 'low' | 'out';
 
 const ProductsPage: React.FC = () => {
+  const isMobile = useIsMobile();
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [search, setSearch] = useState('');
@@ -375,19 +378,28 @@ const ProductsPage: React.FC = () => {
         <span>{filtered.length} kết quả</span>
       </section>
 
-      <div className="products-page__panel">
-        <DataGrid
+      {isMobile ? (
+        <ProductsListMobile
           rows={filtered}
-          columns={columns}
-          getRowId={(row) => row.productId}
-          initialState={{ pagination: { paginationModel: { pageSize: 10 } } }}
-          pageSizeOptions={[10, 20]}
-          autoHeight
-          disableRowSelectionOnClick
-          sx={{ border: 'none', '& .MuiDataGrid-columnHeaders': { background: 'var(--bg-tertiary)' } }}
-          localeText={{ noRowsLabel: 'Không có sản phẩm phù hợp' }}
+          emptyMessage="Không có sản phẩm phù hợp"
+          onOpenEdit={openEdit}
+          onDelete={(product) => setDeleteTarget(product)}
         />
-      </div>
+      ) : (
+        <div className="products-page__panel">
+          <DataGrid
+            rows={filtered}
+            columns={columns}
+            getRowId={(row) => row.productId}
+            initialState={{ pagination: { paginationModel: { pageSize: 10 } } }}
+            pageSizeOptions={[10, 20]}
+            autoHeight
+            disableRowSelectionOnClick
+            sx={{ border: 'none', '& .MuiDataGrid-columnHeaders': { background: 'var(--bg-tertiary)' } }}
+            localeText={{ noRowsLabel: 'Không có sản phẩm phù hợp' }}
+          />
+        </div>
+      )}
 
       <Dialog
         open={dialogOpen}

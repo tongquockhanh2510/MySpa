@@ -86,8 +86,12 @@
 
 .notifications-page__message {
   color: var(--text-secondary);
+  display: -webkit-box;
   font-size: 13px;
   line-height: 1.5;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .notifications-page__time {
@@ -131,4 +135,20 @@
 .notifications-page__empty p {
   font-size: 13px;
   margin: 0;
+}
+
+@media (max-width: 480px) {
+  .notifications-page__item {
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .notifications-page__icon {
+    height: 34px;
+    width: 34px;
+  }
+
+  .notifications-page__filter .MuiToggleButton-root {
+    padding: 4px 10px;
+  }
 }

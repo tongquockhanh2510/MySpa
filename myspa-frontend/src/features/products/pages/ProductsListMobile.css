@@ -1,0 +1,117 @@
+.products-m-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.products-m-empty {
+  color: var(--text-tertiary);
+  font-size: 13px;
+  padding: 24px 0;
+  text-align: center;
+}
+
+.products-m-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  cursor: pointer;
+  display: flex;
+  gap: 10px;
+  padding: 10px;
+}
+
+.products-m-card__image {
+  border-radius: 8px;
+  flex-shrink: 0;
+  height: 56px;
+  object-fit: cover;
+  width: 56px;
+}
+
+.products-m-card__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.products-m-card__top {
+  align-items: flex-start;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.products-m-card__identity {
+  min-width: 0;
+}
+
+.products-m-card__identity strong {
+  color: var(--text-primary);
+  display: block;
+  font-size: 13.5px;
+  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.products-m-card__identity span {
+  color: var(--text-tertiary);
+  display: block;
+  font-size: 11.5px;
+  font-weight: 600;
+  margin-top: 1px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.products-m-card__price {
+  color: var(--primary);
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.products-m-card__meta {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  margin-top: 6px;
+}
+
+.products-m-card__meta > span {
+  color: var(--text-tertiary);
+  font-size: 11.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.products-m-stock-chip {
+  font-size: 11px !important;
+  font-weight: 700 !important;
+}
+
+.products-m-stock-chip--ok {
+  background: var(--success-light) !important;
+  color: var(--success) !important;
+}
+
+.products-m-stock-chip--warning {
+  background: #FEF3C7 !important;
+  color: #D97706 !important;
+}
+
+.products-m-stock-chip--danger {
+  background: var(--error-light) !important;
+  color: var(--error) !important;
+}
+
+.products-m-card__actions {
+  display: flex;
+  gap: 2px;
+  justify-content: flex-end;
+  margin-top: 4px;
+}

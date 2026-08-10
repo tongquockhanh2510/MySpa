@@ -61,6 +61,7 @@ public class OrderService {
     NotificationService notificationService;
     PricingProperties pricingProperties;
     DisplayCodeService displayCodeService;
+    fit.quanlyspa.configuration.BusinessHoursProperties businessHours;
 
     // ===== STEP 1, 2, 3: CREATE ORDER DRAFT =====
     @Transactional
@@ -85,7 +86,7 @@ public class OrderService {
                 || appointment.getStatusOfAppointment() == StatusOfAppointment.CANCELLED
                 || appointment.getStatusOfAppointment() == StatusOfAppointment.NO_SHOW) {
             throw new AppException(ErrorCode.OPERATION_NOT_ALLOWED,
-                    "Lich hen da ket thuc, khong the tao them don hang thanh toan");
+                    "Lịch hẹn đã kết thúc, không thể tạo thêm đơn hàng thanh toán");
         }
 
         Optional<Order> existingOrder = orderRepository.findFirstByAppointment_AppointmentIdAndOrderStatusIn(
@@ -93,6 +94,13 @@ public class OrderService {
                 List.of(OrderStatus.DRAFT, OrderStatus.PENDING_PAYMENT, OrderStatus.PARTIALLY_PAID));
         if (existingOrder.isPresent()) {
             return toOrderResponse(existingOrder.get());
+        }
+
+        // Lịch hẹn đã có đơn hàng thanh toán đầy đủ rồi thì không cho tạo đơn mới để tránh thanh toán 2 lần
+        if (orderRepository.existsByAppointment_AppointmentIdAndOrderStatusIn(
+                appointmentId, List.of(OrderStatus.PAID, OrderStatus.COMPLETED))) {
+            throw new AppException(ErrorCode.OPERATION_NOT_ALLOWED,
+                    "Lịch hẹn này đã được thanh toán, không thể tạo thêm đơn hàng");
         }
 
         if (request.getCustomerId() == null || request.getCustomerId().isBlank()) {
@@ -477,6 +485,7 @@ public class OrderService {
                 custTreatment.setCustomer(customer);
                 custTreatment.setTreatmentPackage(pack);
                 custTreatment.setRemainingSessions(pack.getTotalSessions());
+                custTreatment.setSourceOrderId(order.getOrderId()); // ISS-006: nguồn để hồi tố hoa hồng khi quy đổi
                 custTreatment.setPurchaseDate(LocalDate.now());
                 custTreatment.setExpiryDate(LocalDate.now().plusDays(365)); // 1 year validity
                 
@@ -657,6 +666,94 @@ public class OrderService {
                 .collect(Collectors.toList());
     }
 
+    // ===== REFUND =====
+
+    /**
+     * Hoàn / hủy một đơn đã thanh toán. Đảo ngược các tác động tài chính:
+     * - Trả lại tồn kho sản phẩm (giao dịch RETURN) nếu đơn đã trừ kho.
+     * - Sinh hoa hồng ÂM hồi tố cho nhân viên (không xóa bản ghi gốc).
+     * - Trừ lại điểm tích lũy đã cộng (không để âm).
+     * - Ghi log giao dịch hoàn tiền và chuyển trạng thái đơn sang REFUNDED.
+     */
+    @Transactional
+    public OrderResponse refundOrder(String orderId, String reason, String processedBy) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
+
+        if (order.getOrderStatus() == OrderStatus.REFUNDED
+                || order.getOrderStatus() == OrderStatus.CANCELLED) {
+            throw new AppException(ErrorCode.OPERATION_NOT_ALLOWED, "Đơn hàng đã được hoàn hoặc đã hủy");
+        }
+        boolean stockWasDeducted = order.getOrderStatus() == OrderStatus.PAID
+                || order.getOrderStatus() == OrderStatus.COMPLETED;
+        if (order.getPaidAmount() == null || order.getPaidAmount().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new AppException(ErrorCode.OPERATION_NOT_ALLOWED, "Đơn chưa phát sinh thanh toán, không cần hoàn tiền");
+        }
+
+        // 1) Trả lại tồn kho các sản phẩm đã xuất
+        if (stockWasDeducted) {
+            for (OrderItem item : order.getOrderItems()) {
+                if (item.getItemType() == OrderItemType.PRODUCT && item.getProduct() != null) {
+                    inventoryRepository.findByProduct_ProductId(item.getProduct().getProductId())
+                            .ifPresent(inv -> {
+                                double before = inv.getQuantityInStock();
+                                inv.setQuantityInStock(before + item.getQuantity());
+                                inventoryRepository.save(inv);
+                                inventoryTransactionRepository.save(InventoryTransaction.builder()
+                                        .product(item.getProduct())
+                                        .transactionType(InventoryTransactionType.RETURN)
+                                        .quantity(item.getQuantity())
+                                        .quantityBefore(before)
+                                        .quantityAfter(inv.getQuantityInStock())
+                                        .unitCost(item.getProduct().getPrice())
+                                        .referenceId(order.getOrderId())
+                                        .note("Hoàn hàng do hoàn đơn: " + order.getOrderId())
+                                        .createdBy(processedBy)
+                                        .build());
+                            });
+                }
+            }
+        }
+
+        // 2) Hồi tố hoa hồng (sinh bản ghi âm)
+        int reversed = commissionService.reverseForOrder(order);
+
+        // 3) Trừ lại điểm tích lũy đã cộng khi thanh toán (không để âm)
+        if (order.getCustomer() != null && order.getTotalAmount() != null) {
+            double pointsEarned = order.getTotalAmount()
+                    .divide(BigDecimal.valueOf(100000), 0, RoundingMode.DOWN).doubleValue();
+            double reclaim = Math.min(pointsEarned, order.getCustomer().getLoyaltyPoints());
+            if (reclaim > 0) {
+                customerService.addLoyaltyPoints(order.getCustomer().getCustomerId(), -reclaim,
+                        "Hoàn điểm do hoàn đơn " + order.getOrderId());
+            }
+        }
+
+        // 4) Ghi log giao dịch hoàn tiền
+        BigDecimal refundAmount = order.getPaidAmount();
+        paymentTransactionRepository.save(PaymentTransaction.builder()
+                .order(order)
+                .amount(refundAmount.negate())
+                .paymentMethod(PaymentMethod.CASH)
+                .status(PaymentStatus.REFUNDED)
+                .notes("Hoàn tiền đơn " + order.getOrderId()
+                        + (reason != null && !reason.isBlank() ? " - Lý do: " + reason : ""))
+                .build());
+
+        // 5) Chuyển trạng thái
+        order.setOrderStatus(OrderStatus.REFUNDED);
+        orderRepository.save(order);
+        log.info("Refunded order {} amount {} - reversed {} commission records", orderId, refundAmount, reversed);
+
+        notificationService.notify(NotificationType.PAYMENT_SUCCESS,
+                "Hoàn tiền đơn hàng",
+                "Đơn " + order.getOrderId() + " đã được hoàn tiền " + refundAmount + "đ"
+                        + (reversed > 0 ? " và hồi tố " + reversed + " dòng hoa hồng" : ""),
+                order.getOrderId(), "ORDER", order.getCustomer());
+
+        return toOrderResponse(order);
+    }
+
     // ===== CALCULATION HELPER METHODS =====
     private void validatePromotionUsable(Promotion promotion, BigDecimal subtotal) {
         LocalDateTime now = LocalDateTime.now();
@@ -772,6 +869,12 @@ public class OrderService {
             throw new AppException(ErrorCode.VALIDATION_ERROR, "Ky thuat vien khong co ca lam trong ngay da chon");
         }
         LocalDateTime endTime = startTime.plusMinutes((long) service.getDuration());
+        // ISS-001: giờ dịch vụ phải nằm trong khung giờ mở cửa của spa
+        if (!businessHours.isWithinBusinessHours(startTime.toLocalTime(), endTime.toLocalTime())) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR,
+                    String.format("Khung giờ dịch vụ phải nằm trong giờ mở cửa (%s - %s)",
+                            businessHours.getOpeningTime(), businessHours.getClosingTime()));
+        }
         if (therapist.getShiftStart() != null && therapist.getShiftEnd() != null
                 && (startTime.toLocalTime().isBefore(therapist.getShiftStart())
                 || endTime.toLocalTime().isAfter(therapist.getShiftEnd()))) {
@@ -780,7 +883,9 @@ public class OrderService {
         if (!appointmentRepository.findOverlappingForCustomer(customer.getCustomerId(), startTime, endTime, excludeAppointmentId).isEmpty()) {
             throw new AppException(ErrorCode.APPOINTMENT_TIME_CONFLICT);
         }
-        if (!appointmentRepository.findTherapistConflicts(therapist.getEmployeeId(), startTime, endTime, excludeAppointmentId).isEmpty()) {
+        int buffer = businessHours.getBufferMinutes();
+        if (!appointmentRepository.findTherapistConflicts(therapist.getEmployeeId(),
+                startTime.minusMinutes(buffer), endTime.plusMinutes(buffer), excludeAppointmentId).isEmpty()) {
             throw new AppException(ErrorCode.APPOINTMENT_THERAPIST_CONFLICT, "Ky thuat vien da co lich trong khung gio nay");
         }
 
@@ -791,7 +896,8 @@ public class OrderService {
             if (room.getStatus() != RoomStatus.AVAILABLE) {
                 throw new AppException(ErrorCode.ROOM_INACTIVE, "Phong khong kha dung");
             }
-            if (!appointmentRepository.findRoomConflicts(room.getRoomId(), startTime, endTime, excludeAppointmentId).isEmpty()) {
+            if (!appointmentRepository.findRoomConflicts(room.getRoomId(),
+                    startTime.minusMinutes(buffer), endTime.plusMinutes(buffer), excludeAppointmentId).isEmpty()) {
                 throw new AppException(ErrorCode.APPOINTMENT_ROOM_CONFLICT, "Phong da duoc dat trong khung gio nay");
             }
         }

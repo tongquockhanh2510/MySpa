@@ -46,7 +46,7 @@ public class CustomerService {
 
         Customer customer = Customer.builder()
                 .displayCode(displayCodeService.nextCustomerCode())
-                .name(request.getName())
+                .name(fit.quanlyspa.ultil.NameNormalizer.normalize(request.getName()))
                 .phone(request.getPhone())
                 .email(request.getEmail())
                 .gender(request.getGender())
@@ -93,7 +93,7 @@ public class CustomerService {
             throw new AppException(ErrorCode.CUSTOMER_EMAIL_EXISTS);
         }
 
-        customer.setName(request.getName());
+        customer.setName(fit.quanlyspa.ultil.NameNormalizer.normalize(request.getName()));
         customer.setPhone(request.getPhone());
         customer.setEmail(request.getEmail());
         customer.setGender(request.getGender());

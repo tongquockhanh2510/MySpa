@@ -3,10 +3,12 @@ import { Outlet } from 'react-router-dom';
 import { useAppSelector } from '@hooks/useAppSelector';
 import Sidebar from '@components/layout/Sidebar';
 import Header from '@components/layout/Header';
+import useMediaQuery from '@mui/material/useMediaQuery';
 
 const MainLayout: React.FC = () => {
   const collapsed = useAppSelector((s) => s.ui.sidebarCollapsed);
-  const sidebarWidth = collapsed ? 'var(--sidebar-collapsed-width)' : 'var(--sidebar-width)';
+  const isMobile = useMediaQuery('(max-width:768px)');
+  const sidebarWidth = isMobile ? '0px' : (collapsed ? 'var(--sidebar-collapsed-width)' : 'var(--sidebar-width)');
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-primary)' }}>
@@ -25,9 +27,10 @@ const MainLayout: React.FC = () => {
         <main
           style={{
             marginTop: 'var(--header-height)',
-            padding: '24px',
+            padding: isMobile ? '14px' : '24px',
             flex: 1,
             minHeight: 0,
+            minWidth: 0,
           }}
         >
           <Outlet />

@@ -1,0 +1,250 @@
+.dashboard-m {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.dashboard-m__header {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+
+.dashboard-m__kicker {
+  color: var(--text-tertiary);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  margin: 0 0 2px;
+  text-transform: uppercase;
+}
+
+.dashboard-m__header h1 {
+  color: var(--text-primary);
+  font-size: 20px;
+  font-weight: 800;
+  margin: 0;
+}
+
+.dashboard-m__alert {
+  border-radius: 10px !important;
+  font-size: 13px;
+}
+
+.dashboard-m__hero {
+  background: linear-gradient(135deg, var(--primary-50), var(--bg-card));
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg, 14px);
+  padding: 16px;
+}
+
+.dashboard-m__hero-top {
+  align-items: center;
+  color: var(--text-tertiary);
+  display: flex;
+  font-size: 12.5px;
+  font-weight: 700;
+  gap: 6px;
+}
+
+.dashboard-m__hero strong {
+  color: var(--text-primary);
+  display: block;
+  font-size: 26px;
+  font-weight: 800;
+  margin-top: 4px;
+}
+
+.dashboard-m__hero-delta {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  margin-top: 4px;
+}
+
+.dashboard-m__hero-grid {
+  border-top: 1px solid var(--border-color);
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 1fr 1fr;
+  margin-top: 12px;
+  padding-top: 12px;
+}
+
+.dashboard-m__hero-grid span {
+  color: var(--text-tertiary);
+  display: block;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.dashboard-m__hero-grid strong {
+  color: var(--text-primary);
+  font-size: 15px;
+  font-weight: 800;
+  margin-top: 0;
+}
+
+.dashboard-m__stats {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dashboard-m__stat-row {
+  align-items: center;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  cursor: pointer;
+  display: flex;
+  gap: 10px;
+  padding: 11px 12px;
+  text-align: left;
+  width: 100%;
+}
+
+.dashboard-m__stat-icon {
+  align-items: center;
+  border-radius: 9px;
+  display: inline-flex;
+  flex-shrink: 0;
+  height: 32px;
+  justify-content: center;
+  width: 32px;
+}
+
+.dashboard-m__stat-label {
+  color: var(--text-secondary);
+  flex: 1;
+  font-size: 12.5px;
+  font-weight: 600;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-m__stat-value {
+  color: var(--text-primary);
+  flex-shrink: 0;
+  font-size: 13.5px;
+  font-weight: 800;
+}
+
+.dashboard-m__stat-chevron {
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.dashboard-m__panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg, 14px);
+  padding: 14px;
+}
+
+.dashboard-m__panel-header {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.dashboard-m__panel-header h2 {
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 800;
+  margin: 0;
+}
+
+.dashboard-m__panel-header button {
+  background: none;
+  border: 0;
+  color: var(--primary);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.dashboard-m__chart {
+  height: 160px;
+  width: 100%;
+}
+
+.dashboard-m__list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dashboard-m__list-row {
+  align-items: center;
+  border-bottom: 1px solid var(--divider);
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  padding-bottom: 8px;
+}
+
+.dashboard-m__list-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.dashboard-m__list-row--clickable {
+  cursor: pointer;
+}
+
+.dashboard-m__list-main {
+  min-width: 0;
+}
+
+.dashboard-m__list-main strong {
+  color: var(--text-primary);
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-m__list-main span {
+  color: var(--text-tertiary);
+  display: block;
+  font-size: 12px;
+  margin-top: 1px;
+}
+
+.dashboard-m__list-total {
+  color: var(--text-tertiary);
+  font-size: 11.5px;
+  font-weight: 600;
+  margin: 2px 0 0;
+  text-align: right;
+}
+
+.dashboard-m__stock {
+  align-items: center;
+  color: var(--text-secondary);
+  display: inline-flex;
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 700;
+  gap: 4px;
+}
+
+.dashboard-m__stock--critical {
+  color: var(--error);
+}
+
+.dashboard-m__empty {
+  align-items: center;
+  color: var(--text-tertiary);
+  display: flex;
+  font-size: 12.5px;
+  gap: 6px;
+  justify-content: center;
+  padding: 12px 0;
+}

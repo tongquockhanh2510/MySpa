@@ -18,6 +18,8 @@ import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import SpaIcon from '@mui/icons-material/Spa';
 import EventRepeatIcon from '@mui/icons-material/EventRepeat';
 import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn';
+import { useIsMobile } from '@hooks/useIsMobile';
+import CustomerTreatmentsListMobile from './CustomerTreatmentsListMobile';
 import './CustomerTreatmentsPage.css';
 
 const scheduleLabel = (status: string) => ({
@@ -37,6 +39,7 @@ const scheduleColor = (status: string) => {
 const inputSx = { '& .MuiOutlinedInput-root': { borderRadius: '10px' } };
 
 const CustomerTreatmentsPage: React.FC = () => {
+  const isMobile = useIsMobile();
   const [treatments, setTreatments] = useState<any[]>([]);
   const [selectedPkg, setSelectedPkg] = useState<any | null>(null);
   const [schedules, setSchedules] = useState<any[]>([]);
@@ -238,7 +241,14 @@ const CustomerTreatmentsPage: React.FC = () => {
       </section>
 
       <section className="treatments-panel">
-        {loading ? (
+        {isMobile ? (
+          <CustomerTreatmentsListMobile
+            rows={treatments}
+            loading={loading}
+            emptyMessage="Chưa có liệu trình khách hàng"
+            onOpenDetail={handleOpenDetail}
+          />
+        ) : loading ? (
           <div className="treatments-skeleton" aria-busy="true" aria-label="Đang tải liệu trình">
             {Array.from({ length: 7 }).map((_, index) => <Skeleton key={index} variant="rounded" height={48} />)}
           </div>

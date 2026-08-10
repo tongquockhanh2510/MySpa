@@ -34,6 +34,8 @@ import LocalOfferIcon from '@mui/icons-material/LocalOffer';
 import PercentIcon from '@mui/icons-material/Percent';
 import EventAvailableIcon from '@mui/icons-material/EventAvailable';
 import SearchIcon from '@mui/icons-material/Search';
+import { useIsMobile } from '@hooks/useIsMobile';
+import PromotionsListMobile from './PromotionsListMobile';
 import './PromotionsPage.css';
 
 const inputSx = {
@@ -50,6 +52,7 @@ const isLivePromotion = (promotion: Promotion) => {
 };
 
 const PromotionsPage: React.FC = () => {
+  const isMobile = useIsMobile();
   const [tab, setTab] = useState(0);
   const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [search, setSearch] = useState('');
@@ -318,8 +321,11 @@ const PromotionsPage: React.FC = () => {
           value={tab}
           onChange={(_, value) => setTab(value)}
           className="promotions-page__tabs"
+          variant="scrollable"
+          scrollButtons="auto"
+          allowScrollButtonsMobile
           sx={{
-            '& .MuiTab-root': { textTransform: 'none', fontFamily: 'inherit', fontWeight: 500, fontSize: 14 },
+            '& .MuiTab-root': { textTransform: 'none', fontFamily: 'inherit', fontWeight: 500, fontSize: 14, whiteSpace: 'nowrap' },
             '& .Mui-selected': { color: 'var(--primary) !important', fontWeight: 600 },
             '& .MuiTabs-indicator': { background: 'var(--primary)' },
           }}
@@ -329,30 +335,48 @@ const PromotionsPage: React.FC = () => {
         </Tabs>
         <Box>
           {tab === 0 && (
-            <DataGrid
-              rows={amountPromotions}
-              columns={amountColumns}
-              getRowId={(row) => row.promotionId}
-              initialState={{ pagination: { paginationModel: { pageSize: 10 } } }}
-              pageSizeOptions={[10, 20]}
-              autoHeight
-              disableRowSelectionOnClick
-              sx={gridSx}
-              localeText={{ noRowsLabel: 'Không có khuyến mãi phù hợp' }}
-            />
+            isMobile ? (
+              <PromotionsListMobile
+                rows={amountPromotions}
+                mode="AMOUNT"
+                emptyMessage="Không có khuyến mãi phù hợp"
+                onDelete={(promotion) => setDeleteTarget(promotion)}
+              />
+            ) : (
+              <DataGrid
+                rows={amountPromotions}
+                columns={amountColumns}
+                getRowId={(row) => row.promotionId}
+                initialState={{ pagination: { paginationModel: { pageSize: 10 } } }}
+                pageSizeOptions={[10, 20]}
+                autoHeight
+                disableRowSelectionOnClick
+                sx={gridSx}
+                localeText={{ noRowsLabel: 'Không có khuyến mãi phù hợp' }}
+              />
+            )
           )}
           {tab === 1 && (
-            <DataGrid
-              rows={percentPromotions}
-              columns={percentColumns}
-              getRowId={(row) => row.promotionId}
-              initialState={{ pagination: { paginationModel: { pageSize: 10 } } }}
-              pageSizeOptions={[10, 20]}
-              autoHeight
-              disableRowSelectionOnClick
-              sx={gridSx}
-              localeText={{ noRowsLabel: 'Không có khuyến mãi phù hợp' }}
-            />
+            isMobile ? (
+              <PromotionsListMobile
+                rows={percentPromotions}
+                mode="PERCENT"
+                emptyMessage="Không có khuyến mãi phù hợp"
+                onDelete={(promotion) => setDeleteTarget(promotion)}
+              />
+            ) : (
+              <DataGrid
+                rows={percentPromotions}
+                columns={percentColumns}
+                getRowId={(row) => row.promotionId}
+                initialState={{ pagination: { paginationModel: { pageSize: 10 } } }}
+                pageSizeOptions={[10, 20]}
+                autoHeight
+                disableRowSelectionOnClick
+                sx={gridSx}
+                localeText={{ noRowsLabel: 'Không có khuyến mãi phù hợp' }}
+              />
+            )
           )}
         </Box>
       </div>

@@ -16,6 +16,8 @@ import type { TreatmentPackage, TreatmentPackageFormData } from '@/types';
 import SearchIcon from '@mui/icons-material/Search';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
+import { useIsMobile } from '@hooks/useIsMobile';
+import TreatmentPackagesListMobile from './TreatmentPackagesListMobile';
 
 const schema = z.object({
   packageName: z.string().min(2, 'Tên gói phải có ít nhất 2 ký tự'),
@@ -28,6 +30,7 @@ const schema = z.object({
 const inputSx = { '& .MuiOutlinedInput-root': { borderRadius: '10px', fontSize: 14 }, '& .MuiInputLabel-root': { fontSize: 14 } };
 
 const TreatmentPackagesPage: React.FC = () => {
+  const isMobile = useIsMobile();
   const [packages, setPackages] = useState<TreatmentPackage[]>([]);
   const [search, setSearch] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -121,9 +124,18 @@ const TreatmentPackagesPage: React.FC = () => {
         <TextField placeholder="Tìm kiếm gói liệu trình..." value={search} onChange={e => setSearch(e.target.value)} size="small"
           slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" sx={{ color: 'var(--text-tertiary)' }} /></InputAdornment> } }} sx={{ width: 360, ...inputSx }} />
       </div>
-      <div style={{ background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-card)', overflow: 'hidden' }}>
-        <DataGrid rows={filtered} columns={columns} getRowId={r => r.treatmentPackageId} initialState={{ pagination: { paginationModel: { pageSize: 10 } } }} pageSizeOptions={[10, 20]} autoHeight disableRowSelectionOnClick sx={{ border: 'none', '& .MuiDataGrid-columnHeaders': { background: 'var(--bg-tertiary)' } }} />
-      </div>
+      {isMobile ? (
+        <TreatmentPackagesListMobile
+          rows={filtered}
+          emptyMessage="Không có gói liệu trình phù hợp"
+          onOpenEdit={openEdit}
+          onDelete={(pack) => setDeleteTarget(pack)}
+        />
+      ) : (
+        <div style={{ background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-card)', overflow: 'hidden' }}>
+          <DataGrid rows={filtered} columns={columns} getRowId={r => r.treatmentPackageId} initialState={{ pagination: { paginationModel: { pageSize: 10 } } }} pageSizeOptions={[10, 20]} autoHeight disableRowSelectionOnClick sx={{ border: 'none', '& .MuiDataGrid-columnHeaders': { background: 'var(--bg-tertiary)' } }} />
+        </div>
+      )}
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} slotProps={{ paper: { sx: { borderRadius: '16px', minWidth: 500, background: 'var(--bg-secondary)' } } }}>
         <DialogTitle sx={{ fontWeight: 700, fontSize: 17, pb: 0 }}>{editing ? 'Cập nhật gói liệu trình' : 'Thêm gói liệu trình mới'}</DialogTitle>
         <DialogContent sx={{ pt: '16px !important' }}>

@@ -37,6 +37,7 @@ public class AppointmentService {
     CommissionService commissionService;
     NotificationService notificationService;
     DisplayCodeService displayCodeService;
+    fit.quanlyspa.configuration.BusinessHoursProperties businessHours;
 
     // ===== STATE TRANSITION MAP =====
     private static final Map<StatusOfAppointment, Set<StatusOfAppointment>> VALID_TRANSITIONS = Map.of(
@@ -61,6 +62,9 @@ public class AppointmentService {
         // Calculate end time from total service duration
         double totalDuration = calculateTotalDuration(request.getDetails());
         LocalDateTime endTime = request.getDateTime().plusMinutes((long) totalDuration);
+
+        // ISS-001: lịch hẹn phải nằm trong khung giờ mở cửa
+        validateBusinessHours(request.getDateTime(), endTime);
 
         // Business Rule: Customer cannot have overlapping appointments
         List<Appointment> customerConflicts = appointmentRepository.findOverlappingForCustomer(
@@ -118,6 +122,8 @@ public class AppointmentService {
         double totalDuration = calculateTotalDuration(request.getDetails());
         LocalDateTime endTime = request.getDateTime().plusMinutes((long) totalDuration);
 
+        validateBusinessHours(request.getDateTime(), endTime);
+
         List<Appointment> customerConflicts = appointmentRepository.findOverlappingForCustomer(
                 customer.getCustomerId(), request.getDateTime(), endTime, appointmentId);
         if (!customerConflicts.isEmpty()) {
@@ -172,6 +178,7 @@ public class AppointmentService {
 
     @Transactional
     public AppointmentResponse complete(String appointmentId) {
+        // Cho phép hoàn thành sớm hơn giờ hẹn đã đặt (khách có thể đến sớm)
         Appointment appointment = transitionEntity(appointmentId, StatusOfAppointment.COMPLETED);
         appointment.setCompletedAt(LocalDateTime.now());
         Appointment saved = appointmentRepository.save(appointment);
@@ -218,6 +225,8 @@ public class AppointmentService {
         double totalDuration = appointment.getDetails().stream()
                 .mapToDouble(d -> d.getService().getDuration()).sum();
         LocalDateTime newEndTime = newDateTime.plusMinutes((long) totalDuration);
+
+        validateBusinessHours(newDateTime, newEndTime);
 
         List<Appointment> conflicts = appointmentRepository.findOverlappingForCustomer(
                 appointment.getCustomer().getCustomerId(), newDateTime, newEndTime, appointmentId);
@@ -285,6 +294,17 @@ public class AppointmentService {
         }
     }
 
+    private void validateBusinessHours(LocalDateTime start, LocalDateTime end) {
+        if (start == null || end == null) {
+            return;
+        }
+        if (!businessHours.isWithinBusinessHours(start.toLocalTime(), end.toLocalTime())) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR,
+                    String.format("Lịch hẹn phải nằm trong khung giờ mở cửa (%s - %s)",
+                            businessHours.getOpeningTime(), businessHours.getClosingTime()));
+        }
+    }
+
     private double calculateTotalDuration(List<AppointmentDetailRequest> details) {
         return details.stream().mapToDouble(d -> {
             Service service = serviceRepository.findById(d.getServiceId())
@@ -305,7 +325,9 @@ public class AppointmentService {
             throw new AppException(ErrorCode.ROOM_INACTIVE);
         }
 
-        if (!appointmentRepository.findRoomConflicts(roomId, startTime, endTime, excludeId).isEmpty()) {
+        int buffer = businessHours.getBufferMinutes();
+        if (!appointmentRepository.findRoomConflicts(roomId, startTime.minusMinutes(buffer),
+                endTime.plusMinutes(buffer), excludeId).isEmpty()) {
             throw new AppException(ErrorCode.APPOINTMENT_ROOM_CONFLICT);
         }
 
@@ -351,8 +373,9 @@ public class AppointmentService {
                     || slotEnd.toLocalTime().isAfter(employee.getShiftEnd()))) {
                 throw new AppException(ErrorCode.VALIDATION_ERROR, "Khung gio nam ngoai ca lam cua nhan vien");
             }
+            int buffer = businessHours.getBufferMinutes();
             List<Appointment> therapistConflicts = appointmentRepository.findTherapistConflicts(
-                    employee.getEmployeeId(), slotStart, slotEnd, excludeId);
+                    employee.getEmployeeId(), slotStart.minusMinutes(buffer), slotEnd.plusMinutes(buffer), excludeId);
             if (!therapistConflicts.isEmpty()) {
                 throw new AppException(ErrorCode.APPOINTMENT_THERAPIST_CONFLICT,
                         "Nhân viên '" + employee.getName() + "' đã có lịch phục vụ trong khung giờ này");

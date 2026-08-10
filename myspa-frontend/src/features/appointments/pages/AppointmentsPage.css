@@ -129,6 +129,17 @@
   min-width: 0;
 }
 
+.appointments-customer-cell {
+  height: 100%;
+  width: 100%;
+}
+
+.appointments-row--past,
+.appointments-row--past:hover {
+  background: var(--bg-tertiary) !important;
+  opacity: 0.72;
+}
+
 .appointments-customer-cell strong {
   color: var(--text-primary);
   display: block;
@@ -156,6 +167,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 3px;
+  height: 100%;
   justify-content: center;
   width: 100%;
 }
@@ -262,6 +274,29 @@
   font-size: 12px;
   font-weight: 700;
   padding: 2px 4px;
+}
+
+/* Ngay da qua: nen xam nhat, so ngay mo di de phan biet voi ngay hien tai/tuong lai */
+.appointments-calendar-panel .fc-day-past {
+  background: var(--bg-tertiary);
+}
+
+.appointments-calendar-panel .fc-day-past .fc-daygrid-day-number,
+.appointments-calendar-panel .fc-day-past .fc-timegrid-axis-cushion {
+  color: var(--text-tertiary);
+}
+
+.appointments-calendar-panel .fc-day-past .fc-event {
+  opacity: 0.6;
+}
+
+/* Ngay hien tai va tuong lai: nen sang, nhan biet la lich con hieu luc */
+.appointments-calendar-panel .fc-day-future {
+  background: var(--bg-card);
+}
+
+.appointments-calendar-panel .fc-day-today {
+  background: var(--primary-50) !important;
 }
 
 .appointments-legend {

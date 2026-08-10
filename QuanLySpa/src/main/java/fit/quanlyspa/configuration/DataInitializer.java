@@ -29,6 +29,7 @@ public class DataInitializer implements CommandLineRunner {
     private final ProductRepository productRepository;
     private final CustomerRepository customerRepository;
     private final TreatmentPackageRepository treatmentPackageRepository;
+    private final PermissionRepository permissionRepository;
     private final PasswordEncoder passwordEncoder;
 
     @PersistenceContext
@@ -82,6 +83,10 @@ public class DataInitializer implements CommandLineRunner {
         Role staffRole = getOrCreateRole("STAFF", "Nhân viên (cũ - đã thay bằng THERAPIST)");
         getOrCreateRole("USER", "Regular Customer / User");
 
+        // ISS-007: seed ma trận phân quyền để mỗi vai trò có "số quyền" đúng nghiệp vụ.
+        // Enforcement thực tế vẫn qua @PreAuthorize hasRole ở backend; permission dùng để hiển thị/tài liệu.
+        seedRolePermissions(adminRole, managerRole, receptionistRole, therapistRole, staffRole);
+
         // Migrate: user cu chi co role STAFF khong khop phan quyen nao → gan them THERAPIST
         for (User existing : userRepository.findAll()) {
             boolean hasStaff = existing.getRoles().stream().anyMatch(r -> "STAFF".equals(r.getName()));
@@ -115,6 +120,7 @@ public class DataInitializer implements CommandLineRunner {
                         .dateOfBirth(LocalDate.of(1990, 1, 1))
                         .position("Administrator")
                         .statusOfEmployee(StatusOfEmployee.ACTIVE)
+                        .systemAccount(true)
                         .user(adminUser)
                         .hireDate(LocalDate.now())
                         .build();
@@ -375,6 +381,70 @@ public class DataInitializer implements CommandLineRunner {
 
             log.info("Initialized default treatment packages");
         }
+    }
+
+    // ===== ISS-007: PERMISSION MATRIX =====
+    private static final java.util.Map<String, String> PERMISSION_CATALOG = new java.util.LinkedHashMap<>();
+    static {
+        PERMISSION_CATALOG.put("APPOINTMENT_MANAGE", "Quản lý lịch hẹn");
+        PERMISSION_CATALOG.put("CUSTOMER_MANAGE", "Quản lý khách hàng");
+        PERMISSION_CATALOG.put("POS_SELL", "Bán hàng / thu ngân (POS)");
+        PERMISSION_CATALOG.put("SERVICE_VIEW", "Xem dịch vụ");
+        PERMISSION_CATALOG.put("SERVICE_MANAGE", "Quản lý dịch vụ");
+        PERMISSION_CATALOG.put("PRODUCT_MANAGE", "Quản lý sản phẩm & kho");
+        PERMISSION_CATALOG.put("PACKAGE_MANAGE", "Quản lý gói liệu trình");
+        PERMISSION_CATALOG.put("PROMOTION_MANAGE", "Quản lý khuyến mãi");
+        PERMISSION_CATALOG.put("TREATMENT_SESSION_UPDATE", "Cập nhật buổi trị liệu");
+        PERMISSION_CATALOG.put("OWN_SCHEDULE_VIEW", "Xem lịch làm việc của mình");
+        PERMISSION_CATALOG.put("OWN_COMMISSION_VIEW", "Xem hoa hồng của mình");
+        PERMISSION_CATALOG.put("SALARY_MANAGE", "Quản lý lương & hoa hồng");
+        PERMISSION_CATALOG.put("REPORT_VIEW", "Xem báo cáo & thống kê");
+        PERMISSION_CATALOG.put("EMPLOYEE_MANAGE", "Quản lý nhân viên");
+        PERMISSION_CATALOG.put("SYSTEM_ADMIN", "Quản trị hệ thống (người dùng, vai trò, cấu hình)");
+    }
+
+    private void seedRolePermissions(Role admin, Role manager, Role receptionist, Role therapist, Role staff) {
+        try {
+            // Tạo/đảm bảo catalog quyền
+            java.util.Map<String, Permission> byName = new java.util.HashMap<>();
+            PERMISSION_CATALOG.forEach((name, desc) -> byName.put(name, getOrCreatePermission(name, desc)));
+
+            java.util.Set<String> receptionistPerms = Set.of(
+                    "APPOINTMENT_MANAGE", "CUSTOMER_MANAGE", "POS_SELL", "SERVICE_VIEW", "PROMOTION_MANAGE");
+            java.util.Set<String> therapistPerms = Set.of(
+                    "OWN_SCHEDULE_VIEW", "TREATMENT_SESSION_UPDATE", "OWN_COMMISSION_VIEW", "SERVICE_VIEW");
+            // MANAGER: tất cả trừ quản trị hệ thống
+            java.util.Set<String> managerPerms = new java.util.HashSet<>(PERMISSION_CATALOG.keySet());
+            managerPerms.remove("SYSTEM_ADMIN");
+            // ADMIN: toàn quyền
+            java.util.Set<String> adminPerms = PERMISSION_CATALOG.keySet();
+
+            assignPermissions(admin, adminPerms, byName);
+            assignPermissions(manager, managerPerms, byName);
+            assignPermissions(receptionist, receptionistPerms, byName);
+            assignPermissions(therapist, therapistPerms, byName);
+            assignPermissions(staff, therapistPerms, byName); // STAFF (legacy) = THERAPIST
+            log.info("Seeded role permission matrix (ISS-007)");
+        } catch (Exception e) {
+            log.warn("Could not seed role permissions: {}", e.getMessage(), e);
+        }
+    }
+
+    private void assignPermissions(Role role, java.util.Set<String> permNames, java.util.Map<String, Permission> byName) {
+        Set<Permission> perms = permNames.stream().map(byName::get)
+                .filter(java.util.Objects::nonNull)
+                .collect(java.util.stream.Collectors.toSet());
+        role.setPermissions(perms);
+        roleRepository.save(role);
+    }
+
+    private Permission getOrCreatePermission(String name, String description) {
+        return permissionRepository.findById(name).orElseGet(() -> {
+            Permission p = new Permission();
+            p.setName(name);
+            p.setDescription(description);
+            return permissionRepository.save(p);
+        });
     }
 
     private Role getOrCreateRole(String name, String description) {

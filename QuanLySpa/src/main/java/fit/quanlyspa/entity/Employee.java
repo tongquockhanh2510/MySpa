@@ -68,6 +68,18 @@ public class Employee {
     @Column(name = "position", length = 100)
     String position;
 
+    // ISS-020: tài khoản hệ thống (admin) không phải hồ sơ nhân sự thực,
+    // không hiển thị trong danh sách nhân viên / bảng lương.
+    // Wrapper Boolean để chịu được các bản ghi cũ mang giá trị NULL trong DB.
+    @Column(name = "is_system_account")
+    @Builder.Default
+    Boolean systemAccount = false;
+
+    /** Null-safe: bản ghi cũ (null) coi như KHÔNG phải tài khoản hệ thống. */
+    public boolean isSystemAccount() {
+        return Boolean.TRUE.equals(systemAccount);
+    }
+
     @Column(name = "specialty", length = 200)
     String specialty;
 

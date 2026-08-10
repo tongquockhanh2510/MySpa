@@ -1,0 +1,73 @@
+.treatments-m-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.treatments-m-empty {
+  color: var(--text-tertiary);
+  font-size: 13px;
+  padding: 24px 0;
+  text-align: center;
+}
+
+.treatments-m-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.treatments-m-card__top {
+  align-items: baseline;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.treatments-m-card__top strong {
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.treatments-m-card__top span {
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.treatments-m-card__package {
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  font-weight: 700;
+  margin: 4px 0 0;
+}
+
+.treatments-m-card__progress {
+  margin-top: 10px;
+}
+
+.treatments-m-card__progress span {
+  color: var(--text-tertiary);
+  display: block;
+  font-size: 11px;
+  margin-bottom: 4px;
+}
+
+.treatments-m-progress-bar {
+  border-radius: 6px;
+  height: 6px !important;
+}
+
+.treatments-m-card__dates {
+  color: var(--text-tertiary);
+  display: flex;
+  font-size: 11.5px;
+  gap: 12px;
+  margin-top: 8px;
+}

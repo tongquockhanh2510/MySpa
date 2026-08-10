@@ -14,10 +14,13 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import ShieldIcon from '@mui/icons-material/Shield';
 import LockResetIcon from '@mui/icons-material/LockReset';
 import HowToRegIcon from '@mui/icons-material/HowToReg';
+import { useIsMobile } from '@hooks/useIsMobile';
+import UsersListMobile from './UsersListMobile';
 
 const inputSx = { '& .MuiOutlinedInput-root': { borderRadius: '10px', fontSize: 14 }, '& .MuiInputLabel-root': { fontSize: 14 } };
 
 const UsersPage: React.FC = () => {
+  const isMobile = useIsMobile();
   const [users, setUsers] = useState<User[]>([]);
   const [allRoles, setAllRoles] = useState<Role[]>([]);
   const [loading, setLoading] = useState(true);
@@ -100,18 +103,18 @@ const UsersPage: React.FC = () => {
   const handleResetPassword = async () => {
     if (!passwordTarget) return;
     if (newPassword.length < 6) {
-      toast.warning('Mat khau phai co it nhat 6 ky tu');
+      toast.warning('Mật khẩu phải có ít nhất 6 ký tự');
       return;
     }
     setSaving(true);
     try {
       await resetUserPassword(passwordTarget.userId, newPassword);
-      toast.success(`Da dat lai mat khau cho "${passwordTarget.userName}"`);
+      toast.success(`Đã đặt lại mật khẩu cho "${passwordTarget.userName}"`);
       setPasswordTarget(null);
       setNewPassword('');
     } catch (err) {
       console.error(err);
-      toast.error(getErrorMessage(err, 'Dat lai mat khau that bai'));
+      toast.error(getErrorMessage(err, 'Đặt lại mật khẩu thất bại'));
     } finally {
       setSaving(false);
     }
@@ -130,8 +133,20 @@ const UsersPage: React.FC = () => {
 
   const columns: GridColDef[] = [
     { field: 'userId', headerName: 'Mã người dùng', width: 140 },
-    { field: 'userName', headerName: 'Tên đăng nhập', flex: 1, minWidth: 160 },
-    { field: 'employeeName', headerName: 'Nhan vien', flex: 1, minWidth: 180 },
+    {
+      field: 'userName',
+      headerName: 'Tên đăng nhập',
+      flex: 1,
+      minWidth: 160,
+      renderCell: ({ value }) => <span title={value} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block', width: '100%' }}>{value}</span>,
+    },
+    {
+      field: 'employeeName',
+      headerName: 'Nhân viên',
+      flex: 1,
+      minWidth: 180,
+      renderCell: ({ value }) => <span title={value} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block', width: '100%' }}>{value}</span>,
+    },
     {
       field: 'isActive',
       headerName: 'Trạng thái',
@@ -156,7 +171,7 @@ const UsersPage: React.FC = () => {
       flex: 1,
       minWidth: 220,
       renderCell: ({ value }) => (
-        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center', alignContent: 'center', height: '100%' }}>
           {(value as User['roles']).map((role) => (
             <Chip
               key={role.name}
@@ -182,19 +197,19 @@ const UsersPage: React.FC = () => {
               <ShieldIcon fontSize="small" />
             </IconButton>
           </Tooltip>
-          <Tooltip title="Dat lai mat khau" arrow>
-            <IconButton size="small" aria-label="Dat lai mat khau" onClick={() => { setPasswordTarget(row); setNewPassword(''); }} sx={{ color: '#2563EB', '&:hover': { background: 'var(--info-light)' } }}>
+          <Tooltip title="Đặt lại mật khẩu" arrow>
+            <IconButton size="small" aria-label="Đặt lại mật khẩu" onClick={() => { setPasswordTarget(row); setNewPassword(''); }} sx={{ color: '#2563EB', '&:hover': { background: 'var(--info-light)' } }}>
               <LockResetIcon fontSize="small" />
             </IconButton>
           </Tooltip>
           {row.isActive === false ? (
-            <Tooltip title="Kich hoat lai" arrow>
-              <IconButton size="small" aria-label="Kich hoat lai" onClick={() => handleActivate(row)} sx={{ color: '#059669', '&:hover': { background: 'var(--success-light)' } }}>
+            <Tooltip title="Kích hoạt lại" arrow>
+              <IconButton size="small" aria-label="Kích hoạt lại" onClick={() => handleActivate(row)} sx={{ color: '#059669', '&:hover': { background: 'var(--success-light)' } }}>
                 <HowToRegIcon fontSize="small" />
               </IconButton>
             </Tooltip>
           ) : (
-            <Tooltip title="Vo hieu hoa" arrow>
+            <Tooltip title="Vô hiệu hóa" arrow>
               <IconButton size="small" aria-label="Vô hiệu hóa người dùng" onClick={() => setDeleteTarget(row)} sx={{ color: '#EF4444', '&:hover': { background: 'var(--error-light)' } }}>
                 <DeleteIcon fontSize="small" />
               </IconButton>
@@ -209,20 +224,32 @@ const UsersPage: React.FC = () => {
     <div className="animate-fadeIn">
       <PageHeader title="Quản lý người dùng" subtitle={`${users.length} người dùng`} />
       {loadError && <Alert severity="warning" sx={{ mb: 2 }}>{loadError}</Alert>}
-      <div style={{ background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-card)', overflow: 'hidden' }}>
-        <DataGrid
+      {isMobile ? (
+        <UsersListMobile
           rows={users}
-          columns={columns}
-          getRowId={(row) => row.userId}
-          initialState={{ pagination: { paginationModel: { pageSize: 10 } } }}
-          pageSizeOptions={[10, 20]}
-          autoHeight
-          disableRowSelectionOnClick
           loading={loading}
-          sx={{ border: 'none', '& .MuiDataGrid-columnHeaders': { background: 'var(--bg-tertiary)' } }}
-          localeText={{ noRowsLabel: 'Không có dữ liệu' }}
+          emptyMessage="Không có dữ liệu"
+          onOpenRoles={openRoleDialog}
+          onResetPassword={(user) => { setPasswordTarget(user); setNewPassword(''); }}
+          onActivate={handleActivate}
+          onDeactivate={(user) => setDeleteTarget(user)}
         />
-      </div>
+      ) : (
+        <div style={{ background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-card)', overflow: 'hidden' }}>
+          <DataGrid
+            rows={users}
+            columns={columns}
+            getRowId={(row) => row.userId}
+            initialState={{ pagination: { paginationModel: { pageSize: 10 } } }}
+            pageSizeOptions={[10, 20]}
+            autoHeight
+            disableRowSelectionOnClick
+            loading={loading}
+            sx={{ border: 'none', '& .MuiDataGrid-columnHeaders': { background: 'var(--bg-tertiary)' } }}
+            localeText={{ noRowsLabel: 'Không có dữ liệu' }}
+          />
+        </div>
+      )}
       <Dialog
         open={!!roleTarget}
         onClose={() => !saving && setRoleTarget(null)}
@@ -250,7 +277,7 @@ const UsersPage: React.FC = () => {
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 3, gap: 1 }}>
           <Button onClick={() => setRoleTarget(null)} disabled={saving} sx={{ borderRadius: '10px', textTransform: 'none', fontFamily: 'inherit', border: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}>
-            Huy
+            Hủy
           </Button>
           <Button onClick={handleSaveRoles} disabled={saving} variant="contained" sx={{ borderRadius: '10px', textTransform: 'none', fontFamily: 'inherit', fontWeight: 700, background: 'linear-gradient(135deg, #D97706, #F59E0B)' }}>
             {saving ? 'Đang lưu...' : 'Lưu vai trò'}
@@ -264,24 +291,24 @@ const UsersPage: React.FC = () => {
         slotProps={{ paper: { sx: { borderRadius: '16px', width: 'min(400px, calc(100vw - 32px))', background: 'var(--bg-secondary)' } } }}
       >
         <DialogTitle sx={{ fontWeight: 800, fontSize: 17, pb: 0 }}>
-          Dat lai mat khau — {passwordTarget?.userName}
+          Đặt lại mật khẩu — {passwordTarget?.userName}
         </DialogTitle>
         <DialogContent sx={{ pt: '16px !important' }}>
           <TextField
-            label="Mat khau moi *"
+            label="Mật khẩu mới *"
             type="password"
             value={newPassword}
             onChange={(event) => setNewPassword(event.target.value)}
-            helperText="It nhat 6 ky tu"
+            helperText="Ít nhất 6 ký tự"
             fullWidth size="small" sx={inputSx}
           />
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 3, gap: 1 }}>
           <Button onClick={() => setPasswordTarget(null)} disabled={saving} sx={{ borderRadius: '10px', textTransform: 'none', fontFamily: 'inherit', border: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}>
-            Huy
+            Hủy
           </Button>
           <Button onClick={handleResetPassword} disabled={saving} variant="contained" sx={{ borderRadius: '10px', textTransform: 'none', fontFamily: 'inherit', fontWeight: 700, background: 'linear-gradient(135deg, #D97706, #F59E0B)' }}>
-            {saving ? 'Dang luu...' : 'Dat lai mat khau'}
+            {saving ? 'Đang lưu...' : 'Đặt lại mật khẩu'}
           </Button>
         </DialogActions>
       </Dialog>
@@ -290,7 +317,7 @@ const UsersPage: React.FC = () => {
         open={!!deleteTarget}
         title="Vô hiệu hóa người dùng"
         message={`Bạn có chắc muốn vô hiệu hóa người dùng "${deleteTarget?.userName}"?`}
-        confirmLabel="Vo hieu hoa"
+        confirmLabel="Vô hiệu hóa"
         severity="error"
         onConfirm={handleDeactivate}
         onCancel={() => setDeleteTarget(null)}

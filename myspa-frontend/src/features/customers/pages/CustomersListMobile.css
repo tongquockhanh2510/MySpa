@@ -1,0 +1,86 @@
+.customers-m-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.customers-m-empty {
+  color: var(--text-tertiary);
+  font-size: 13px;
+  padding: 24px 0;
+  text-align: center;
+}
+
+.customers-m-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  cursor: pointer;
+  padding: 12px;
+}
+
+.customers-m-card__top {
+  align-items: flex-start;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.customers-m-card__identity {
+  min-width: 0;
+}
+
+.customers-m-card__identity strong {
+  color: var(--text-primary);
+  display: block;
+  font-size: 14px;
+  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.customers-m-card__identity span {
+  color: var(--text-tertiary);
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  margin-top: 1px;
+}
+
+.customers-m-card__meta {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.customers-m-points-chip {
+  background: var(--primary-50) !important;
+  color: var(--primary) !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+}
+
+.customers-m-note-btn {
+  background: none;
+  border: 0;
+  color: var(--primary);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.customers-m-no-note {
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+.customers-m-card__actions {
+  border-top: 1px solid var(--divider);
+  display: flex;
+  gap: 4px;
+  justify-content: flex-end;
+  margin-top: 10px;
+  padding-top: 8px;
+}

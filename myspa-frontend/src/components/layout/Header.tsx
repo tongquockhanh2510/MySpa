@@ -9,7 +9,8 @@ import {
 import { useAppDispatch } from '@hooks/useAppDispatch';
 import { useAppSelector } from '@hooks/useAppSelector';
 import { logout } from '@store/authSlice';
-import { toggleDarkMode } from '@store/uiSlice';
+import { toggleDarkMode, toggleMobileSidebar } from '@store/uiSlice';
+import useMediaQuery from '@mui/material/useMediaQuery';
 import { ROUTES } from '@constants/routes';
 import { getInitials } from '@utils/formatters';
 import { getNotificationTargetPath } from '@utils/notificationNavigation';
@@ -23,6 +24,7 @@ import Badge from '@mui/material/Badge';
 import Tooltip from '@mui/material/Tooltip';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import LightModeIcon from '@mui/icons-material/LightMode';
+import MenuIcon from '@mui/icons-material/Menu';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import LockIcon from '@mui/icons-material/Lock';
@@ -41,6 +43,7 @@ const Header: React.FC = () => {
   const [notificationsLoading, setNotificationsLoading] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const location = useLocation();
+  const isMobile = useMediaQuery('(max-width:768px)');
 
   useEffect(() => {
     let cancelled = false;
@@ -54,7 +57,7 @@ const Header: React.FC = () => {
     return () => { cancelled = true; clearInterval(interval); };
   }, [location.pathname]);
 
-  const sidebarWidth = sidebarCollapsed ? 'var(--sidebar-collapsed-width)' : 'var(--sidebar-width)';
+  const sidebarWidth = isMobile ? '0px' : (sidebarCollapsed ? 'var(--sidebar-collapsed-width)' : 'var(--sidebar-width)');
 
   const handleLogout = async () => {
     setAnchorEl(null);
@@ -108,20 +111,32 @@ const Header: React.FC = () => {
       borderBottom: '1px solid var(--border-color)',
       display: 'flex',
       alignItems: 'center',
-      padding: '0 24px',
+      padding: isMobile ? '0 12px' : '0 24px',
       zIndex: 'var(--z-header)',
       transition: 'left var(--transition-slow)',
       boxShadow: 'var(--shadow-xs)',
     }}>
+      {/* Hamburger menu - mobile only */}
+      {isMobile && (
+        <IconButton
+          onClick={() => dispatch(toggleMobileSidebar())}
+          size="small"
+          sx={{ color: 'var(--text-secondary)', mr: 1, '&:hover': { background: 'var(--bg-tertiary)', color: 'var(--primary)' } }}
+          aria-label="Mở menu điều hướng"
+        >
+          <MenuIcon fontSize="small" />
+        </IconButton>
+      )}
+
       {/* Left - Breadcrumb area */}
-      <div style={{ flex: 1 }}>
-        <div style={{ fontSize: 13, color: 'var(--text-tertiary)' }}>
+      <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+        <div style={{ fontSize: 13, color: 'var(--text-tertiary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           Xin chào, <strong style={{ color: 'var(--primary)' }}>{userName}</strong> 👋
         </div>
       </div>
 
       {/* Right - Action buttons */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 0 : 4 }}>
         {/* Dark mode toggle */}
         <Tooltip title={darkMode ? 'Chế độ sáng' : 'Chế độ tối'}>
           <IconButton

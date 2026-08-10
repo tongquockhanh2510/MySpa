@@ -25,6 +25,15 @@ public interface EmployeeRepository extends JpaRepository<Employee, String> {
     List<Employee> findByStatusOfEmployee(StatusOfEmployee status);
     long countByStatusOfEmployee(StatusOfEmployee status);
 
+    // ISS-020: loại tài khoản hệ thống khỏi danh sách nhân sự / bảng lương.
+    // Null (bản ghi cũ) được coi là nhân sự thực.
+    @Query("SELECT e FROM Employee e WHERE e.systemAccount IS NULL OR e.systemAccount = false")
+    List<Employee> findRealEmployees();
+
+    @Query("SELECT COUNT(e) FROM Employee e WHERE (e.systemAccount IS NULL OR e.systemAccount = false) "
+            + "AND e.statusOfEmployee = :status")
+    long countRealEmployeesByStatus(@Param("status") StatusOfEmployee status);
+
     @Query("SELECT e FROM Employee e WHERE " +
            "(:search IS NULL OR LOWER(e.name) LIKE LOWER(CONCAT('%', :search, '%')) " +
            "OR e.phone LIKE CONCAT('%', :search, '%') " +

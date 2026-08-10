@@ -51,6 +51,7 @@ class PackageConversionServiceTest {
     @Mock TreatmentScheduleRepository treatmentScheduleRepository;
     @Mock VoucherRepository voucherRepository;
     @Mock OrderService orderService;
+    @Mock CommissionService commissionService;
 
     @InjectMocks PackageConversionService packageConversionService;
 

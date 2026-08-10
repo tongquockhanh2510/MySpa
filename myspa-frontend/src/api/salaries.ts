@@ -26,6 +26,8 @@ export interface CommissionDetail {
   commissionAmount: number;
   referenceId: string;
   description: string;
+  customerName: string | null;
+  serviceName: string | null;
   month: number;
   year: number;
   paid: boolean;

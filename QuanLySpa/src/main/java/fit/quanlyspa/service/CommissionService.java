@@ -87,6 +87,8 @@ public class CommissionService {
                     .year(eventDate.getYear())
                     .referenceId(referenceId)
                     .description("Hoa hồng dịch vụ '" + serviceName + "' - KH " + customerName)
+                    .customerName(customerName)
+                    .serviceName(serviceName)
                     .build();
             commissionRepository.save(commission);
             log.info("Generated SERVICE commission {} for employee {} on appointment {}",
@@ -130,6 +132,8 @@ public class CommissionService {
                 .year(eventDate.getYear())
                 .referenceId(referenceId)
                 .description("Hoa hồng bán gói '" + pack.getPackageName() + "' - KH " + customerName)
+                .customerName(customerName)
+                .serviceName(pack.getPackageName())
                 .build();
         commissionRepository.save(commission);
         log.info("Generated PACKAGE commission {} for employee {} on order {}",
@@ -162,12 +166,120 @@ public class CommissionService {
         return created;
     }
 
+    // ===== REVERSAL (hồi tố khi hoàn/hủy đơn) =====
+
+    /**
+     * Sinh hoa hồng ÂM để hồi tố toàn bộ hoa hồng đã ghi nhận cho một đơn hàng
+     * (hoa hồng bán gói theo orderId, hoa hồng dịch vụ theo lịch hẹn gắn với đơn).
+     * KHÔNG xóa bản ghi gốc — giữ để truy vết. Idempotent: mỗi bản ghi gốc chỉ
+     * bị đảo đúng một lần (referenceId gốc + ":REVERSAL").
+     *
+     * @return số bản ghi hoa hồng âm được tạo
+     */
+    @Transactional
+    public int reverseForOrder(Order order) {
+        if (order == null) {
+            return 0;
+        }
+        LocalDate today = LocalDate.now();
+        int reversed = reverseByPrefix(order.getOrderId() + ":", today);
+        if (order.getAppointment() != null) {
+            reversed += reverseByPrefix(order.getAppointment().getAppointmentId() + ":", today);
+        }
+        return reversed;
+    }
+
+    /**
+     * ISS-006: hồi tố MỘT PHẦN hoa hồng bán gói khi khách quy đổi các buổi chưa dùng.
+     * Sinh 1 bản ghi âm = -(hoa hồng gốc × tỉ lệ buổi chưa dùng). Idempotent theo
+     * referenceId gốc + ":CONV_REVERSAL". Bỏ qua nếu không tìm được đơn nguồn.
+     *
+     * @return số bản ghi âm được tạo (0 hoặc 1)
+     */
+    @Transactional
+    public int reversePackageSaleUnused(String sourceOrderId, String packageId,
+                                        int remainingSessions, int totalSessions) {
+        if (sourceOrderId == null || packageId == null || totalSessions <= 0 || remainingSessions <= 0) {
+            return 0;
+        }
+        String saleRef = sourceOrderId + ":" + packageId;
+        List<Commission> originals = commissionRepository.findByReferenceIdStartingWith(saleRef).stream()
+                .filter(c -> c.getCommissionType() == CommissionType.PACKAGE)
+                .filter(c -> c.getCommissionAmount() > 0)
+                .filter(c -> c.getReferenceId().equals(saleRef)) // loại các referenceId phái sinh (":...REVERSAL")
+                .toList();
+        if (originals.isEmpty()) {
+            return 0;
+        }
+        Commission original = originals.get(0);
+        String reversalRef = saleRef + ":CONV_REVERSAL";
+        if (commissionRepository.existsByReferenceIdAndCommissionType(reversalRef, CommissionType.PACKAGE)) {
+            return 0;
+        }
+        double fraction = (double) remainingSessions / totalSessions;
+        LocalDate today = LocalDate.now();
+        Commission reversal = Commission.builder()
+                .employee(original.getEmployee())
+                .commissionType(CommissionType.PACKAGE)
+                .baseAmount(-original.getBaseAmount() * fraction)
+                .commissionRate(original.getCommissionRate())
+                .commissionAmount(-original.getCommissionAmount() * fraction)
+                .month(today.getMonthValue())
+                .year(today.getYear())
+                .referenceId(reversalRef)
+                .description("Hồi tố hoa hồng phần chưa dùng khi quy đổi gói (" + remainingSessions
+                        + "/" + totalSessions + " buổi)")
+                .customerName(original.getCustomerName())
+                .serviceName(original.getServiceName())
+                .build();
+        commissionRepository.save(reversal);
+        log.info("Reversed unused package commission {} for employee {} (ref {})",
+                reversal.getCommissionAmount(),
+                original.getEmployee() != null ? original.getEmployee().getName() : "?", reversalRef);
+        return 1;
+    }
+
+    private int reverseByPrefix(String prefix, LocalDate when) {
+        int count = 0;
+        for (Commission original : commissionRepository.findByReferenceIdStartingWith(prefix)) {
+            // Bỏ qua chính các bản ghi đảo (âm) đã tạo trước đó
+            if (original.getCommissionAmount() < 0) {
+                continue;
+            }
+            String reversalRef = original.getReferenceId() + ":REVERSAL";
+            if (commissionRepository.existsByReferenceIdAndCommissionType(reversalRef, original.getCommissionType())) {
+                continue;
+            }
+            Commission reversal = Commission.builder()
+                    .employee(original.getEmployee())
+                    .commissionType(original.getCommissionType())
+                    .baseAmount(-original.getBaseAmount())
+                    .commissionRate(original.getCommissionRate())
+                    .commissionAmount(-original.getCommissionAmount())
+                    .month(when.getMonthValue())
+                    .year(when.getYear())
+                    .referenceId(reversalRef)
+                    .description("Hồi tố hoa hồng do hoàn/hủy đơn: " + original.getDescription())
+                    .customerName(original.getCustomerName())
+                    .serviceName(original.getServiceName())
+                    .build();
+            commissionRepository.save(reversal);
+            count++;
+            log.info("Reversed commission {} for employee {} (ref {})",
+                    reversal.getCommissionAmount(),
+                    original.getEmployee() != null ? original.getEmployee().getName() : "?",
+                    reversalRef);
+        }
+        return count;
+    }
+
     // ===== QUERIES =====
 
     @Transactional(readOnly = true)
     public List<EmployeeSalaryResponse> getSalarySummary(int month, int year) {
         return employeeRepository.findAll().stream()
                 .filter(e -> e.getStatusOfEmployee() == StatusOfEmployee.ACTIVE)
+                .filter(e -> !e.isSystemAccount()) // ISS-020: bỏ tài khoản hệ thống khỏi bảng lương
                 .map(employee -> toSalaryResponse(employee, month, year))
                 .sorted(Comparator.comparing(EmployeeSalaryResponse::getEmployeeName))
                 .collect(Collectors.toList());
@@ -268,6 +380,8 @@ public class CommissionService {
                 .commissionAmount(c.getCommissionAmount())
                 .referenceId(c.getReferenceId())
                 .description(c.getDescription())
+                .customerName(c.getCustomerName())
+                .serviceName(c.getServiceName())
                 .month(c.getMonth())
                 .year(c.getYear())
                 .paid(c.isPaid())
@@ -275,11 +389,15 @@ public class CommissionService {
                 .build();
     }
 
-    /** Chuẩn hóa tỉ lệ về dạng phân số (0.10). Hỗ trợ cả khi nhập 10 (=10%). */
+    /**
+     * Quy ước DUY NHẤT toàn hệ thống: commissionRate lưu theo đơn vị phần trăm
+     * (10 = 10%). Đổi sang phân số để nhân với tiền: 10 -> 0.10.
+     * Không dùng heuristic đoán đơn vị (tránh lỗi ×100 với các mức <=1%).
+     */
     private double normalizeFraction(double rate) {
         if (rate <= 0) {
             return 0;
         }
-        return rate > 1 ? rate / 100.0 : rate;
+        return rate / 100.0;
     }
 }

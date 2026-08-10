@@ -17,6 +17,7 @@ import ExportButtons from '@components/common/ExportButtons';
 import { getDashboardStats, getDailyRevenue, getTopProducts } from '@/api/dashboard';
 import { formatCurrency } from '@utils/formatters';
 import { exportToExcel } from '@utils/exportExcel';
+import { useIsMobile } from '@hooks/useIsMobile';
 import { toast } from 'sonner';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
@@ -37,6 +38,9 @@ const inputSx = {
 };
 
 const ReportsPage: React.FC = () => {
+  const isMobile = useIsMobile();
+  const chartHeight = isMobile ? 260 : 300;
+  const categoryAxisWidth = isMobile ? 92 : 150;
   const [tab, setTab] = useState(0);
   const [year, setYear] = useState(new Date().getFullYear());
   const [month, setMonth] = useState(new Date().getMonth() + 1);
@@ -124,7 +128,9 @@ const ReportsPage: React.FC = () => {
 
   const totalRevenue = monthlyRevenue.reduce((sum, item) => sum + item.revenue, 0);
   const totalOrders = monthlyRevenue.reduce((sum, item) => sum + item.orderCount, 0);
-  const avgMonthly = totalRevenue / 12;
+  // ISS-012: chia cho số tháng đã có dữ liệu, không chia cứng cho 12
+  const monthsWithData = monthlyRevenue.filter((item) => item.revenue > 0 || item.orderCount > 0).length;
+  const avgMonthly = monthsWithData > 0 ? totalRevenue / monthsWithData : 0;
   const bestMonth = monthlyRevenue.reduce(
     (best, item) => (item.revenue > best.revenue ? item : best),
     monthlyRevenue[0] || { month: 'T1', revenue: 0, orderCount: 0 }
@@ -178,14 +184,14 @@ const ReportsPage: React.FC = () => {
         <article className="reports-page__summary-card">
           <AssessmentIcon />
           <div>
-            <span>Tổng doanh thu</span>
+            <span title="Doanh thu từ các hóa đơn đã thanh toán đủ (không gồm đơn trả một phần)">Doanh thu ghi nhận</span>
             <strong>{formatCurrency(reportedRevenue)}</strong>
           </div>
         </article>
         <article className="reports-page__summary-card">
           <TrendingUpIcon />
           <div>
-            <span>Trung bình/tháng</span>
+            <span title="Tổng doanh thu ghi nhận chia cho số tháng đã có dữ liệu">Trung bình/tháng</span>
             <strong>{formatCurrency(avgMonthly)}</strong>
           </div>
         </article>
@@ -211,8 +217,11 @@ const ReportsPage: React.FC = () => {
           value={tab}
           onChange={(_, value) => setTab(value)}
           className="reports-page__tabs"
+          variant="scrollable"
+          scrollButtons="auto"
+          allowScrollButtonsMobile
           sx={{
-            '& .MuiTab-root': { textTransform: 'none', fontFamily: 'inherit', fontWeight: 500, fontSize: 14 },
+            '& .MuiTab-root': { textTransform: 'none', fontFamily: 'inherit', fontWeight: 500, fontSize: 14, whiteSpace: 'nowrap' },
             '& .Mui-selected': { color: 'var(--primary) !important', fontWeight: 600 },
             '& .MuiTabs-indicator': { background: 'var(--primary)' },
           }}
@@ -225,7 +234,7 @@ const ReportsPage: React.FC = () => {
         </Tabs>
         <Box className="reports-page__chart-body">
           {tab === 0 && (
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="100%" height={chartHeight}>
               <AreaChart data={monthlyRevenue}>
                 <defs>
                   <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
@@ -263,7 +272,7 @@ const ReportsPage: React.FC = () => {
                   </Select>
                 </FormControl>
               </Box>
-              <ResponsiveContainer width="100%" height={300}>
+              <ResponsiveContainer width="100%" height={chartHeight}>
                 <AreaChart data={dailySeries}>
                   <defs>
                     <linearGradient id="dailyRevGrad" x1="0" y1="0" x2="0" y2="1">
@@ -286,7 +295,7 @@ const ReportsPage: React.FC = () => {
           )}
           {tab === 2 &&
             (serviceRevenue.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
+              <ResponsiveContainer width="100%" height={chartHeight}>
                 <BarChart data={serviceRevenue} layout="vertical">
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--divider)" horizontal={false} />
                   <XAxis
@@ -296,7 +305,7 @@ const ReportsPage: React.FC = () => {
                     tickLine={false}
                     tickFormatter={(value) => `${(value / 1000000).toFixed(0)}M`}
                   />
-                  <YAxis type="category" dataKey="name" tick={{ fontSize: 12, fill: 'var(--text-tertiary)' }} axisLine={false} tickLine={false} width={150} />
+                  <YAxis type="category" dataKey="name" tick={{ fontSize: isMobile ? 10 : 12, fill: 'var(--text-tertiary)' }} axisLine={false} tickLine={false} width={categoryAxisWidth} />
                   <Tooltip formatter={(value: any) => [formatCurrency(value), 'Doanh thu']} contentStyle={{ borderRadius: 10, border: '1px solid var(--border-color)' }} />
                   <Bar dataKey="revenue" fill="#D97706" radius={[0, 6, 6, 0]} maxBarSize={32} />
                 </BarChart>
@@ -306,11 +315,11 @@ const ReportsPage: React.FC = () => {
             ))}
           {tab === 3 &&
             (productSeries.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
+              <ResponsiveContainer width="100%" height={chartHeight}>
                 <BarChart data={productSeries} layout="vertical">
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--divider)" horizontal={false} />
                   <XAxis type="number" tick={{ fontSize: 12, fill: 'var(--text-tertiary)' }} axisLine={false} tickLine={false} />
-                  <YAxis type="category" dataKey="name" tick={{ fontSize: 12, fill: 'var(--text-tertiary)' }} axisLine={false} tickLine={false} width={150} />
+                  <YAxis type="category" dataKey="name" tick={{ fontSize: isMobile ? 10 : 12, fill: 'var(--text-tertiary)' }} axisLine={false} tickLine={false} width={categoryAxisWidth} />
                   <Tooltip
                     formatter={(value: any, name: any) => name === 'quantity' ? [`${value} sản phẩm`, 'Đã bán'] : [formatCurrency(value), 'Doanh thu']}
                     contentStyle={{ borderRadius: 10, border: '1px solid var(--border-color)' }}
@@ -324,10 +333,19 @@ const ReportsPage: React.FC = () => {
             ))}
           {tab === 4 &&
             (topEmployees.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
+              <ResponsiveContainer width="100%" height={chartHeight}>
                 <BarChart data={topEmployees}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--divider)" vertical={false} />
-                  <XAxis dataKey="name" tick={{ fontSize: 11, fill: 'var(--text-tertiary)' }} axisLine={false} tickLine={false} />
+                  <XAxis
+                    dataKey="name"
+                    tick={{ fontSize: 11, fill: 'var(--text-tertiary)' }}
+                    axisLine={false}
+                    tickLine={false}
+                    interval={0}
+                    angle={isMobile ? -35 : 0}
+                    textAnchor={isMobile ? 'end' : 'middle'}
+                    height={isMobile ? 52 : 30}
+                  />
                   <YAxis
                     tick={{ fontSize: 12, fill: 'var(--text-tertiary)' }}
                     axisLine={false}

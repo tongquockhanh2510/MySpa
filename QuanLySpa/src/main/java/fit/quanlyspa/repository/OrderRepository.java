@@ -17,4 +17,8 @@ public interface OrderRepository extends JpaRepository<Order, String> {
     Optional<Order> findFirstByAppointment_AppointmentIdAndOrderStatusIn(
             String appointmentId,
             Collection<OrderStatus> statuses);
+
+    boolean existsByAppointment_AppointmentIdAndOrderStatusIn(
+            String appointmentId,
+            Collection<OrderStatus> statuses);
 }

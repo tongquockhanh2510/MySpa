@@ -15,6 +15,8 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import SearchIcon from '@mui/icons-material/Search';
 import CategoryIcon from '@mui/icons-material/Category';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
+import { useIsMobile } from '@hooks/useIsMobile';
+import CategoriesListMobile from './CategoriesListMobile';
 import './CategoriesPage.css';
 
 const schema = z.object({
@@ -28,6 +30,7 @@ const inputSx = {
 };
 
 const CategoriesPage: React.FC = () => {
+  const isMobile = useIsMobile();
   const [categories, setCategories] = useState<Category[]>([]);
   const [search, setSearch] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -171,24 +174,34 @@ const CategoriesPage: React.FC = () => {
       </section>
 
       <section className="categories-panel">
-        <DataGrid
-          rows={filtered}
-          columns={columns}
-          getRowId={(row) => row.categoryId}
-          loading={loading}
-          initialState={{ pagination: { paginationModel: { pageSize: 10 } } }}
-          pageSizeOptions={[10, 20]}
-          autoHeight
-          disableRowSelectionOnClick
-          sx={{ border: 'none', '& .MuiDataGrid-columnHeaders': { background: 'var(--bg-tertiary)' } }}
-          localeText={{
-            MuiTablePagination: {
-              labelRowsPerPage: 'Hàng mỗi trang:',
-              labelDisplayedRows: ({ from, to, count }: any) => `${from}-${to} / ${count}`,
-            },
-            noRowsLabel: search ? 'Không tìm thấy danh mục phù hợp' : 'Không có dữ liệu',
-          } as any}
-        />
+        {isMobile ? (
+          <CategoriesListMobile
+            rows={filtered}
+            loading={loading}
+            emptyMessage={search ? 'Không tìm thấy danh mục phù hợp' : 'Không có dữ liệu'}
+            onOpenEdit={openEdit}
+            onDelete={(category) => setDeleteTarget(category)}
+          />
+        ) : (
+          <DataGrid
+            rows={filtered}
+            columns={columns}
+            getRowId={(row) => row.categoryId}
+            loading={loading}
+            initialState={{ pagination: { paginationModel: { pageSize: 10 } } }}
+            pageSizeOptions={[10, 20]}
+            autoHeight
+            disableRowSelectionOnClick
+            sx={{ border: 'none', '& .MuiDataGrid-columnHeaders': { background: 'var(--bg-tertiary)' } }}
+            localeText={{
+              MuiTablePagination: {
+                labelRowsPerPage: 'Hàng mỗi trang:',
+                labelDisplayedRows: ({ from, to, count }: any) => `${from}-${to} / ${count}`,
+              },
+              noRowsLabel: search ? 'Không tìm thấy danh mục phù hợp' : 'Không có dữ liệu',
+            } as any}
+          />
+        )}
       </section>
 
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} slotProps={{ paper: { sx: { borderRadius: '16px', width: 'min(420px, calc(100vw - 32px))', background: 'var(--bg-secondary)' } } }}>

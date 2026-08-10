@@ -17,12 +17,16 @@ import {
   type SubscriptionPayment,
   type SubscriptionPlan,
 } from '@/api/subscriptions';
+import { useIsMobile } from '@hooks/useIsMobile';
 import './SubscriptionsPage.css';
 
 const money = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 });
 const date = (value: string | null) => value ? new Intl.DateTimeFormat('vi-VN').format(new Date(value)) : '—';
 
+const paymentStatusLabel = (status: string) => (status === 'SUCCESS' ? 'Thành công' : status === 'PENDING' ? 'Chờ thanh toán' : status);
+
 const SubscriptionsPage = () => {
+  const isMobile = useIsMobile();
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [current, setCurrent] = useState<SpaSubscription | null>(null);
   const [payments, setPayments] = useState<SubscriptionPayment[]>([]);
@@ -139,9 +143,23 @@ const SubscriptionsPage = () => {
 
       <section className="payment-history">
         <div className="section-heading"><div><h2>Lịch sử thanh toán</h2><p>Theo dõi các giao dịch mua gói của spa</p></div></div>
-        {payments.length === 0 ? <div className="empty-payments">Chưa có giao dịch nào.</div> : (
+        {payments.length === 0 ? <div className="empty-payments">Chưa có giao dịch nào.</div> : isMobile ? (
+          <div className="payment-list-mobile">
+            {payments.map(payment => (
+              <div className="payment-card" key={payment.paymentId}>
+                <div className="payment-card__top">
+                  <strong>{payment.planName}</strong>
+                  <span className={`payment-status ${payment.status.toLowerCase()}`}>{paymentStatusLabel(payment.status)}</span>
+                </div>
+                <div className="payment-card__row"><span>Mã thanh toán</span><code>{payment.paymentMemo}</code></div>
+                <div className="payment-card__row"><span>Ngày tạo</span><span>{date(payment.createdAt)}</span></div>
+                <div className="payment-card__row payment-card__row--amount"><span>Số tiền</span><strong>{money.format(payment.amount)}</strong></div>
+              </div>
+            ))}
+          </div>
+        ) : (
           <div className="payment-table-wrap"><table><thead><tr><th>Gói</th><th>Mã thanh toán</th><th>Ngày tạo</th><th>Số tiền</th><th>Trạng thái</th></tr></thead>
-            <tbody>{payments.map(payment => <tr key={payment.paymentId}><td>{payment.planName}</td><td><code>{payment.paymentMemo}</code></td><td>{date(payment.createdAt)}</td><td>{money.format(payment.amount)}</td><td><span className={`payment-status ${payment.status.toLowerCase()}`}>{payment.status === 'SUCCESS' ? 'Thành công' : payment.status === 'PENDING' ? 'Chờ thanh toán' : payment.status}</span></td></tr>)}</tbody>
+            <tbody>{payments.map(payment => <tr key={payment.paymentId}><td>{payment.planName}</td><td><code>{payment.paymentMemo}</code></td><td>{date(payment.createdAt)}</td><td>{money.format(payment.amount)}</td><td><span className={`payment-status ${payment.status.toLowerCase()}`}>{paymentStatusLabel(payment.status)}</span></td></tr>)}</tbody>
           </table></div>
         )}
       </section>

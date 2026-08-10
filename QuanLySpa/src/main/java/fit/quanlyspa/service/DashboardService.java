@@ -30,6 +30,7 @@ public class DashboardService {
     ProductRepository productRepository;
     CustomerTreatmentRepository customerTreatmentRepository;
     CommissionRepository commissionRepository;
+    PaymentRepository paymentRepository;
 
     @Transactional(readOnly = true)
     public DashboardStatsResponse getStats(Integer reportYear) {
@@ -51,6 +52,9 @@ public class DashboardService {
                 : null;
         BigDecimal monthRevenue = invoiceRepository.getMonthlyRevenue(currentMonth, currentYear);
         BigDecimal prevMonthRevenue = invoiceRepository.getMonthlyRevenue(prevMonth, prevYear);
+        // ISS-012: tiền thực thu (gồm thanh toán một phần) & doanh thu chưa thực hiện
+        BigDecimal monthCollected = paymentRepository.getCollectedInMonth(currentMonth, currentYear);
+        BigDecimal unearnedRevenue = BigDecimal.valueOf(customerTreatmentRepository.sumUnearnedRevenue());
         BigDecimal yearRevenue = invoiceRepository.getMonthlyRevenue(1, currentYear)
                 .add(invoiceRepository.getMonthlyRevenue(2, currentYear))
                 .add(invoiceRepository.getMonthlyRevenue(3, currentYear))
@@ -88,8 +92,8 @@ public class DashboardService {
         Double customerGrowth = prevNewCustomers > 0 ? (double)(newCustomers - prevNewCustomers) / prevNewCustomers * 100 : null;
 
         // Employee KPIs
-        long activeEmployees = employeeRepository.countByStatusOfEmployee(StatusOfEmployee.ACTIVE);
-        long totalEmployees = employeeRepository.count();
+        long activeEmployees = employeeRepository.countRealEmployeesByStatus(StatusOfEmployee.ACTIVE);
+        long totalEmployees = employeeRepository.findRealEmployees().size();
 
         // Low stock
         long lowStockCount = productRepository.findLowStockProducts().size();
@@ -160,6 +164,8 @@ public class DashboardService {
                 .yearRevenue(yearRevenue)
                 .revenueGrowthPercent(revenueGrowth)
                 .todayRevenueGrowthPercent(todayRevenueGrowth)
+                .monthCollected(monthCollected)
+                .unearnedRevenue(unearnedRevenue)
                 .todayAppointments(todayAppts)
                 .monthAppointments(monthAppts)
                 .cancellationRatePercent(cancellationRate)

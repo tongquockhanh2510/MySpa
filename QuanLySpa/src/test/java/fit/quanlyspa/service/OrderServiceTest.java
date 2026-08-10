@@ -95,8 +95,16 @@ class OrderServiceTest {
     @Mock NotificationService notificationService;
     @Mock PricingProperties pricingProperties;
     @Mock DisplayCodeService displayCodeService;
+    @Mock fit.quanlyspa.configuration.BusinessHoursProperties businessHours;
 
     @InjectMocks OrderService orderService;
+
+    @org.junit.jupiter.api.BeforeEach
+    void stubBusinessHours() {
+        // Mặc định coi mọi khung giờ đều trong giờ mở cửa (test không kiểm tra ISS-001)
+        org.mockito.Mockito.lenient()
+                .when(businessHours.isWithinBusinessHours(any(), any())).thenReturn(true);
+    }
 
     @Test
     void processPayment_allowsCashOverpaymentAndRecordsChange() {

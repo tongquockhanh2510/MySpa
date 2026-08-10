@@ -10,6 +10,8 @@ import PageHeader from '@components/common/PageHeader';
 import { getPermissions } from '@/api/accessControl';
 import type { Permission } from '@/types';
 import { toast } from 'sonner';
+import { useIsMobile } from '@hooks/useIsMobile';
+import PermissionsListMobile from './PermissionsListMobile';
 import './PermissionsPage.css';
 
 const actionLabels: Record<string, string> = {
@@ -41,6 +43,7 @@ const getPermissionParts = (name: string) => {
 };
 
 const PermissionsPage: React.FC = () => {
+  const isMobile = useIsMobile();
   const [searchTerm, setSearchTerm] = useState('');
   const [permissions, setPermissions] = useState<Permission[]>([]);
   const [loading, setLoading] = useState(true);
@@ -172,27 +175,31 @@ const PermissionsPage: React.FC = () => {
         <span>{filteredRows.length} quyền phù hợp</span>
       </section>
 
-      <div className="permissions-page__panel">
-        <Box sx={{ width: '100%' }}>
-          <DataGrid
-            rows={filteredRows}
-            columns={columns}
-            getRowId={(row) => row.name}
-            autoHeight
-            disableRowSelectionOnClick
-            loading={loading}
-            pageSizeOptions={[10, 25, 50]}
-            initialState={{ pagination: { paginationModel: { pageSize: 10 } } }}
-            sx={{
-              border: 'none',
-              '& .MuiDataGrid-columnHeaders': {
-                background: 'var(--bg-tertiary)',
-              },
-            }}
-            localeText={{ noRowsLabel: 'Không có quyền phù hợp' }}
-          />
-        </Box>
-      </div>
+      {isMobile ? (
+        <PermissionsListMobile rows={filteredRows} loading={loading} emptyMessage="Không có quyền phù hợp" />
+      ) : (
+        <div className="permissions-page__panel">
+          <Box sx={{ width: '100%' }}>
+            <DataGrid
+              rows={filteredRows}
+              columns={columns}
+              getRowId={(row) => row.name}
+              autoHeight
+              disableRowSelectionOnClick
+              loading={loading}
+              pageSizeOptions={[10, 25, 50]}
+              initialState={{ pagination: { paginationModel: { pageSize: 10 } } }}
+              sx={{
+                border: 'none',
+                '& .MuiDataGrid-columnHeaders': {
+                  background: 'var(--bg-tertiary)',
+                },
+              }}
+              localeText={{ noRowsLabel: 'Không có quyền phù hợp' }}
+            />
+          </Box>
+        </div>
+      )}
     </main>
   );
 };

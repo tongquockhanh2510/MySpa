@@ -21,6 +21,8 @@ public class CommissionDetailResponse {
     double commissionAmount;
     String referenceId;
     String description;
+    String customerName;
+    String serviceName;
     int month;
     int year;
     boolean paid;

@@ -10,9 +10,12 @@ import PageHeader from '@components/common/PageHeader';
 import { getRoles, getUsers } from '@/api/accessControl';
 import type { Role, User } from '@/types';
 import { toast } from 'sonner';
+import { useIsMobile } from '@hooks/useIsMobile';
+import RolesListMobile from './RolesListMobile';
 import './RolesPage.css';
 
 const RolesPage: React.FC = () => {
+  const isMobile = useIsMobile();
   const [searchTerm, setSearchTerm] = useState('');
   const [roles, setRoles] = useState<Role[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -167,25 +170,29 @@ const RolesPage: React.FC = () => {
         <span>{filteredRows.length} vai trò phù hợp</span>
       </section>
 
-      <div className="roles-page__panel">
-        <DataGrid
-          rows={filteredRows}
-          columns={columns}
-          getRowId={(row) => row.name}
-          autoHeight
-          disableRowSelectionOnClick
-          loading={loading}
-          pageSizeOptions={[10, 20]}
-          initialState={{ pagination: { paginationModel: { pageSize: 10 } } }}
-          sx={{
-            border: 'none',
-            '& .MuiDataGrid-columnHeaders': {
-              background: 'var(--bg-tertiary)',
-            },
-          }}
-          localeText={{ noRowsLabel: 'Không có vai trò phù hợp' }}
-        />
-      </div>
+      {isMobile ? (
+        <RolesListMobile rows={filteredRows} loading={loading} emptyMessage="Không có vai trò phù hợp" />
+      ) : (
+        <div className="roles-page__panel">
+          <DataGrid
+            rows={filteredRows}
+            columns={columns}
+            getRowId={(row) => row.name}
+            autoHeight
+            disableRowSelectionOnClick
+            loading={loading}
+            pageSizeOptions={[10, 20]}
+            initialState={{ pagination: { paginationModel: { pageSize: 10 } } }}
+            sx={{
+              border: 'none',
+              '& .MuiDataGrid-columnHeaders': {
+                background: 'var(--bg-tertiary)',
+              },
+            }}
+            localeText={{ noRowsLabel: 'Không có vai trò phù hợp' }}
+          />
+        </div>
+      )}
     </main>
   );
 };

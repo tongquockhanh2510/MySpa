@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAppDispatch } from '@hooks/useAppDispatch';
 import { useAppSelector } from '@hooks/useAppSelector';
 import { logout } from '@store/authSlice';
-import { toggleSidebar } from '@store/uiSlice';
+import { toggleSidebar, closeMobileSidebar } from '@store/uiSlice';
+import useMediaQuery from '@mui/material/useMediaQuery';
 import { ROUTES } from '@constants/routes';
 import { canAccessRoute } from '@utils/authorization';
 import { toast } from 'sonner';
@@ -26,6 +27,7 @@ import ShieldIcon from '@mui/icons-material/Shield';
 import VpnKeyIcon from '@mui/icons-material/VpnKey';
 import LogoutIcon from '@mui/icons-material/Logout';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+import CloseIcon from '@mui/icons-material/Close';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import WorkspacePremiumIcon from '@mui/icons-material/WorkspacePremium';
 import Tooltip from '@mui/material/Tooltip';
@@ -77,7 +79,7 @@ const menuGroups: MenuGroup[] = [
       { label: 'Người dùng', icon: <ManageAccountsIcon fontSize="small" />, path: ROUTES.USERS },
       { label: 'Vai trò', icon: <ShieldIcon fontSize="small" />, path: ROUTES.ROLES },
       { label: 'Phân quyền', icon: <VpnKeyIcon fontSize="small" />, path: ROUTES.PERMISSIONS },
-      { label: 'Gói dịch vụ', icon: <WorkspacePremiumIcon fontSize="small" />, path: ROUTES.SUBSCRIPTIONS },
+      { label: 'Gói phần mềm', icon: <WorkspacePremiumIcon fontSize="small" />, path: ROUTES.SUBSCRIPTIONS },
     ],
   },
 ];
@@ -87,11 +89,23 @@ const Sidebar: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const collapsed = useAppSelector((s) => s.ui.sidebarCollapsed);
+  const mobileOpen = useAppSelector((s) => s.ui.mobileSidebarOpen);
   const user = useAppSelector((s) => s.auth.user);
+  const isMobile = useMediaQuery('(max-width:768px)');
 
   const isActive = (path: string) => {
     if (path === '/') return location.pathname === '/';
     return location.pathname.startsWith(path);
+  };
+
+  // Dong drawer mobile moi khi doi trang (vd. dieu huong bang nut back/forward)
+  useEffect(() => {
+    if (isMobile) dispatch(closeMobileSidebar());
+  }, [location.pathname, isMobile, dispatch]);
+
+  const handleNavigate = (path: string) => {
+    navigate(path);
+    if (isMobile) dispatch(closeMobileSidebar());
   };
 
   const handleLogout = async () => {
@@ -100,77 +114,97 @@ const Sidebar: React.FC = () => {
     navigate(ROUTES.LOGIN);
   };
 
+  const effectiveCollapsed = isMobile ? false : collapsed;
+
   return (
-    <aside
-      style={{
-        width: collapsed ? 'var(--sidebar-collapsed-width)' : 'var(--sidebar-width)',
-        height: '100vh',
-        background: 'linear-gradient(180deg, #1C1917 0%, #0A0908 100%)',
-        display: 'flex',
-        flexDirection: 'column',
-        transition: 'width var(--transition-slow)',
-        overflow: 'hidden',
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        zIndex: 'var(--z-sidebar)',
-        boxShadow: '4px 0 20px rgba(0,0,0,0.25)',
-      }}
-    >
-      {/* Logo */}
-      <div style={{
-        padding: collapsed ? '20px 16px' : '20px 20px',
-        borderBottom: '1px solid rgba(255,255,255,0.06)',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 12,
-        minHeight: 'var(--header-height)',
-      }}>
+    <>
+      {isMobile && mobileOpen && (
+        <div
+          onClick={() => dispatch(closeMobileSidebar())}
+          aria-hidden="true"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.5)',
+            zIndex: 'calc(var(--z-sidebar) - 1)',
+          }}
+        />
+      )}
+      <aside
+        style={{
+          width: effectiveCollapsed ? 'var(--sidebar-collapsed-width)' : 'var(--sidebar-width)',
+          height: '100vh',
+          background: 'linear-gradient(180deg, #1C1917 0%, #0A0908 100%)',
+          display: 'flex',
+          flexDirection: 'column',
+          transition: isMobile ? 'transform var(--transition-slow)' : 'width var(--transition-slow)',
+          overflow: 'hidden',
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          zIndex: 'var(--z-sidebar)',
+          boxShadow: '4px 0 20px rgba(0,0,0,0.25)',
+          transform: isMobile ? (mobileOpen ? 'translateX(0)' : 'translateX(-100%)') : 'none',
+        }}
+      >
+        {/* Logo */}
         <div style={{
-          width: 36,
-          height: 36,
-          borderRadius: '10px',
-          background: 'linear-gradient(135deg, #D97706, #F59E0B)',
+          padding: effectiveCollapsed ? '20px 16px' : '20px 20px',
+          borderBottom: '1px solid rgba(255,255,255,0.06)',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'center',
-          flexShrink: 0,
-          boxShadow: '0 4px 12px rgba(217,119,6,0.4)',
+          gap: 12,
+          minHeight: 'var(--header-height)',
         }}>
-          <AutoAwesomeIcon sx={{ color: '#fff', fontSize: 20 }} />
-        </div>
-        {!collapsed && (
-          <div style={{ overflow: 'hidden' }}>
-            <div style={{ color: '#fff', fontWeight: 700, fontSize: 18, letterSpacing: '-0.3px', whiteSpace: 'nowrap' }}>
-              MY SPA
-            </div>
-            <div style={{ color: 'rgba(255,255,255,0.45)', fontSize: 11, whiteSpace: 'nowrap' }}>
-              Quản lý spa chuyên nghiệp
-            </div>
-          </div>
-        )}
-        <button
-          onClick={() => dispatch(toggleSidebar())}
-          style={{
-            marginLeft: 'auto',
-            width: 28,
-            height: 28,
-            borderRadius: 8,
-            background: 'rgba(255,255,255,0.06)',
-            color: 'rgba(255,255,255,0.5)',
+          <div style={{
+            width: 36,
+            height: 36,
+            borderRadius: '10px',
+            background: 'linear-gradient(135deg, #D97706, #F59E0B)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             flexShrink: 0,
-            transition: 'all var(--transition-base)',
-          }}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.12)'; }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.06)'; }}
-          aria-label="Thu gọn sidebar"
-        >
-          <ChevronLeftIcon fontSize="small" style={{ transform: collapsed ? 'rotate(180deg)' : 'none', transition: 'transform var(--transition-slow)' }} />
-        </button>
-      </div>
+            boxShadow: '0 4px 12px rgba(217,119,6,0.4)',
+          }}>
+            <AutoAwesomeIcon sx={{ color: '#fff', fontSize: 20 }} />
+          </div>
+          {!effectiveCollapsed && (
+            <div style={{ overflow: 'hidden' }}>
+              <div style={{ color: '#fff', fontWeight: 700, fontSize: 18, letterSpacing: '-0.3px', whiteSpace: 'nowrap' }}>
+                MY SPA
+              </div>
+              <div style={{ color: 'rgba(255,255,255,0.45)', fontSize: 11, whiteSpace: 'nowrap' }}>
+                Quản lý spa chuyên nghiệp
+              </div>
+            </div>
+          )}
+          <button
+            onClick={() => (isMobile ? dispatch(closeMobileSidebar()) : dispatch(toggleSidebar()))}
+            style={{
+              marginLeft: 'auto',
+              width: 28,
+              height: 28,
+              borderRadius: 8,
+              background: 'rgba(255,255,255,0.06)',
+              color: 'rgba(255,255,255,0.5)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+              transition: 'all var(--transition-base)',
+            }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.12)'; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.06)'; }}
+            aria-label={isMobile ? 'Đóng menu' : 'Thu gọn sidebar'}
+          >
+            {isMobile ? (
+              <CloseIcon fontSize="small" />
+            ) : (
+              <ChevronLeftIcon fontSize="small" style={{ transform: collapsed ? 'rotate(180deg)' : 'none', transition: 'transform var(--transition-slow)' }} />
+            )}
+          </button>
+        </div>
 
       {/* Navigation */}
       <nav style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '12px 0' }}>
@@ -180,7 +214,7 @@ const Sidebar: React.FC = () => {
 
           return (
           <div key={group.title} style={{ marginBottom: 4 }}>
-            {!collapsed && (
+            {!effectiveCollapsed && (
               <div style={{
                 padding: '8px 20px 4px',
                 fontSize: 10,
@@ -197,13 +231,13 @@ const Sidebar: React.FC = () => {
               const menuItem = (
                 <button
                   key={item.path}
-                  onClick={() => navigate(item.path)}
+                  onClick={() => handleNavigate(item.path)}
                   style={{
                     width: '100%',
                     display: 'flex',
                     alignItems: 'center',
                     gap: 10,
-                    padding: collapsed ? '10px 18px' : '9px 16px 9px 20px',
+                    padding: effectiveCollapsed ? '10px 18px' : '9px 16px 9px 20px',
                     margin: '1px 0',
                     color: active ? '#F59E0B' : 'rgba(255,255,255,0.75)',
                     background: active
@@ -232,11 +266,11 @@ const Sidebar: React.FC = () => {
                   }}
                 >
                   <span style={{ flexShrink: 0, opacity: active ? 1 : 0.8 }}>{item.icon}</span>
-                  {!collapsed && <span>{item.label}</span>}
+                  {!effectiveCollapsed && <span>{item.label}</span>}
                 </button>
               );
 
-              return collapsed ? (
+              return effectiveCollapsed ? (
                 <Tooltip key={item.path} title={item.label} placement="right" arrow>
                   <span>{menuItem}</span>
                 </Tooltip>
@@ -249,7 +283,7 @@ const Sidebar: React.FC = () => {
 
       {/* Logout */}
       <div style={{ padding: '12px 0', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-        {collapsed ? (
+        {effectiveCollapsed ? (
           <Tooltip title="Đăng xuất" placement="right" arrow>
             <button
               onClick={handleLogout}
@@ -278,7 +312,8 @@ const Sidebar: React.FC = () => {
           </button>
         )}
       </div>
-    </aside>
+      </aside>
+    </>
   );
 };
 

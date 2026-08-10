@@ -35,6 +35,13 @@ export const payOrder = async (orderId: string, paymentData: {
   return response.data.result;
 };
 
+export const refundOrder = async (orderId: string, reason?: string) => {
+  const response = await axiosInstance.post(`/orders/${orderId}/refund`, null, {
+    params: reason ? { reason } : undefined,
+  });
+  return response.data.result;
+};
+
 export const getOrderById = async (orderId: string) => {
   const response = await axiosInstance.get(`/orders/${orderId}`);
   return response.data.result;

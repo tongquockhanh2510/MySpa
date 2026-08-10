@@ -1,0 +1,52 @@
+.categories-m-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.categories-m-empty {
+  color: var(--text-tertiary);
+  font-size: 13px;
+  padding: 24px 0;
+  text-align: center;
+}
+
+.categories-m-card {
+  align-items: center;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  cursor: pointer;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  padding: 12px;
+}
+
+.categories-m-card__identity {
+  min-width: 0;
+}
+
+.categories-m-card__identity strong {
+  color: var(--text-primary);
+  display: block;
+  font-size: 14px;
+  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.categories-m-card__identity span {
+  color: var(--text-tertiary);
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  margin-top: 1px;
+}
+
+.categories-m-card__actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 2px;
+}

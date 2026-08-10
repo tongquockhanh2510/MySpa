@@ -16,6 +16,8 @@ import type { CustomerTreatment, PackageConversion, Product, TreatmentPackage } 
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import CardGiftcardIcon from '@mui/icons-material/CardGiftcard';
 import DiscountIcon from '@mui/icons-material/Discount';
+import { useIsMobile } from '@hooks/useIsMobile';
+import PackageConversionsListMobile from './PackageConversionsListMobile';
 import './PackageConversionsPage.css';
 
 const inputSx = {
@@ -32,6 +34,7 @@ const conversionLabels: Record<ConversionType, string> = {
 
 const PackageConversionsPage: React.FC = () => {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const [conversions, setConversions] = useState<PackageConversion[]>([]);
   const [customerTreatments, setCustomerTreatments] = useState<CustomerTreatment[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -206,7 +209,13 @@ const PackageConversionsPage: React.FC = () => {
       </section>
 
       <section className="conversions-panel">
-        {loading ? (
+        {isMobile ? (
+          <PackageConversionsListMobile
+            rows={conversions}
+            loading={loading}
+            emptyMessage="Chưa có chuyển đổi liệu trình"
+          />
+        ) : loading ? (
           <div className="conversions-skeleton" aria-busy="true" aria-label="Đang tải chuyển đổi">
             {Array.from({ length: 7 }).map((_, index) => <Skeleton key={index} variant="rounded" height={48} />)}
           </div>

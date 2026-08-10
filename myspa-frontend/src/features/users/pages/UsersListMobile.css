@@ -1,0 +1,90 @@
+.users-m-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.users-m-empty {
+  color: var(--text-tertiary);
+  font-size: 13px;
+  padding: 24px 0;
+  text-align: center;
+}
+
+.users-m-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.users-m-card__top {
+  align-items: flex-start;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.users-m-card__identity {
+  min-width: 0;
+}
+
+.users-m-card__identity strong {
+  color: var(--text-primary);
+  display: block;
+  font-size: 14px;
+  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.users-m-card__identity span {
+  color: var(--text-tertiary);
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  margin-top: 1px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.users-m-status {
+  flex-shrink: 0;
+  font-size: 10.5px !important;
+  font-weight: 700 !important;
+}
+
+.users-m-status--active {
+  background: var(--success-light) !important;
+  color: var(--success) !important;
+}
+
+.users-m-status--off {
+  background: var(--error-light) !important;
+  color: #DC2626 !important;
+}
+
+.users-m-card__roles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.users-m-role-chip {
+  background: var(--primary-100) !important;
+  color: var(--primary) !important;
+  font-size: 10.5px !important;
+  font-weight: 600 !important;
+}
+
+.users-m-card__actions {
+  border-top: 1px solid var(--divider);
+  display: flex;
+  gap: 2px;
+  justify-content: flex-end;
+  margin-top: 10px;
+  padding-top: 8px;
+}

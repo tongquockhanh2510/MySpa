@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   AreaChart, Area, PieChart, Pie, Cell, Legend,
@@ -10,9 +10,10 @@ import Alert from '@mui/material/Alert';
 import Skeleton from '@mui/material/Skeleton';
 import StatCard from '@components/common/StatCard';
 import StatusChip from '@components/common/StatusChip';
-import { getDashboardStats } from '@/api/dashboard';
-import { getOrders } from '@/api/orders';
 import { formatCurrency } from '@utils/formatters';
+import { useIsMobile } from '@hooks/useIsMobile';
+import { useDashboardData } from '../hooks/useDashboardData';
+import DashboardPageMobile from './DashboardPage.mobile';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import PeopleIcon from '@mui/icons-material/People';
@@ -24,31 +25,10 @@ import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import SpaIcon from '@mui/icons-material/Spa';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
+import TrendingDownIcon from '@mui/icons-material/TrendingDown';
 import './DashboardPage.css';
 
 const CHART_COLORS = ['#D97706', '#2563EB', '#10B981', '#7C3AED', '#DC2626'];
-
-const emptyStats = {
-  todayRevenue: 0,
-  monthRevenue: 0,
-  yearRevenue: 0,
-  revenueGrowthPercent: null as number | null,
-  todayRevenueGrowthPercent: null as number | null,
-  todayAppointments: 0,
-  monthAppointments: 0,
-  totalCustomers: 0,
-  newCustomersThisMonth: 0,
-  customerGrowthPercent: null as number | null,
-  activeEmployees: 0,
-  totalEmployees: 0,
-  soldPackagesThisMonth: 0,
-  lowStockProducts: 0,
-  monthlyRevenue: [],
-  popularServices: [],
-  lowStockItems: [],
-};
-
-type DashboardStats = typeof emptyStats & Record<string, any>;
 
 const formatShortCurrency = (value: number) => {
   if (value >= 1000000000) return `${(value / 1000000000).toFixed(1)}B`;
@@ -104,64 +84,30 @@ const EmptyState: React.FC<{ icon: React.ReactNode; title: string; description: 
 
 const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
-  const [stats, setStats] = useState<DashboardStats>(emptyStats);
-  const [orders, setOrders] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const isMobile = useIsMobile();
+  const {
+    stats, loading, refreshing, error, loadDashboard,
+    monthlyRevenue, popularServices, lowStockProducts, recentOrders,
+    totalPopularBookings, revenueDelta,
+  } = useDashboardData();
 
-  const loadDashboard = async (isRefresh = false) => {
-    if (isRefresh) setRefreshing(true);
-    if (!isRefresh) setLoading(true);
-    setError(null);
-
-    try {
-      const [statsData, ordersData] = await Promise.all([getDashboardStats(), getOrders()]);
-      setStats({ ...emptyStats, ...statsData });
-      setOrders(Array.isArray(ordersData) ? ordersData : []);
-    } catch (err) {
-      console.error(err);
-      setStats(emptyStats);
-      setOrders([]);
-      setError('Không thể tải dữ liệu dashboard. Vui lòng kiểm tra đăng nhập hoặc quyền truy cập.');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
-
-  useEffect(() => {
-    loadDashboard();
-  }, []);
-
-  const monthlyRevenue = useMemo(() => {
-    const byMonth = new Map((stats.monthlyRevenue || []).map((item: any) => [Number(item.month), item]));
-    return Array.from({ length: 12 }, (_, index) => {
-      const month = index + 1;
-      const item: any = byMonth.get(month);
-      return {
-        month: `T${month}`,
-        revenue: Number(item?.revenue || 0),
-        profit: Number(item?.profit ?? item?.revenue ?? 0),
-        orderCount: Number(item?.orderCount || 0),
-      };
-    });
-  }, [stats.monthlyRevenue]);
-
-  const popularServices = useMemo(() => (
-    (stats.popularServices || []).slice(0, 5).map((service: any) => ({
-      name: service.serviceName || service.name || 'Dịch vụ',
-      count: Number(service.bookingCount || service.count || 0),
-      revenue: Number(service.totalRevenue || service.revenue || 0),
-    }))
-  ), [stats.popularServices]);
-
-  const lowStockProducts = (stats.lowStockItems || []).slice(0, 6);
-  const recentOrders = orders.slice(0, 6);
-  const totalPopularBookings = popularServices.reduce((sum, service) => sum + service.count, 0);
-  const currentMonthRevenue = monthlyRevenue[new Date().getMonth()]?.revenue || 0;
-  const previousMonthRevenue = monthlyRevenue[Math.max(new Date().getMonth() - 1, 0)]?.revenue || 0;
-  const revenueDelta = currentMonthRevenue - previousMonthRevenue;
+  if (isMobile) {
+    return (
+      <DashboardPageMobile
+        stats={stats}
+        loading={loading}
+        refreshing={refreshing}
+        error={error}
+        loadDashboard={loadDashboard}
+        monthlyRevenue={monthlyRevenue}
+        popularServices={popularServices}
+        lowStockProducts={lowStockProducts}
+        recentOrders={recentOrders}
+        totalPopularBookings={totalPopularBookings}
+        revenueDelta={revenueDelta}
+      />
+    );
+  }
 
   return (
     <main className="dashboard-page animate-fadeIn">
@@ -209,23 +155,27 @@ const DashboardPage: React.FC = () => {
 
       <section className="dashboard-hero" aria-label="Tóm tắt kinh doanh">
         <div className="dashboard-hero__main">
-          <span className="dashboard-hero__icon" aria-hidden="true"><TrendingUpIcon /></span>
+          <span className="dashboard-hero__icon" aria-hidden="true">{revenueDelta >= 0 ? <TrendingUpIcon /> : <TrendingDownIcon />}</span>
           <div>
-            <p>Doanh thu tháng này</p>
+            <p>Doanh thu ghi nhận tháng này</p>
             <strong>{loading ? '...' : formatCurrency(Number(stats.monthRevenue || 0))}</strong>
-            <span>
-              {revenueDelta >= 0 ? '+' : ''}{formatCurrency(revenueDelta)} so với tháng trước
+            <span style={{ color: revenueDelta >= 0 ? 'var(--success)' : 'var(--error)', fontWeight: 700 }}>
+              {revenueDelta >= 0 ? '▲ +' : '▼ '}{formatCurrency(revenueDelta)} so với tháng trước
             </span>
           </div>
         </div>
         <div className="dashboard-hero__metrics">
+          <div title="Tổng tiền đã nhận trong tháng, gồm cả các đơn thanh toán một phần">
+            <span>Tiền thực thu</span>
+            <strong>{formatCurrency(Number(stats.monthCollected || 0))}</strong>
+          </div>
+          <div title="Giá trị buổi gói đã bán nhưng khách chưa sử dụng (doanh thu chưa thực hiện)">
+            <span>Chưa thực hiện</span>
+            <strong>{formatCurrency(Number(stats.unearnedRevenue || 0))}</strong>
+          </div>
           <div>
             <span>Lịch hẹn tháng</span>
             <strong>{Number(stats.monthAppointments || 0)}</strong>
-          </div>
-          <div>
-            <span>Tổng khách hàng</span>
-            <strong>{Number(stats.totalCustomers || 0)}</strong>
           </div>
           <div>
             <span>Cần nhập kho</span>

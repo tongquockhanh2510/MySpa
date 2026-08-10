@@ -34,7 +34,129 @@ public class SchemaMaintenanceRunner implements CommandLineRunner {
         ensureCommissionIdempotencyConstraint();
         normalizeLoyaltyPoints();
         backfillPromotionLimits();
+        flagSystemAccounts();
+        ensureCustomerTreatmentSourceOrderColumn();
+        deactivateObviousTestData();
         backfillDisplayCodes();
+    }
+
+    /**
+     * ISS-014: dọn dữ liệu test rõ ràng (tên là 1 ký tự lặp lại như "aaaa").
+     * SOFT-deactivate (có thể khôi phục), chạy MỘT LẦN, ghi log. Không xóa cứng,
+     * không đụng các bản ghi có tên hợp lệ (vd "đấm bóp", "tổng phương hà").
+     */
+    private void deactivateObviousTestData() {
+        runOnce("deactivate_obvious_test_data_v1", () -> {
+            int products = 0;
+            for (Map<String, Object> row : jdbcTemplate.queryForList(
+                    "SELECT product_id, name FROM products WHERE is_active = 1")) {
+                if (isRepeatedCharName(String.valueOf(row.get("name")))) {
+                    jdbcTemplate.update("UPDATE products SET is_active = 0 WHERE product_id = ?", row.get("product_id"));
+                    products++;
+                }
+            }
+            int services = 0;
+            for (Map<String, Object> row : jdbcTemplate.queryForList(
+                    "SELECT service_id, name FROM services WHERE status_of_service = 'ACTIVE'")) {
+                if (isRepeatedCharName(String.valueOf(row.get("name")))) {
+                    jdbcTemplate.update("UPDATE services SET status_of_service = 'INACTIVE' WHERE service_id = ?",
+                            row.get("service_id"));
+                    services++;
+                }
+            }
+            // Khuyến mãi để lại từ test có mã < 4 ký tự (vd "t11") — vi phạm quy tắc mã >= 4
+            int promos = 0;
+            for (String table : List.of("amount_promotion", "percent_promotion")) {
+                try {
+                    promos += jdbcTemplate.update("UPDATE " + table
+                            + " SET is_active = 0 WHERE is_active = 1 AND CHAR_LENGTH(code) < 4");
+                } catch (Exception e) {
+                    log.warn("Could not deactivate short-code promotions in {}: {}", table, e.getMessage());
+                }
+            }
+            if (products + services + promos > 0) {
+                log.info("ISS-014: soft-deactivated obvious test data — {} products, {} services, {} promotions",
+                        products, services, promos);
+            }
+        });
+    }
+
+    /** true nếu name là một chữ cái lặp lại >=3 lần (aaaa, XXX) — dấu hiệu dữ liệu test. */
+    private boolean isRepeatedCharName(String name) {
+        if (name == null) {
+            return false;
+        }
+        String t = name.trim();
+        if (t.length() < 3) {
+            return false;
+        }
+        char first = Character.toLowerCase(t.charAt(0));
+        if (!Character.isLetter(first)) {
+            return false;
+        }
+        for (int i = 1; i < t.length(); i++) {
+            if (Character.toLowerCase(t.charAt(i)) != first) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** ISS-006: cột lưu đơn nguồn của gói để hồi tố hoa hồng khi quy đổi. */
+    private void ensureCustomerTreatmentSourceOrderColumn() {
+        try {
+            Integer col = jdbcTemplate.queryForObject("""
+                    SELECT COUNT(*) FROM information_schema.columns
+                    WHERE table_schema = DATABASE() AND table_name = 'customer_treatments'
+                      AND column_name = 'source_order_id'
+                    """, Integer.class);
+            if (col == null || col == 0) {
+                jdbcTemplate.execute("ALTER TABLE customer_treatments ADD COLUMN source_order_id VARCHAR(255) NULL");
+                log.info("Added customer_treatments.source_order_id column");
+            }
+        } catch (Exception e) {
+            log.warn("Could not ensure customer_treatments.source_order_id: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * ISS-020: đánh dấu tài khoản hệ thống (nhân viên gắn user có vai trò ADMIN,
+     * hoặc position 'Administrator') để loại khỏi danh sách nhân sự và bảng lương.
+     */
+    private void flagSystemAccounts() {
+        try {
+            jdbcTemplate.execute("""
+                    ALTER TABLE employees
+                    ADD COLUMN IF NOT EXISTS is_system_account BIT NOT NULL DEFAULT 0
+                    """);
+        } catch (Exception e) {
+            // MySQL < 8 không hỗ trợ IF NOT EXISTS cho ADD COLUMN — kiểm tra thủ công
+            try {
+                Integer col = jdbcTemplate.queryForObject("""
+                        SELECT COUNT(*) FROM information_schema.columns
+                        WHERE table_schema = DATABASE() AND table_name = 'employees'
+                          AND column_name = 'is_system_account'
+                        """, Integer.class);
+                if (col == null || col == 0) {
+                    jdbcTemplate.execute("ALTER TABLE employees ADD COLUMN is_system_account BIT NOT NULL DEFAULT 0");
+                }
+            } catch (Exception ex) {
+                log.warn("Could not ensure employees.is_system_account column: {}", ex.getMessage());
+            }
+        }
+        try {
+            // Bản ghi cũ chưa có giá trị → mặc định KHÔNG phải tài khoản hệ thống
+            jdbcTemplate.update("UPDATE employees SET is_system_account = 0 WHERE is_system_account IS NULL");
+            // user_roles.role_name lưu trực tiếp tên vai trò (khóa của bảng roles)
+            jdbcTemplate.update("""
+                    UPDATE employees e
+                    LEFT JOIN user_roles ur ON ur.user_id = e.user_id AND ur.role_name = 'ADMIN'
+                    SET e.is_system_account = 1
+                    WHERE ur.role_name = 'ADMIN' OR e.position = 'Administrator'
+                    """);
+        } catch (Exception e) {
+            log.warn("Could not flag system accounts: {}", e.getMessage());
+        }
     }
 
     private void ensureDisplayCodeInfrastructure() {
@@ -177,9 +299,13 @@ public class SchemaMaintenanceRunner implements CommandLineRunner {
         }
     }
 
-    /** Convert legacy fractional rates (0.10) to percentage points (10). */
+    /**
+     * Convert legacy fractional rates (0.10) to percentage points (10).
+     * Chạy MỘT LẦN duy nhất — nếu chạy mỗi lần khởi động sẽ nhân ×100 nhầm
+     * các mức hoa hồng hợp lệ dưới 1% mà người dùng nhập sau này.
+     */
     private void normalizeCommissionRates() {
-        try {
+        runOnce("normalize_commission_rates_v1", () -> {
             int services = jdbcTemplate.update("""
                     UPDATE services SET commission_rate = commission_rate * 100
                     WHERE commission_rate > 0 AND commission_rate < 1
@@ -191,8 +317,32 @@ public class SchemaMaintenanceRunner implements CommandLineRunner {
             if (services + employees > 0) {
                 log.info("Normalized {} legacy commission rates to percentage points", services + employees);
             }
+        });
+    }
+
+    /**
+     * Chạy một migration đúng một lần, ghi dấu vào bảng applied_migrations.
+     * Dùng cho các thao tác không idempotent (vd nhân/chia giá trị) để tránh
+     * lặp lại làm hỏng dữ liệu ở mỗi lần khởi động.
+     */
+    private void runOnce(String key, Runnable migration) {
+        try {
+            jdbcTemplate.execute("""
+                    CREATE TABLE IF NOT EXISTS applied_migrations (
+                        migration_key VARCHAR(120) PRIMARY KEY,
+                        applied_at DATETIME NOT NULL
+                    )
+                    """);
+            Integer applied = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM applied_migrations WHERE migration_key = ?", Integer.class, key);
+            if (applied != null && applied > 0) {
+                return;
+            }
+            migration.run();
+            jdbcTemplate.update("INSERT INTO applied_migrations (migration_key, applied_at) VALUES (?, ?)",
+                    key, LocalDateTime.now());
         } catch (Exception e) {
-            log.warn("Could not normalize legacy commission rates: {}", e.getMessage(), e);
+            log.warn("Could not run one-time migration {}: {}", key, e.getMessage(), e);
         }
     }
 

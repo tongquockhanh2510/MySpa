@@ -50,6 +50,12 @@ public class Commission {
     @Column(name = "description", length = 300)
     String description;
 
+    @Column(name = "customer_name", length = 150)
+    String customerName;
+
+    @Column(name = "service_name", length = 150)
+    String serviceName;
+
     @Column(name = "is_paid")
     @Builder.Default
     boolean isPaid = false;

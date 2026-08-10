@@ -38,6 +38,10 @@ public class CustomerTreatment {
 
     int remainingSessions;
 
+    // ISS-006: đơn hàng bán gói này (để hồi tố hoa hồng phần chưa dùng khi quy đổi)
+    @Column(name = "source_order_id")
+    String sourceOrderId;
+
     LocalDate purchaseDate;
     LocalDate expiryDate;
     LocalDate cancelDate;

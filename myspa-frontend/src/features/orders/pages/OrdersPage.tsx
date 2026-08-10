@@ -13,17 +13,22 @@ import StatusChip from '@components/common/StatusChip';
 import { formatCurrency, formatDateTime } from '@utils/formatters';
 import { getCustomers } from '@/api/customers';
 import { getAppointmentById } from '@/api/appointments';
-import { getOrders, createOrder, payOrder, getOrderById, getBankQr, type BankQrInfo } from '@/api/orders';
+import { getOrders, createOrder, payOrder, getOrderById, getBankQr, refundOrder, type BankQrInfo } from '@/api/orders';
+import { hasAnyRole } from '@utils/authorization';
+import { useAppSelector } from '@hooks/useAppSelector';
 import { getServices, getProducts, getTreatmentPackages, getEmployees, getRooms } from '@/api/catalog';
 import { getPromotions } from '@/api/promotions';
 import ReceiptIcon from '@mui/icons-material/Receipt';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddShoppingCartIcon from '@mui/icons-material/AddShoppingCart';
 import PaymentIcon from '@mui/icons-material/Payment';
+import ReplayIcon from '@mui/icons-material/Replay';
 import SearchIcon from '@mui/icons-material/Search';
 import PointOfSaleIcon from '@mui/icons-material/PointOfSale';
 import ShoppingBagIcon from '@mui/icons-material/ShoppingBag';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
+import { useIsMobile } from '@hooks/useIsMobile';
+import OrdersListMobile from './OrdersListMobile';
 import './OrdersPage.css';
 
 const DEFAULT_PRODUCT_IMAGE = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="72" height="72" viewBox="0 0 72 72"><rect width="72" height="72" rx="10" fill="%23F3F4F6"/><path d="M17 49l11-14 9 10 6-8 12 12H17z" fill="%23D97706"/><circle cx="47" cy="24" r="6" fill="%23F59E0B"/></svg>';
@@ -31,6 +36,7 @@ const DEFAULT_PRODUCT_IMAGE = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3
 const inputSx = { '& .MuiOutlinedInput-root': { borderRadius: '10px' } };
 
 const OrdersPage: React.FC = () => {
+  const isMobile = useIsMobile();
   const [searchParams] = useSearchParams();
   const [view, setView] = useState<'list' | 'create'>('list');
   const [orders, setOrders] = useState<any[]>([]);
@@ -40,6 +46,10 @@ const OrdersPage: React.FC = () => {
   const [ordersLoading, setOrdersLoading] = useState(true);
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [refundingId, setRefundingId] = useState<string | null>(null);
+
+  const currentUser = useAppSelector((state) => state.auth.user);
+  const canRefund = hasAnyRole(currentUser, ['ADMIN', 'MANAGER']);
 
   const [detailOpen, setDetailOpen] = useState(false);
   const [debtOpen, setDebtOpen] = useState(false);
@@ -90,6 +100,23 @@ const OrdersPage: React.FC = () => {
       toast.error('Không thể tải danh sách đơn hàng');
     } finally {
       setOrdersLoading(false);
+    }
+  };
+
+  const handleRefund = async (order: any) => {
+    if (!window.confirm(`Hoàn/hủy đơn ${order.displayCode || order.orderId}? Thao tác sẽ trả lại tồn kho và hồi tố hoa hồng (không thể hoàn tác).`)) {
+      return;
+    }
+    const reason = window.prompt('Lý do hoàn đơn (không bắt buộc):') || undefined;
+    setRefundingId(order.orderId);
+    try {
+      await refundOrder(order.orderId, reason);
+      toast.success('Đã hoàn đơn và hồi tố hoa hồng');
+      loadOrders();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Hoàn đơn không thành công');
+    } finally {
+      setRefundingId(null);
     }
   };
 
@@ -206,7 +233,7 @@ const OrdersPage: React.FC = () => {
         return {
           itemType: 'SERVICE',
           itemId: detail.serviceId,
-          name: detail.serviceName || service?.name || 'Dich vu',
+          name: detail.serviceName || service?.name || 'Dịch vụ',
           price: detail.price ?? service?.price ?? 0,
           quantity: 1,
           therapistId: detail.employeeId || '',
@@ -216,12 +243,12 @@ const OrdersPage: React.FC = () => {
         };
       });
       setCart(appointmentItems);
-      toast.success('Da tai lich hen vao don hang');
+      toast.success('Đã tải lịch hẹn vào đơn hàng');
     };
 
     applyAppointment().catch((error) => {
       console.error(error);
-      toast.error('Khong the lay du lieu lich hen de tao don hang');
+      toast.error('Không thể lấy dữ liệu lịch hẹn để tạo đơn hàng');
     });
   }, [catalogLoading, prefilledAppointmentId, searchParams, services]);
 
@@ -301,7 +328,9 @@ const OrdersPage: React.FC = () => {
         quantity: item.quantity,
         therapistId: item.therapistId || null,
         roomId: item.roomId || null,
-        scheduledDateTime: item.scheduledDateTime ? new Date(item.scheduledDateTime).toISOString() : null,
+        scheduledDateTime: item.scheduledDateTime
+          ? (item.scheduledDateTime.length === 16 ? `${item.scheduledDateTime}:00` : item.scheduledDateTime)
+          : null,
       })),
     };
 
@@ -460,8 +489,7 @@ const OrdersPage: React.FC = () => {
       minWidth: 180,
       renderCell: ({ row }) => (
         <div className="orders-customer-cell">
-          <strong>{row.customerName || 'Khách lẻ'}</strong>
-          <span>{row.customerPhone || 'Chưa có số điện thoại'}</span>
+          <strong title={row.customerName || 'Khách lẻ'}>{row.customerName || 'Khách lẻ'}</strong>
         </div>
       ),
     },
@@ -473,7 +501,7 @@ const OrdersPage: React.FC = () => {
     {
       field: 'actions',
       headerName: 'Thao tác',
-      width: 210,
+      width: 300,
       sortable: false,
       renderCell: ({ row }) => (
         <div className="orders-actions">
@@ -485,6 +513,12 @@ const OrdersPage: React.FC = () => {
             <Button size="small" onClick={(event) => { event.stopPropagation(); setSelectedOrder(row); setPayAmount(row.remainingAmount.toString()); setPaymentOpen(true); }} startIcon={<PaymentIcon />} variant="contained"
               sx={{ borderRadius: 2, textTransform: 'none', fontSize: 12, fontWeight: 700, background: 'linear-gradient(135deg, #D97706, #F59E0B)', color: '#fff' }}>
               Thanh toán
+            </Button>
+          )}
+          {canRefund && (row.orderStatus === 'PAID' || row.orderStatus === 'COMPLETED' || row.orderStatus === 'PARTIALLY_PAID') && (
+            <Button size="small" color="error" disabled={refundingId === row.orderId} onClick={(event) => { event.stopPropagation(); handleRefund(row); }} startIcon={<ReplayIcon />} variant="outlined"
+              sx={{ borderRadius: 2, textTransform: 'none', fontSize: 12, fontWeight: 700 }}>
+              {refundingId === row.orderId ? 'Đang hoàn...' : 'Hoàn đơn'}
             </Button>
           )}
         </div>
@@ -559,7 +593,18 @@ const OrdersPage: React.FC = () => {
           </section>
 
           <section className="orders-panel">
-            {ordersLoading ? (
+            {isMobile ? (
+              <OrdersListMobile
+                rows={filteredOrders}
+                loading={ordersLoading}
+                emptyMessage={ordersSearch || orderStatusFilter !== 'ALL' ? 'Không tìm thấy đơn hàng phù hợp' : 'Chưa có đơn hàng'}
+                canRefund={canRefund}
+                refundingId={refundingId}
+                onViewDetail={viewDetail}
+                onPay={(row) => { setSelectedOrder(row); setPayAmount(row.remainingAmount.toString()); setPaymentOpen(true); }}
+                onRefund={handleRefund}
+              />
+            ) : ordersLoading ? (
               <div className="orders-skeleton" aria-busy="true" aria-label="Đang tải đơn hàng">
                 {Array.from({ length: 7 }).map((_, index) => <Skeleton key={index} variant="rounded" height={48} />)}
               </div>

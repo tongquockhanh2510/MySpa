@@ -11,7 +11,9 @@ const AuthLayout: React.FC = () => {
       alignItems: 'center',
       justifyContent: 'center',
       position: 'relative',
-      overflow: 'hidden',
+      overflowX: 'hidden',
+      overflowY: 'auto',
+      padding: '80px 0 24px',
     }}>
       {/* Background decorative elements */}
       <div style={{

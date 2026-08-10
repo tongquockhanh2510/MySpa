@@ -56,12 +56,25 @@ server:
   port: 8080
   servlet:
     context-path: /api/v1
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force: true
+
+logging:
+  charset:
+    console: UTF-8
+    file: UTF-8
 
 app:
   upload-dir: uploads
   pricing:
     vat-inclusive: ${VAT_INCLUSIVE:true}
     vat-rate: ${VAT_RATE:10}
+  business:
+    opening-time: ${SPA_OPENING_TIME:08:00}
+    closing-time: ${SPA_CLOSING_TIME:21:00}
+    buffer-minutes: ${SPA_BUFFER_MINUTES:10}
   reminders:
     enabled: ${REMINDERS_ENABLED:true}
     channel: ${REMINDER_CHANNEL:IN_APP}

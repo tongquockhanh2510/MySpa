@@ -105,5 +105,10 @@
 
   .reports-page__chart-body {
     padding: 16px;
+    min-height: 300px;
+  }
+
+  .reports-page__tabs {
+    padding: 0 8px;
   }
 }

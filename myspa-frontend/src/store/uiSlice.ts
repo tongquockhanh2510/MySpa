@@ -4,6 +4,7 @@ import type { PayloadAction } from '@reduxjs/toolkit';
 interface UiState {
   sidebarCollapsed: boolean;
   darkMode: boolean;
+  mobileSidebarOpen: boolean;
 }
 
 const storedDarkMode = localStorage.getItem('spa_dark_mode') === 'true';
@@ -11,6 +12,7 @@ const storedDarkMode = localStorage.getItem('spa_dark_mode') === 'true';
 const initialState: UiState = {
   sidebarCollapsed: false,
   darkMode: storedDarkMode,
+  mobileSidebarOpen: false,
 };
 
 const uiSlice = createSlice({
@@ -31,8 +33,20 @@ const uiSlice = createSlice({
         state.darkMode ? 'dark' : 'light'
       );
     },
+    toggleMobileSidebar: (state) => {
+      state.mobileSidebarOpen = !state.mobileSidebarOpen;
+    },
+    closeMobileSidebar: (state) => {
+      state.mobileSidebarOpen = false;
+    },
   },
 });
 
-export const { toggleSidebar, setSidebarCollapsed, toggleDarkMode } = uiSlice.actions;
+export const {
+  toggleSidebar,
+  setSidebarCollapsed,
+  toggleDarkMode,
+  toggleMobileSidebar,
+  closeMobileSidebar,
+} = uiSlice.actions;
 export default uiSlice.reducer;

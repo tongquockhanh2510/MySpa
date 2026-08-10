@@ -56,6 +56,8 @@ import MoreVertIcon from '@mui/icons-material/MoreVert';
 import PaymentIcon from '@mui/icons-material/Payment';
 import AddCircleIcon from '@mui/icons-material/AddCircle';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
+import { useIsMobile } from '@hooks/useIsMobile';
+import AppointmentsListMobile from './AppointmentsListMobile';
 import './AppointmentsPage.css';
 
 const statusColors: Record<string, string> = {
@@ -76,6 +78,13 @@ const treatmentStatusColors: Record<string, string> = {
   COMPLETED: '#059669',
   RESCHEDULED: '#B45309',
 };
+
+// ISS-027: chú thích rút gọn còn 7 trạng thái chính. "Đang chờ" (WAITING) và
+// "Đã dời lịch" (RESCHEDULED) là trạng thái chuyển tiếp/hành động, không hiển thị
+// trong legend. Event vẫn tô màu theo statusColors đầy đủ (fallback ở trên).
+const legendStatusOrder = [
+  'PENDING', 'CONFIRMED', 'CHECKED_IN', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED', 'NO_SHOW',
+];
 
 const treatmentStatusLabels: Record<string, string> = {
   SCHEDULED: 'Đã lên lịch',
@@ -129,9 +138,9 @@ const validTransitions: Record<StatusOfAppointment, StatusOfAppointment[]> = {
   [StatusOfAppointment.RESCHEDULED]: [],
 };
 
-type LifecycleAction = 'confirm' | 'checkIn' | 'wait' | 'start' | 'complete' | 'noShow' | 'reschedule';
+export type LifecycleAction = 'confirm' | 'checkIn' | 'wait' | 'start' | 'complete' | 'noShow' | 'reschedule';
 
-const lifecycleTargets: Record<LifecycleAction, StatusOfAppointment> = {
+export const lifecycleTargets: Record<LifecycleAction, StatusOfAppointment> = {
   confirm: StatusOfAppointment.CONFIRMED,
   checkIn: StatusOfAppointment.CHECKED_IN,
   wait: StatusOfAppointment.WAITING,
@@ -187,6 +196,7 @@ const inputSx = {
 
 const AppointmentsPage: React.FC = () => {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const [searchParams] = useSearchParams();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [view, setView] = useState<'table' | 'calendar'>('table');
@@ -607,11 +617,38 @@ const AppointmentsPage: React.FC = () => {
       minWidth: 180,
       renderCell: ({ row }) => (
         <div className="appointments-customer-cell">
-          <strong>{row.customerName}</strong>
+          <strong title={row.customerName}>{row.customerName}</strong>
         </div>
       ),
     },
     { field: 'dateTime', headerName: 'Ngày giờ hẹn', width: 180, renderCell: ({ value }) => formatDateTime(value) },
+    {
+      field: 'services',
+      headerName: 'Dịch vụ',
+      flex: 1,
+      minWidth: 160,
+      sortable: false,
+      valueGetter: (_value, row) => (row.details || []).map((d: any) => d.serviceName).filter(Boolean).join(', '),
+      renderCell: ({ row }) => {
+        const names = (row.details || []).map((d: any) => d.serviceName).filter(Boolean);
+        if (names.length === 0) return <span className="appointments-note-cell">—</span>;
+        const label = names.length > 1 ? `${names[0]} +${names.length - 1}` : names[0];
+        return <span className="appointments-note-cell" title={names.join(', ')}>{label}</span>;
+      },
+    },
+    {
+      field: 'therapists',
+      headerName: 'KTV',
+      width: 150,
+      sortable: false,
+      valueGetter: (_value, row) => Array.from(new Set((row.details || []).map((d: any) => d.employeeName).filter(Boolean))).join(', '),
+      renderCell: ({ row }) => {
+        const names = Array.from(new Set((row.details || []).map((d: any) => d.employeeName).filter(Boolean)));
+        if (names.length === 0) return <span className="appointments-note-cell">—</span>;
+        const label = names.length > 1 ? `${names[0]} +${names.length - 1}` : names[0];
+        return <span className="appointments-note-cell" title={names.join(', ')}>{label as string}</span>;
+      },
+    },
     {
       field: 'statusOfAppointment',
       headerName: 'Trạng thái',
@@ -623,7 +660,7 @@ const AppointmentsPage: React.FC = () => {
       headerName: 'Ghi chú',
       flex: 1,
       minWidth: 180,
-      renderCell: ({ value }) => <span className="appointments-note-cell">{value || 'Không có ghi chú'}</span>,
+      renderCell: ({ value }) => <span className="appointments-note-cell" title={value || 'Không có ghi chú'}>{value || 'Không có ghi chú'}</span>,
     },
     {
       field: 'actions',
@@ -748,7 +785,21 @@ const AppointmentsPage: React.FC = () => {
 
       {view === 'table' ? (
         <section className="appointments-panel">
-          {loading ? (
+          {isMobile ? (
+            <AppointmentsListMobile
+              rows={filtered}
+              loading={loading}
+              activeAction={activeAction}
+              emptyMessage={search || statusFilter !== 'ALL' ? 'Không tìm thấy lịch hẹn phù hợp' : 'Không có lịch hẹn'}
+              onOpenDetail={(id) => setDetailTargetId(id)}
+              onOpenMore={openMore}
+              onDelete={(row) => setDeleteTarget(row)}
+              canCancel={canCancel}
+              canTransition={canTransition}
+              invalidTransitionMessage={invalidTransitionMessage}
+              onLifecycleAction={runLifecycleAction}
+            />
+          ) : loading ? (
             <div className="appointments-skeleton" aria-busy="true" aria-label="Đang tải lịch hẹn">
               {Array.from({ length: 7 }).map((_, index) => (
                 <Skeleton key={index} variant="rounded" height={48} />
@@ -765,6 +816,12 @@ const AppointmentsPage: React.FC = () => {
               autoHeight
               disableRowSelectionOnClick
               onRowClick={({ row }) => setDetailTargetId(row.appointmentId)}
+              getRowClassName={({ row }) => {
+                const isDone = row.statusOfAppointment === StatusOfAppointment.COMPLETED;
+                const isPast = new Date(row.dateTime).getTime() < Date.now()
+                  && ![StatusOfAppointment.CANCELLED, StatusOfAppointment.NO_SHOW].includes(row.statusOfAppointment);
+                return isDone || isPast ? 'appointments-row--past' : '';
+              }}
               sx={{
                 border: 'none',
                 '& .MuiDataGrid-columnHeaders': { background: 'var(--bg-tertiary)' },
@@ -808,18 +865,16 @@ const AppointmentsPage: React.FC = () => {
           />
 
           <div className="appointments-legend" aria-label="Chú thích trạng thái lịch hẹn">
-            {Object.entries(statusColors).map(([status, color]) => (
+            {legendStatusOrder.map((status) => (
               <div key={status} className="appointments-legend-item">
-                <span className="appointments-legend-dot" style={{ background: color }} aria-hidden="true" />
+                <span className="appointments-legend-dot" style={{ background: statusColors[status] }} aria-hidden="true" />
                 <StatusChip status={status} type="appointment" />
               </div>
             ))}
-            {Object.entries(treatmentStatusColors).map(([status, color]) => (
-              <div key={`ts-${status}`} className="appointments-legend-item">
-                <span className="appointments-legend-dot" style={{ background: color }} aria-hidden="true" />
-                <span className="appointments-legend-text">Liệu trình · {treatmentStatusLabels[status]}</span>
-              </div>
-            ))}
+            <div className="appointments-legend-item" title="Lịch phát sinh từ gói liệu trình — dùng chung bộ trạng thái, có gắn nhãn Liệu trình">
+              <span className="appointments-legend-dot" style={{ background: treatmentStatusColors.SCHEDULED }} aria-hidden="true" />
+              <span className="appointments-legend-text">Liệu trình (dùng chung trạng thái)</span>
+            </div>
           </div>
         </section>
       )}

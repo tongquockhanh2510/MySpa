@@ -51,6 +51,19 @@ public class OrderController {
         return ResponseEntity.ok(ApiResponse.success(response, "Thực hiện thanh toán thành công"));
     }
 
+    @PostMapping("/{id}/refund")
+    @Operation(summary = "Hoàn/hủy đơn đã thanh toán (trả kho, hồi tố hoa hồng)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    public ResponseEntity<ApiResponse<OrderResponse>> refund(
+            @PathVariable String id,
+            @RequestParam(required = false) String reason,
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        String username = userDetails != null ? userDetails.getUsername() : "system";
+        OrderResponse response = orderService.refundOrder(id, reason, username);
+        return ResponseEntity.ok(ApiResponse.success(response, "Hoàn đơn hàng thành công"));
+    }
+
     @GetMapping("/{id}")
     @Operation(summary = "Xem chi tiết đơn hàng")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'RECEPTIONIST', 'THERAPIST')")

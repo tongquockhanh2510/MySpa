@@ -23,6 +23,8 @@ import type { Category, Service, ServiceFormData } from '@/types';
 import SearchIcon from '@mui/icons-material/Search';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
+import { useIsMobile } from '@hooks/useIsMobile';
+import ServicesListMobile from './ServicesListMobile';
 
 const schema = z.object({
   name: z.string().min(2, 'Tên dịch vụ phải có ít nhất 2 ký tự'),
@@ -36,6 +38,7 @@ const schema = z.object({
 });
 
 const ServicesPage: React.FC = () => {
+  const isMobile = useIsMobile();
   const [searchParams] = useSearchParams();
   const [services, setServices] = useState<Service[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -170,18 +173,29 @@ const ServicesPage: React.FC = () => {
           </Select>
         </FormControl>
       </div>
-      <div style={{ background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-card)', overflow: 'hidden' }}>
-        <DataGrid rows={filtered} columns={visibleColumns} getRowId={r => r.serviceId} initialState={{ pagination: { paginationModel: { pageSize: 10 } } }}
-          pageSizeOptions={[10, 20]} autoHeight disableRowSelectionOnClick loading={loading}
-          onRowClick={({ row }) => openEdit(row)}
-          sx={{
-            border: 'none',
-            '& .MuiDataGrid-columnHeaders': { background: 'var(--bg-tertiary)' },
-            '& .MuiDataGrid-cell': { alignItems: 'center' },
-            '& .MuiDataGrid-row': { cursor: 'pointer' },
-          }}
-          localeText={{ MuiTablePagination: { labelRowsPerPage: 'Hàng mỗi trang:', labelDisplayedRows: ({ from, to, count }: any) => `${from}–${to} / ${count}` }, noRowsLabel: 'Không có dữ liệu' } as any} />
-      </div>
+      {isMobile ? (
+        <ServicesListMobile
+          rows={filtered}
+          loading={loading}
+          emptyMessage="Không có dữ liệu"
+          canManage={canManageServices}
+          onOpenEdit={openEdit}
+          onDelete={(service) => setDeleteTarget(service)}
+        />
+      ) : (
+        <div style={{ background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-card)', overflow: 'hidden' }}>
+          <DataGrid rows={filtered} columns={visibleColumns} getRowId={r => r.serviceId} initialState={{ pagination: { paginationModel: { pageSize: 10 } } }}
+            pageSizeOptions={[10, 20]} autoHeight disableRowSelectionOnClick loading={loading}
+            onRowClick={({ row }) => openEdit(row)}
+            sx={{
+              border: 'none',
+              '& .MuiDataGrid-columnHeaders': { background: 'var(--bg-tertiary)' },
+              '& .MuiDataGrid-cell': { alignItems: 'center' },
+              '& .MuiDataGrid-row': { cursor: 'pointer' },
+            }}
+            localeText={{ MuiTablePagination: { labelRowsPerPage: 'Hàng mỗi trang:', labelDisplayedRows: ({ from, to, count }: any) => `${from}–${to} / ${count}` }, noRowsLabel: 'Không có dữ liệu' } as any} />
+        </div>
+      )}
 
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} slotProps={{ paper: { sx: { borderRadius: '16px', minWidth: 520, background: 'var(--bg-secondary)' } } }}>
         <DialogTitle sx={{ fontWeight: 700, fontSize: 17, pb: 0 }}>{editing ? 'Cập nhật dịch vụ' : 'Thêm dịch vụ mới'}</DialogTitle>
