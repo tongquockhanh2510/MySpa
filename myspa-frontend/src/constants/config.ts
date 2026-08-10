@@ -11,7 +11,7 @@ export const APP_CONFIG = {
 // Set to true to use mock data (no backend required)
 export const USE_MOCK = false;
 
-export const API_BASE_URL = '/api/v1';
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
 
 export const PAGINATION = {
   defaultPage: 0,
