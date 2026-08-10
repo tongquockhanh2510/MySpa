@@ -3,6 +3,7 @@ package fit.quanlyspa.configuration;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.core.annotation.Order;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
@@ -17,6 +18,7 @@ import fit.quanlyspa.service.DisplayCodeService;
 @Component
 @RequiredArgsConstructor
 @Slf4j
+@Order(0)
 public class SchemaMaintenanceRunner implements CommandLineRunner {
 
     private static final Set<String> ORDER_ITEM_REFERENCE_COLUMNS = Set.of("product_id", "service_id", "package_id");
@@ -26,6 +28,7 @@ public class SchemaMaintenanceRunner implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
+        ensureEmployeeWorkDaysTable();
         ensureDisplayCodeInfrastructure();
         removeWrongUniqueIndexesOnOrderItems();
         ensureOrderAppointmentColumn();
@@ -156,6 +159,24 @@ public class SchemaMaintenanceRunner implements CommandLineRunner {
                     """);
         } catch (Exception e) {
             log.warn("Could not flag system accounts: {}", e.getMessage());
+        }
+    }
+
+    /** Bang phu cho Employee.workDays (@ElementCollection) — ddl-auto:update khong dam bao
+     * tao bang nay tren DB moi hoan toan truoc khi DataInitializer seed du lieu. */
+    private void ensureEmployeeWorkDaysTable() {
+        try {
+            jdbcTemplate.execute("""
+                    CREATE TABLE IF NOT EXISTS employee_work_days (
+                        employee_id VARCHAR(255) NOT NULL,
+                        day_of_week VARCHAR(255) NOT NULL,
+                        PRIMARY KEY (employee_id, day_of_week),
+                        CONSTRAINT fk_employee_work_days_employee
+                            FOREIGN KEY (employee_id) REFERENCES employees(employee_id)
+                    )
+                    """);
+        } catch (Exception e) {
+            log.warn("Could not ensure employee_work_days table: {}", e.getMessage(), e);
         }
     }
 
